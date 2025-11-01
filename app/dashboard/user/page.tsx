@@ -7,7 +7,6 @@ import { DashboardLayout } from "@/components/dashboard-layout"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { Database } from "@/lib/database"
 import { LeaveRequestDetailDialog } from "@/components/leave-request-detail-dialog"
 import type { LeaveRequest } from "@/lib/types"
 import { Calendar, User, Briefcase, Building2 } from "lucide-react"
@@ -31,10 +30,22 @@ export default function UserDashboard() {
       return
     }
 
-    const userRequests = Database.getLeaveRequestsByUserId(user.id)
-    setRequests(userRequests)
-    setLoading(false)
+    loadData()
   }, [user, isAuthenticated, router])
+
+  const loadData = async () => {
+    if (!user) return
+
+    try {
+      const response = await fetch(`/api/leave-requests?type=user&userId=${user.nik}`)
+      const data = await response.json()
+      setRequests(data)
+    } catch (error) {
+      console.error("Error loading leave requests:", error)
+    } finally {
+      setLoading(false)
+    }
+  }
 
   const getStatusColor = (status: string) => {
     switch (status) {

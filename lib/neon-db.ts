@@ -26,6 +26,46 @@ function transformUserData(dbUser: any) {
   }
 }
 
+function transformLeaveRequestData(dbRequest: any) {
+  if (!dbRequest) return null
+
+  return {
+    id: dbRequest.id,
+    userNik: dbRequest.nik,
+    userName: dbRequest.user_name || dbRequest.nik, // fallback to NIK if name not available
+    site: dbRequest.site,
+    jabatan: dbRequest.jabatan,
+    departemen: dbRequest.departemen,
+    poh: dbRequest.poh,
+    statusKaryawan: dbRequest.status_karyawan,
+    noKtp: dbRequest.no_ktp,
+    noTelp: dbRequest.no_telp,
+    email: dbRequest.email,
+    tanggalLahir: dbRequest.tanggal_lahir,
+    jenisKelamin: dbRequest.jenis_kelamin,
+    jenisPengajuanCuti: dbRequest.jenis_cuti,
+    jenisCuti: dbRequest.jenis_cuti,
+    tanggalPengajuan: dbRequest.tanggal_pengajuan,
+    tanggalMulai: dbRequest.periode_awal,
+    tanggalSelesai: dbRequest.periode_akhir,
+    periodeAwal: dbRequest.periode_awal,
+    periodeAkhir: dbRequest.periode_akhir,
+    jumlahHari: dbRequest.jumlah_hari,
+    berangkatDari: dbRequest.berangkat_dari,
+    tujuan: dbRequest.tujuan,
+    tanggalKeberangkatan: dbRequest.tanggal_keberangkatan,
+    tanggalCutiPeriodikBerikutnya: dbRequest.cuti_periodik_berikutnya,
+    cutiPeriodikBerikutnya: dbRequest.cuti_periodik_berikutnya,
+    catatan: dbRequest.catatan,
+    alasan: dbRequest.catatan, // alias for compatibility
+    status: dbRequest.status,
+    submittedBy: dbRequest.submitted_by,
+    bookingCode: dbRequest.booking_code,
+    createdAt: dbRequest.created_at,
+    updatedAt: dbRequest.updated_at,
+  }
+}
+
 // ============ USER OPERATIONS ============
 
 export async function getUsers() {
@@ -181,7 +221,7 @@ export async function deleteUser(id: string) {
 export async function getLeaveRequests() {
   try {
     const result = await sql`SELECT * FROM leave_requests ORDER BY created_at DESC`
-    return result
+    return result.map(transformLeaveRequestData)
   } catch (error) {
     console.error("Error fetching leave requests:", error)
     return []
@@ -191,7 +231,7 @@ export async function getLeaveRequests() {
 export async function getLeaveRequestById(id: string) {
   try {
     const result = await sql`SELECT * FROM leave_requests WHERE id = ${id}`
-    return result[0] || null
+    return transformLeaveRequestData(result[0])
   } catch (error) {
     console.error("Error fetching leave request:", error)
     return null
@@ -205,7 +245,7 @@ export async function getLeaveRequestsByUserId(userId: string) {
       WHERE nik = ${userId} 
       ORDER BY created_at DESC
     `
-    return result
+    return result.map(transformLeaveRequestData)
   } catch (error) {
     console.error("Error fetching leave requests by user:", error)
     return []
@@ -219,7 +259,7 @@ export async function getLeaveRequestsBySite(site: string) {
       WHERE site = ${site} 
       ORDER BY created_at DESC
     `
-    return result
+    return result.map(transformLeaveRequestData)
   } catch (error) {
     console.error("Error fetching leave requests by site:", error)
     return []
@@ -233,7 +273,7 @@ export async function getLeaveRequestsByStatus(status: string) {
       WHERE status = ${status} 
       ORDER BY created_at DESC
     `
-    return result
+    return result.map(transformLeaveRequestData)
   } catch (error) {
     console.error("Error fetching leave requests by status:", error)
     return []
@@ -247,9 +287,23 @@ export async function getPendingRequestsForDIC(site: string) {
       WHERE status = 'pending_dic' AND site = ${site} 
       ORDER BY created_at DESC
     `
-    return result
+    return result.map(transformLeaveRequestData)
   } catch (error) {
     console.error("Error fetching pending requests for DIC:", error)
+    return []
+  }
+}
+
+export async function getPendingRequestsForDICBySiteDept(site: string, departemen: string) {
+  try {
+    const result = await sql`
+      SELECT * FROM leave_requests 
+      WHERE status = 'pending_dic' AND site = ${site} AND departemen = ${departemen}
+      ORDER BY created_at DESC
+    `
+    return result.map(transformLeaveRequestData)
+  } catch (error) {
+    console.error("Error fetching pending requests for DIC by site/dept:", error)
     return []
   }
 }
@@ -261,7 +315,7 @@ export async function getPendingRequestsForPJO(site: string) {
       WHERE status = 'pending_pjo' AND site = ${site} 
       ORDER BY created_at DESC
     `
-    return result
+    return result.map(transformLeaveRequestData)
   } catch (error) {
     console.error("Error fetching pending requests for PJO:", error)
     return []
@@ -275,7 +329,7 @@ export async function getPendingRequestsForHRHO() {
       WHERE status = 'pending_hr_ho' 
       ORDER BY created_at DESC
     `
-    return result
+    return result.map(transformLeaveRequestData)
   } catch (error) {
     console.error("Error fetching pending requests for HR HO:", error)
     return []
@@ -289,7 +343,7 @@ export async function getApprovedRequests() {
       WHERE status = 'approved' 
       ORDER BY created_at DESC
     `
-    return result
+    return result.map(transformLeaveRequestData)
   } catch (error) {
     console.error("Error fetching approved requests:", error)
     return []
@@ -368,7 +422,7 @@ export async function getLeaveRequestsSubmittedBy(userId: string) {
       WHERE submitted_by = ${userId} 
       ORDER BY created_at DESC
     `
-    return result
+    return result.map(transformLeaveRequestData)
   } catch (error) {
     console.error("Error fetching leave requests submitted by user:", error)
     return []

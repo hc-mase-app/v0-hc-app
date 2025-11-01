@@ -7,7 +7,6 @@ import { DashboardLayout } from "@/components/dashboard-layout"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Plus, FileText, Clock, CheckCircle, XCircle, Search, Calendar } from "lucide-react"
-import { Database } from "@/lib/database"
 import type { LeaveRequest } from "@/lib/types"
 import { formatDate, getStatusLabel, getStatusColor } from "@/lib/utils"
 import { Badge } from "@/components/ui/badge"
@@ -41,25 +40,31 @@ export default function HRSiteDashboard() {
     loadData()
   }, [user, isAuthenticated, router])
 
-  const loadData = () => {
+  const loadData = async () => {
     if (!user) return
 
-    const userRequests = Database.getLeaveRequestsSubmittedBy(user.id)
-    const sortedRequests = userRequests.sort(
-      (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
-    )
-    setRequests(sortedRequests)
-    setFilteredRequests(sortedRequests)
+    try {
+      const response = await fetch(`/api/leave-requests?type=submitted-by&userId=${user.id}`)
+      const data = await response.json()
 
-    const stats = {
-      total: userRequests.length,
-      pending: userRequests.filter(
-        (r) => r.status === "pending_dic" || r.status === "pending_pjo" || r.status === "pending_hr_ho",
-      ).length,
-      approved: userRequests.filter((r) => r.status === "approved").length,
-      rejected: userRequests.filter((r) => r.status === "rejected").length,
+      const sortedRequests = data.sort(
+        (a: LeaveRequest, b: LeaveRequest) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
+      )
+      setRequests(sortedRequests)
+      setFilteredRequests(sortedRequests)
+
+      const stats = {
+        total: data.length,
+        pending: data.filter(
+          (r: LeaveRequest) => r.status === "pending_dic" || r.status === "pending_pjo" || r.status === "pending_hr_ho",
+        ).length,
+        approved: data.filter((r: LeaveRequest) => r.status === "approved").length,
+        rejected: data.filter((r: LeaveRequest) => r.status === "rejected").length,
+      }
+      setStats(stats)
+    } catch (error) {
+      console.error("Error loading leave requests:", error)
     }
-    setStats(stats)
   }
 
   useEffect(() => {

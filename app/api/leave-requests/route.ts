@@ -4,6 +4,11 @@ import {
   getLeaveRequestsByUserId,
   getLeaveRequestsSubmittedBy,
   getLeaveRequestsByStatus,
+  getLeaveRequestsBySite,
+  getPendingRequestsForDIC,
+  getPendingRequestsForDICBySiteDept,
+  getPendingRequestsForPJO,
+  getPendingRequestsForHRHO,
   addLeaveRequest,
   updateLeaveRequest,
 } from "@/lib/neon-db"
@@ -14,6 +19,8 @@ export async function GET(request: NextRequest) {
     const type = searchParams.get("type")
     const userId = searchParams.get("userId")
     const status = searchParams.get("status")
+    const site = searchParams.get("site")
+    const departemen = searchParams.get("departemen")
 
     let result
 
@@ -23,6 +30,16 @@ export async function GET(request: NextRequest) {
       result = await getLeaveRequestsByUserId(userId)
     } else if (type === "status" && status) {
       result = await getLeaveRequestsByStatus(status)
+    } else if (type === "site" && site) {
+      result = await getLeaveRequestsBySite(site)
+    } else if (type === "pending-dic" && site && departemen) {
+      result = await getPendingRequestsForDICBySiteDept(site, departemen)
+    } else if (type === "pending-dic" && site) {
+      result = await getPendingRequestsForDIC(site)
+    } else if (type === "pending-pjo" && site) {
+      result = await getPendingRequestsForPJO(site)
+    } else if (type === "pending-hr-ho") {
+      result = await getPendingRequestsForHRHO()
     } else {
       result = await getLeaveRequests()
     }

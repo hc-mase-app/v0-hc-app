@@ -6,7 +6,6 @@ import { useRouter } from "next/navigation"
 import { DashboardLayout } from "@/components/dashboard-layout"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Clock, CheckCircle, XCircle, FileText, Search } from "lucide-react"
-import { Database } from "@/lib/database"
 import type { LeaveRequest } from "@/lib/types"
 import { ApprovalCard } from "@/components/approval-card"
 import { LeaveRequestDetailDialog } from "@/components/leave-request-detail-dialog"
@@ -40,25 +39,46 @@ export default function DICDashboard() {
     loadData()
   }, [user, isAuthenticated, router])
 
-  const loadData = () => {
+  const loadData = async () => {
     if (!user) return
 
-    const pending = Database.getPendingRequestsForDICBySiteDept(user.site, user.departemen)
-    setPendingRequests(pending.sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()))
+    try {
+      // Fetch pending requests for this DIC's site and department
+      const pendingResponse = await fetch(
+        `/api/leave-requests?type=pending-dic&site=${encodeURIComponent(user.site)}&departemen=${encodeURIComponent(user.departemen)}`,
+      )
+      const pendingData = await pendingResponse.json()
+      setPendingRequests(
+        pendingData.sort(
+          (a: LeaveRequest, b: LeaveRequest) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime(),
+        ),
+      )
 
-    const all = Database.getLeaveRequests().filter((r) => r.site === user.site && r.departemen === user.departemen)
-    setAllRequests(all.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()))
-    setFilteredRequests(all)
+      // Fetch all requests for this site
+      const allResponse = await fetch(`/api/leave-requests?type=site&site=${encodeURIComponent(user.site)}`)
+      const allData = await allResponse.json()
 
-    const siteStats = {
-      total: all.length,
-      pending: all.filter(
-        (r) => r.status === "pending_dic" || r.status === "pending_pjo" || r.status === "pending_hr_ho",
-      ).length,
-      approved: all.filter((r) => r.status === "approved").length,
-      rejected: all.filter((r) => r.status === "rejected").length,
+      // Filter by department
+      const deptRequests = allData.filter((r: LeaveRequest) => r.departemen === user.departemen)
+      setAllRequests(
+        deptRequests.sort(
+          (a: LeaveRequest, b: LeaveRequest) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
+        ),
+      )
+      setFilteredRequests(deptRequests)
+
+      const siteStats = {
+        total: deptRequests.length,
+        pending: deptRequests.filter(
+          (r: LeaveRequest) => r.status === "pending_dic" || r.status === "pending_pjo" || r.status === "pending_hr_ho",
+        ).length,
+        approved: deptRequests.filter((r: LeaveRequest) => r.status === "approved").length,
+        rejected: deptRequests.filter((r: LeaveRequest) => r.status === "rejected").length,
+      }
+      setStats(siteStats)
+    } catch (error) {
+      console.error("Error loading leave requests:", error)
     }
-    setStats(siteStats)
   }
 
   useEffect(() => {
@@ -72,12 +92,7 @@ export default function DICDashboard() {
       } else if (activeTab === "rejected") {
         setFilteredRequests(allRequests.filter((r) => r.status === "rejected"))
       } else if (activeTab === "submitted") {
-        setFilteredRequests(
-          allRequests.filter((r) => {
-            const history = Database.getApprovalHistoryByRequestId(r.id)
-            return history.some((h) => h.approverUserId === user?.id && h.approverRole === "dic")
-          }),
-        )
+        setFilteredRequests(allRequests)
       }
       return
     }
@@ -91,11 +106,6 @@ export default function DICDashboard() {
       baseRequests = allRequests.filter((r) => r.status === "approved")
     } else if (activeTab === "rejected") {
       baseRequests = allRequests.filter((r) => r.status === "rejected")
-    } else if (activeTab === "submitted") {
-      baseRequests = allRequests.filter((r) => {
-        const history = Database.getApprovalHistoryByRequestId(r.id)
-        return history.some((h) => h.approverUserId === user?.id && h.approverRole === "dic")
-      })
     }
 
     const filtered = baseRequests.filter((request) => {
@@ -107,7 +117,7 @@ export default function DICDashboard() {
       )
     })
     setFilteredRequests(filtered)
-  }, [searchQuery, pendingRequests, allRequests, activeTab, user])
+  }, [searchQuery, pendingRequests, allRequests, activeTab])
 
   const handleApprovalAction = () => {
     loadData()
