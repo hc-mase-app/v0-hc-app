@@ -26,10 +26,15 @@ export async function getUserById(id: string) {
 
 export async function getUserByNik(nik: string) {
   try {
+    console.log("[v0] getUserByNik called with NIK:", nik)
     const result = await sql`SELECT * FROM users WHERE nik = ${nik}`
+    console.log("[v0] getUserByNik result:", result.length > 0 ? "User found" : "User not found")
+    if (result.length > 0) {
+      console.log("[v0] User data:", { nik: result[0].nik, email: result[0].email, role: result[0].role })
+    }
     return result[0] || null
   } catch (error) {
-    console.error("Error fetching user by NIK:", error)
+    console.error("[v0] Error fetching user by NIK:", error)
     return null
   }
 }
@@ -66,22 +71,41 @@ export async function getUsersBySite(site: string) {
 
 export async function addUser(user: any) {
   try {
+    console.log("[v0] addUser called with data:", {
+      nik: user.nik,
+      name: user.name,
+      email: user.email,
+      role: user.role,
+      hasPassword: !!user.password,
+    })
+
     const result = await sql`
       INSERT INTO users (
         nik, name, email, password, role, site, jabatan, departemen, poh, 
         status_karyawan, no_ktp, no_telp, tanggal_lahir, jenis_kelamin
       )
       VALUES (
-        ${user.nik}, ${user.name}, ${user.email}, ${user.password}, ${user.role}, 
-        ${user.site}, ${user.jabatan}, ${user.departemen}, ${user.poh},
-        ${user.statusKaryawan}, ${user.noKtp}, ${user.noTelp}, 
-        ${user.tanggalLahir || null}, ${user.jenisKelamin || null}
+        ${user.nik}, 
+        ${user.name}, 
+        ${user.email}, 
+        ${user.password}, 
+        ${user.role}, 
+        ${user.site || null}, 
+        ${user.jabatan || null}, 
+        ${user.departemen || null}, 
+        ${user.poh || null},
+        ${user.statusKaryawan || user.status_karyawan || null}, 
+        ${user.noKtp || user.no_ktp || null}, 
+        ${user.noTelp || user.no_telp || null}, 
+        ${user.tanggalLahir || user.tanggal_lahir || null}, 
+        ${user.jenisKelamin || user.jenis_kelamin || null}
       )
       RETURNING *
     `
+    console.log("[v0] User created successfully with ID:", result[0].id)
     return result[0]
   } catch (error) {
-    console.error("Error adding user:", error)
+    console.error("[v0] Error adding user:", error)
     throw error
   }
 }

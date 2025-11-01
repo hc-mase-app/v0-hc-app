@@ -28,10 +28,18 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const data = await request.json()
+    console.log("[v0] Creating user with data:", {
+      nik: data.nik,
+      name: data.name,
+      email: data.email,
+      role: data.role,
+      hasPassword: !!data.password,
+    })
     const result = await addUser(data)
+    console.log("[v0] User created successfully:", result.id)
     return NextResponse.json(result)
   } catch (error) {
-    console.error("Error creating user:", error)
+    console.error("[v0] Error creating user:", error)
     return NextResponse.json({ error: "Terjadi kesalahan" }, { status: 500 })
   }
 }
