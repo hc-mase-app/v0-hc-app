@@ -44,7 +44,7 @@ export default function HRSiteDashboard() {
     if (!user) return
 
     try {
-      const response = await fetch(`/api/leave-requests?type=submitted-by&userId=${user.id}`)
+      const response = await fetch(`/api/leave-requests?type=submitted-by&userId=${user.nik}`)
       const data = await response.json()
 
       const sortedRequests = data.sort(
