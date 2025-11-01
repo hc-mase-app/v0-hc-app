@@ -9,7 +9,8 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { LeaveRequestDetailDialog } from "@/components/leave-request-detail-dialog"
 import type { LeaveRequest } from "@/lib/types"
-import { Calendar, User, Briefcase, Building2 } from "lucide-react"
+import { Calendar, User, Briefcase, Building2, FileText } from "lucide-react"
+import { formatDate, getStatusColor, getStatusLabel } from "@/lib/utils"
 
 export default function UserDashboard() {
   const { user, isAuthenticated } = useAuth()
@@ -17,95 +18,48 @@ export default function UserDashboard() {
   const [requests, setRequests] = useState<LeaveRequest[]>([])
   const [loading, setLoading] = useState(true)
   const [selectedRequest, setSelectedRequest] = useState<LeaveRequest | null>(null)
-  const [detailOpen, setDetailOpen] = useState(false)
 
   useEffect(() => {
-    if (!isAuthenticated || !user) {
+    if (!isAuthenticated || !user?.role || user.role !== "user") {
       router.push("/login")
       return
     }
 
-    if (user.role !== "user") {
-      router.push("/dashboard")
-      return
+    const loadData = async () => {
+      try {
+        const res = await fetch(`/api/workflow?action=user-requests&userNik=${user.nik}`)
+        const data = await res.json()
+        setRequests(Array.isArray(data) ? data : [])
+      } catch (error) {
+        console.error("Error loading requests:", error)
+      } finally {
+        setLoading(false)
+      }
     }
 
     loadData()
   }, [user, isAuthenticated, router])
 
-  const loadData = async () => {
-    if (!user) return
-
-    try {
-      const response = await fetch(`/api/leave-requests?type=user&userId=${user.nik}`)
-      const data = await response.json()
-      setRequests(data)
-    } catch (error) {
-      console.error("Error loading leave requests:", error)
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case "approved":
-        return "bg-green-100 text-green-800"
-      case "rejected":
-        return "bg-red-100 text-red-800"
-      case "pending_dic":
-      case "pending_pjo":
-      case "pending_hr":
-        return "bg-yellow-100 text-yellow-800"
-      default:
-        return "bg-gray-100 text-gray-800"
-    }
-  }
-
-  const getStatusLabel = (status: string) => {
-    switch (status) {
-      case "approved":
-        return "Disetujui"
-      case "rejected":
-        return "Ditolak"
-      case "pending_dic":
-        return "Menunggu DIC"
-      case "pending_pjo":
-        return "Menunggu PJO"
-      case "pending_hr":
-        return "Menunggu HR HO"
-      default:
-        return status
-    }
-  }
-
-  const handleViewDetail = (request: LeaveRequest) => {
-    setSelectedRequest(request)
-    setDetailOpen(true)
-  }
-
-  if (loading) {
+  if (loading)
     return (
       <DashboardLayout>
-        <div className="flex items-center justify-center min-h-screen">
-          <p className="text-muted-foreground">Loading...</p>
-        </div>
+        <div className="text-center py-12">Loading...</div>
       </DashboardLayout>
     )
-  }
 
   return (
-    <DashboardLayout>
+    <DashboardLayout title="Riwayat Pengajuan Saya">
       <div className="space-y-6">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Riwayat Pengajuan</h1>
-          <p className="text-muted-foreground mt-2">Lihat semua pengajuan cuti Anda secara lengkap</p>
+          <p className="text-muted-foreground mt-2">Lihat semua pengajuan cuti Anda</p>
         </div>
 
         {requests.length === 0 ? (
           <Card>
-            <CardContent className="pt-6">
-              <p className="text-center text-muted-foreground">Anda belum membuat pengajuan cuti</p>
+            <CardContent className="pt-6 text-center py-12">
+              <FileText className="h-12 w-12 text-slate-300 mx-auto mb-4" />
+              <p className="text-muted-foreground">Anda belum memiliki pengajuan cuti</p>
             </CardContent>
           </Card>
         ) : (
@@ -123,15 +77,17 @@ export default function UserDashboard() {
                     <div className="flex items-center gap-2">
                       <User className="h-4 w-4 text-muted-foreground" />
                       <div>
-                        <p className="text-muted-foreground text-xs">NIK</p>
-                        <p className="font-medium">{request.userNik}</p>
+                        <p className="text-muted-foreground text-xs">Tanggal Pengajuan</p>
+                        <p className="font-medium">{formatDate(request.tanggalPengajuan)}</p>
                       </div>
                     </div>
                     <div className="flex items-center gap-2">
-                      <User className="h-4 w-4 text-muted-foreground" />
+                      <Calendar className="h-4 w-4 text-muted-foreground" />
                       <div>
-                        <p className="text-muted-foreground text-xs">Nama</p>
-                        <p className="font-medium">{request.userName}</p>
+                        <p className="text-muted-foreground text-xs">Periode</p>
+                        <p className="font-medium">
+                          {formatDate(request.periodeAwal)} - {formatDate(request.periodeAkhir)}
+                        </p>
                       </div>
                     </div>
                     <div className="flex items-center gap-2">
@@ -148,24 +104,8 @@ export default function UserDashboard() {
                         <p className="font-medium">{request.departemen}</p>
                       </div>
                     </div>
-                    <div className="flex items-center gap-2 md:col-span-2">
-                      <Calendar className="h-4 w-4 text-muted-foreground" />
-                      <div>
-                        <p className="text-muted-foreground text-xs">Tanggal Keberangkatan</p>
-                        <p className="font-medium">
-                          {request.tanggalKeberangkatan
-                            ? new Date(request.tanggalKeberangkatan).toLocaleDateString("id-ID", {
-                                weekday: "long",
-                                year: "numeric",
-                                month: "long",
-                                day: "numeric",
-                              })
-                            : "-"}
-                        </p>
-                      </div>
-                    </div>
                   </div>
-                  <Button variant="outline" size="sm" onClick={() => handleViewDetail(request)} className="w-full">
+                  <Button variant="outline" size="sm" onClick={() => setSelectedRequest(request)} className="w-full">
                     Lihat Detail Lengkap
                   </Button>
                 </CardContent>
@@ -178,9 +118,8 @@ export default function UserDashboard() {
       {selectedRequest && (
         <LeaveRequestDetailDialog
           request={selectedRequest}
-          open={detailOpen}
-          onOpenChange={setDetailOpen}
-          currentUserId={user?.id}
+          open={!!selectedRequest}
+          onOpenChange={(open) => !open && setSelectedRequest(null)}
           isUserRole={true}
         />
       )}

@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useCallback } from "react"
 import { useAuth } from "@/lib/auth-context"
 import { useRouter } from "next/navigation"
 import { DashboardLayout } from "@/components/dashboard-layout"
@@ -17,79 +17,58 @@ export default function HRHODashboard() {
   const router = useRouter()
   const [pendingRequests, setPendingRequests] = useState<LeaveRequest[]>([])
   const [allRequests, setAllRequests] = useState<LeaveRequest[]>([])
-  const [stats, setStats] = useState({
-    total: 0,
-    pendingDIC: 0,
-    pendingPJO: 0,
-    pendingHRHO: 0,
-    approved: 0,
-    rejected: 0,
-  })
+  const [loading, setLoading] = useState(true)
+  const [selectedSite, setSelectedSite] = useState("all")
   const [selectedRequest, setSelectedRequest] = useState<LeaveRequest | null>(null)
-  const [selectedSite, setSelectedSite] = useState<string>("all")
+
+  const loadData = useCallback(async () => {
+    try {
+      setLoading(true)
+
+      const [pendingRes, allRes] = await Promise.all([
+        fetch(`/api/workflow?action=pending&role=hr_ho&site=all`),
+        fetch(`/api/workflow?action=all&role=hr_ho&site=all`),
+      ])
+
+      const [pending, all] = await Promise.all([pendingRes.json(), allRes.json()])
+
+      setPendingRequests(Array.isArray(pending) ? pending : [])
+      setAllRequests(Array.isArray(all) ? all : [])
+    } catch (error) {
+      console.error("[HR HO] Error loading data:", error)
+    } finally {
+      setLoading(false)
+    }
+  }, [])
 
   useEffect(() => {
-    if (!isAuthenticated || !user) {
+    if (!isAuthenticated || !user?.role || user.role !== "hr_ho") {
       router.push("/login")
       return
     }
-
-    if (user.role !== "hr_ho") {
-      router.push("/dashboard")
-      return
-    }
-
     loadData()
-  }, [user, isAuthenticated, router])
+  }, [user?.role, isAuthenticated, router, loadData])
 
-  const loadData = async () => {
-    try {
-      // Fetch pending requests for HR HO (all sites, all departments)
-      const pendingRes = await fetch("/api/leave-requests?type=pending-hr-ho")
-      const pending = await pendingRes.json()
-      setPendingRequests(
-        pending.sort(
-          (a: LeaveRequest, b: LeaveRequest) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime(),
-        ),
-      )
-
-      // Fetch all requests
-      const allRes = await fetch("/api/leave-requests")
-      const all = await allRes.json()
-      setAllRequests(
-        all.sort(
-          (a: LeaveRequest, b: LeaveRequest) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
-        ),
-      )
-
-      // Calculate stats
-      setStats({
-        total: all.length,
-        pendingDIC: all.filter((r: LeaveRequest) => r.status === "pending_dic").length,
-        pendingPJO: all.filter((r: LeaveRequest) => r.status === "pending_pjo").length,
-        pendingHRHO: pending.length,
-        approved: all.filter((r: LeaveRequest) => r.status === "approved").length,
-        rejected: all.filter((r: LeaveRequest) => r.status === "rejected").length,
-      })
-    } catch (error) {
-      console.error("Error loading data:", error)
-    }
+  const stats = {
+    total: allRequests.length,
+    pending: pendingRequests.length,
+    approved: allRequests.filter((r) => r.status === "di_proses" || r.status === "tiket_issued").length,
+    rejected: allRequests.filter((r) => r.status?.includes("ditolak")).length,
   }
 
-  const handleApprovalAction = () => {
-    loadData()
-    setSelectedRequest(null)
-  }
+  const filteredAll = selectedSite === "all" ? allRequests : allRequests.filter((r) => r.site === selectedSite)
 
-  const filteredAllRequests = selectedSite === "all" ? allRequests : allRequests.filter((r) => r.site === selectedSite)
-
-  if (!user) return null
+  if (loading)
+    return (
+      <DashboardLayout>
+        <div className="text-center py-12">Loading...</div>
+      </DashboardLayout>
+    )
 
   return (
     <DashboardLayout title="Dashboard HR Head Office">
       <div className="space-y-6">
-        {/* Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Total</CardTitle>
@@ -102,31 +81,11 @@ export default function HRHODashboard() {
 
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Pending DIC</CardTitle>
+              <CardTitle className="text-sm font-medium">Menunggu Persetujuan</CardTitle>
               <Clock className="h-4 w-4 text-yellow-600" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{stats.pendingDIC}</div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Pending PJO</CardTitle>
-              <Clock className="h-4 w-4 text-blue-600" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{stats.pendingPJO}</div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Pending HR HO</CardTitle>
-              <Clock className="h-4 w-4 text-purple-600" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{pendingRequests.length}</div>
+              <div className="text-2xl font-bold">{stats.pending}</div>
             </CardContent>
           </Card>
 
@@ -153,16 +112,16 @@ export default function HRHODashboard() {
 
         <Tabs defaultValue="pending" className="space-y-4">
           <TabsList>
-            <TabsTrigger value="pending">Menunggu Persetujuan ({pendingRequests.length})</TabsTrigger>
-            <TabsTrigger value="all">Semua Pengajuan ({allRequests.length})</TabsTrigger>
+            <TabsTrigger value="pending">Menunggu Persetujuan ({stats.pending})</TabsTrigger>
+            <TabsTrigger value="all">Semua Pengajuan ({stats.total})</TabsTrigger>
           </TabsList>
 
           <TabsContent value="pending">
             <Card>
               <CardHeader>
-                <CardTitle>Pengajuan Menunggu Persetujuan HR HO</CardTitle>
+                <CardTitle>Pengajuan Menunggu Persetujuan Final</CardTitle>
                 <CardDescription>
-                  Pengajuan yang telah disetujui DIC dan PJO, menunggu persetujuan final dari HR HO
+                  Pengajuan yang telah disetujui DIC dan PJO, menunggu persetujuan HR HO
                 </CardDescription>
               </CardHeader>
               <CardContent>
@@ -177,8 +136,8 @@ export default function HRHODashboard() {
                       <ApprovalCard
                         key={request.id}
                         request={request}
-                        onApprove={handleApprovalAction}
-                        onReject={handleApprovalAction}
+                        onApprove={() => loadData()}
+                        onReject={() => loadData()}
                         onViewDetail={() => setSelectedRequest(request)}
                         showSite
                       />
@@ -215,14 +174,14 @@ export default function HRHODashboard() {
                 </div>
               </CardHeader>
               <CardContent>
-                {filteredAllRequests.length === 0 ? (
+                {filteredAll.length === 0 ? (
                   <div className="text-center py-12">
                     <FileText className="h-12 w-12 text-slate-300 mx-auto mb-4" />
                     <p className="text-slate-600">Tidak ada pengajuan</p>
                   </div>
                 ) : (
                   <div className="space-y-4">
-                    {filteredAllRequests.map((request) => (
+                    {filteredAll.map((request) => (
                       <ApprovalCard
                         key={request.id}
                         request={request}

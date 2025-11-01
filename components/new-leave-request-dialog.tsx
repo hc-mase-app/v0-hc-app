@@ -173,39 +173,37 @@ export function NewLeaveRequestDialog({ open, onOpenChange, onSuccess }: NewLeav
     try {
       const jumlahHari = calculateDaysBetween(tanggalMulai, tanggalSelesai)
 
-      const newRequest = {
-        userNik: selectedUser.nik,
-        userName: selectedUser.nama,
-        site: selectedUser.site,
-        jabatan: selectedUser.jabatan,
-        departemen: selectedUser.departemen,
-        poh: selectedUser.poh,
-        statusKaryawan: selectedUser.statusKaryawan,
-        noKtp: selectedUser.noKtp,
-        noTelp: selectedUser.noTelp,
-        email: selectedUser.email,
-        tanggalLahir: selectedUser.tanggalLahir,
-        jenisKelamin: selectedUser.jenisKelamin,
-        jenisCuti: jenisPengajuanCuti,
-        tanggalPengajuan,
-        periodeAwal: tanggalMulai,
-        periodeAkhir: tanggalSelesai,
-        jumlahHari,
-        berangkatDari,
-        tujuan,
-        tanggalKeberangkatan,
-        cutiPeriodikBerikutnya: tanggalCutiPeriodikBerikutnya || null,
-        catatan: catatan || null,
-        status: "pending_dic",
-        submittedBy: user.nik,
-      }
-
-      const response = await fetch("/api/leave-requests", {
+      const response = await fetch("/api/workflow", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify(newRequest),
+        body: JSON.stringify({
+          action: "create",
+          userNik: selectedUser.nik,
+          userName: selectedUser.nama,
+          site: selectedUser.site,
+          jabatan: selectedUser.jabatan,
+          departemen: selectedUser.departemen,
+          poh: selectedUser.poh,
+          statusKaryawan: selectedUser.statusKaryawan,
+          noKtp: selectedUser.noKtp,
+          noTelp: selectedUser.noTelp,
+          email: selectedUser.email,
+          tanggalLahir: selectedUser.tanggalLahir,
+          jenisKelamin: selectedUser.jenisKelamin,
+          jenisCuti: jenisPengajuanCuti,
+          tanggalPengajuan,
+          periodeAwal: tanggalMulai,
+          periodeAkhir: tanggalSelesai,
+          jumlahHari,
+          berangkatDari,
+          tujuan,
+          tanggalKeberangkatan,
+          cutiPeriodikBerikutnya: tanggalCutiPeriodikBerikutnya || null,
+          catatan: catatan || null,
+          submittedBy: user.nik,
+        }),
       })
 
       if (!response.ok) {

@@ -16,137 +16,59 @@ export default function PJOSiteDashboard() {
   const router = useRouter()
   const [pendingRequests, setPendingRequests] = useState<LeaveRequest[]>([])
   const [allRequests, setAllRequests] = useState<LeaveRequest[]>([])
-  const [stats, setStats] = useState({
-    total: 0,
-    pendingDIC: 0,
-    pendingPJO: 0,
-    pendingHRHO: 0,
-    approved: 0,
-    rejected: 0,
-  })
+  const [stats, setStats] = useState({ total: 0, pending: 0, approved: 0, rejected: 0 })
+  const [loading, setLoading] = useState(true)
   const [selectedRequest, setSelectedRequest] = useState<LeaveRequest | null>(null)
 
   const loadData = useCallback(async () => {
-    if (!user || !user.site) {
-      console.log("[v0] PJO loadData - user or site is missing:", { userId: user?.id, site: user?.site })
-      return
-    }
+    if (!user?.site) return
 
     try {
-      console.log("[v0] PJO loadData START - user:", {
-        id: user.id,
-        role: user.role,
-        site: user.site,
-        departemen: user.departemen,
-      })
+      setLoading(true)
 
-      // Fetch pending PJO requests
-      const siteParam = encodeURIComponent(user.site)
-      const pendingUrl = `/api/leave-requests?type=pending-pjo&site=${siteParam}`
-      console.log("[v0] PJO fetching pending from:", pendingUrl)
+      // Fetch pending, all requests, and stats in parallel
+      const [pendingRes, allRes, statsRes] = await Promise.all([
+        fetch(`/api/workflow?action=pending&role=pjo_site&site=${encodeURIComponent(user.site)}`),
+        fetch(`/api/workflow?action=all&role=pjo_site&site=${encodeURIComponent(user.site)}`),
+        fetch(`/api/workflow?action=stats&role=pjo_site&site=${encodeURIComponent(user.site)}`),
+      ])
 
-      const pendingRes = await fetch(pendingUrl)
-      console.log("[v0] PJO pending response status:", pendingRes.status)
+      const [pending, all, statistics] = await Promise.all([pendingRes.json(), allRes.json(), statsRes.json()])
 
-      if (!pendingRes.ok) {
-        console.error("[v0] PJO pending fetch failed with status:", pendingRes.status)
-        const errorText = await pendingRes.text()
-        console.error("[v0] PJO pending error response:", errorText)
-        setPendingRequests([])
-      } else {
-        const pending = await pendingRes.json()
-        console.log("[v0] PJO pending requests received:", pending)
-        console.log("[v0] PJO pending requests count:", Array.isArray(pending) ? pending.length : "not an array")
-
-        if (Array.isArray(pending)) {
-          setPendingRequests(
-            pending.sort(
-              (a: LeaveRequest, b: LeaveRequest) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime(),
-            ),
-          )
-        } else {
-          console.error("[v0] PJO pending is not an array:", pending)
-          setPendingRequests([])
-        }
-      }
-
-      // Fetch all requests from site
-      const allUrl = `/api/leave-requests?type=site&site=${siteParam}`
-      console.log("[v0] PJO fetching all from:", allUrl)
-
-      const allRes = await fetch(allUrl)
-      console.log("[v0] PJO all response status:", allRes.status)
-
-      if (!allRes.ok) {
-        console.error("[v0] PJO all fetch failed with status:", allRes.status)
-        const errorText = await allRes.text()
-        console.error("[v0] PJO all error response:", errorText)
-        setAllRequests([])
-      } else {
-        const all = await allRes.json()
-        console.log("[v0] PJO all requests received:", all)
-        console.log("[v0] PJO all requests count:", Array.isArray(all) ? all.length : "not an array")
-
-        if (Array.isArray(all)) {
-          setAllRequests(
-            all.sort(
-              (a: LeaveRequest, b: LeaveRequest) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
-            ),
-          )
-
-          // Calculate stats
-          setStats({
-            total: all.length,
-            pendingDIC: all.filter((r: LeaveRequest) => r.status === "pending_dic").length,
-            pendingPJO: pendingRequests.length, // Fixed: pendingRequests is now declared
-            pendingHRHO: all.filter((r: LeaveRequest) => r.status === "pending_hr_ho").length,
-            approved: all.filter((r: LeaveRequest) => r.status === "approved").length,
-            rejected: all.filter((r: LeaveRequest) => r.status === "rejected").length,
-          })
-        } else {
-          console.error("[v0] PJO all is not an array:", all)
-          setAllRequests([])
-        }
-      }
-
-      console.log("[v0] PJO loadData END")
+      setPendingRequests(Array.isArray(pending) ? pending : [])
+      setAllRequests(Array.isArray(all) ? all : [])
+      setStats(statistics)
     } catch (error) {
-      console.error("[v0] PJO Error loading data:", error)
+      console.error("[PJO Site] Error loading data:", error)
+    } finally {
+      setLoading(false)
     }
-  }, [user, pendingRequests])
+  }, [user?.site])
 
   useEffect(() => {
-    if (!isAuthenticated || !user) {
-      console.log("[v0] PJO not authenticated or no user, redirecting to login")
+    if (!isAuthenticated || !user?.role || user.role !== "pjo_site") {
       router.push("/login")
       return
     }
-
-    if (user.role !== "pjo_site") {
-      console.log("[v0] PJO user role is not pjo_site, redirecting to dashboard")
-      router.push("/dashboard")
-      return
-    }
-
-    console.log("[v0] PJO useEffect triggered, calling loadData")
     loadData()
-  }, [user, isAuthenticated, router, loadData])
+  }, [user?.role, isAuthenticated, router, loadData])
 
-  const handleApprovalAction = () => {
-    loadData()
-    setSelectedRequest(null)
+  if (loading) {
+    return (
+      <DashboardLayout>
+        <div className="text-center py-12">Loading...</div>
+      </DashboardLayout>
+    )
   }
-
-  if (!user) return null
 
   return (
     <DashboardLayout title="Dashboard PJO Site">
       <div className="space-y-6">
-        {/* Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-4">
+        {/* Statistics Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Total</CardTitle>
+              <CardTitle className="text-sm font-medium">Total Pengajuan</CardTitle>
               <FileText className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
@@ -156,31 +78,11 @@ export default function PJOSiteDashboard() {
 
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Pending DIC</CardTitle>
+              <CardTitle className="text-sm font-medium">Menunggu Persetujuan</CardTitle>
               <Clock className="h-4 w-4 text-yellow-600" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{stats.pendingDIC}</div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Pending PJO</CardTitle>
-              <Clock className="h-4 w-4 text-blue-600" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{stats.pendingPJO}</div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Pending HR HO</CardTitle>
-              <Clock className="h-4 w-4 text-purple-600" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{stats.pendingHRHO}</div>
+              <div className="text-2xl font-bold">{stats.pending}</div>
             </CardContent>
           </Card>
 
@@ -205,18 +107,19 @@ export default function PJOSiteDashboard() {
           </Card>
         </div>
 
+        {/* Tabs */}
         <Tabs defaultValue="pending" className="space-y-4">
           <TabsList>
-            <TabsTrigger value="pending">Menunggu Persetujuan ({pendingRequests.length})</TabsTrigger>
-            <TabsTrigger value="all">Semua Pengajuan ({allRequests.length})</TabsTrigger>
+            <TabsTrigger value="pending">Menunggu Persetujuan ({stats.pending})</TabsTrigger>
+            <TabsTrigger value="all">Semua Pengajuan ({stats.total})</TabsTrigger>
           </TabsList>
 
           <TabsContent value="pending">
             <Card>
               <CardHeader>
-                <CardTitle>Pengajuan Menunggu Persetujuan PJO Site</CardTitle>
+                <CardTitle>Pengajuan Menunggu Persetujuan PJO</CardTitle>
                 <CardDescription>
-                  Pengajuan dari site {user.site} yang telah disetujui DIC, menunggu persetujuan PJO
+                  Pengajuan dari site {user?.site} (semua departemen) yang telah disetujui DIC
                 </CardDescription>
               </CardHeader>
               <CardContent>
@@ -231,8 +134,8 @@ export default function PJOSiteDashboard() {
                       <ApprovalCard
                         key={request.id}
                         request={request}
-                        onApprove={handleApprovalAction}
-                        onReject={handleApprovalAction}
+                        onApprove={() => loadData()}
+                        onReject={() => loadData()}
                         onViewDetail={() => setSelectedRequest(request)}
                       />
                     ))}
@@ -245,8 +148,8 @@ export default function PJOSiteDashboard() {
           <TabsContent value="all">
             <Card>
               <CardHeader>
-                <CardTitle>Semua Pengajuan dari Site {user.site}</CardTitle>
-                <CardDescription>Lihat semua pengajuan dari site Anda</CardDescription>
+                <CardTitle>Semua Pengajuan dari Site {user?.site}</CardTitle>
+                <CardDescription>Histori semua pengajuan dari site Anda (semua departemen)</CardDescription>
               </CardHeader>
               <CardContent>
                 {allRequests.length === 0 ? (

@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useCallback } from "react"
 import { useAuth } from "@/lib/auth-context"
 import { useRouter } from "next/navigation"
 import { DashboardLayout } from "@/components/dashboard-layout"
@@ -19,127 +19,84 @@ export default function DICDashboard() {
   const router = useRouter()
   const [pendingRequests, setPendingRequests] = useState<LeaveRequest[]>([])
   const [allRequests, setAllRequests] = useState<LeaveRequest[]>([])
-  const [filteredRequests, setFilteredRequests] = useState<LeaveRequest[]>([])
   const [searchQuery, setSearchQuery] = useState("")
-  const [stats, setStats] = useState({ total: 0, pending: 0, approved: 0, rejected: 0 })
+  const [loading, setLoading] = useState(true)
   const [selectedRequest, setSelectedRequest] = useState<LeaveRequest | null>(null)
-  const [activeTab, setActiveTab] = useState("pending")
+
+  const loadData = useCallback(async () => {
+    if (!user?.site || !user?.departemen) return
+
+    try {
+      setLoading(true)
+
+      const [pendingRes, allRes] = await Promise.all([
+        fetch(
+          `/api/workflow?action=pending&role=dic&site=${encodeURIComponent(user.site)}&departemen=${encodeURIComponent(user.departemen)}`,
+        ),
+        fetch(
+          `/api/workflow?action=all&role=dic&site=${encodeURIComponent(user.site)}&departemen=${encodeURIComponent(user.departemen)}`,
+        ),
+      ])
+
+      const [pending, all] = await Promise.all([pendingRes.json(), allRes.json()])
+
+      setPendingRequests(Array.isArray(pending) ? pending : [])
+      setAllRequests(Array.isArray(all) ? all : [])
+    } catch (error) {
+      console.error("[DIC] Error loading data:", error)
+    } finally {
+      setLoading(false)
+    }
+  }, [user?.site, user?.departemen])
 
   useEffect(() => {
-    if (!isAuthenticated || !user) {
+    if (!isAuthenticated || !user?.role || user.role !== "dic") {
       router.push("/login")
       return
     }
-
-    if (user.role !== "dic") {
-      router.push("/dashboard")
-      return
-    }
-
     loadData()
-  }, [user, isAuthenticated, router])
+  }, [user?.role, isAuthenticated, router, loadData])
 
-  const loadData = async () => {
-    if (!user) return
-
-    try {
-      // Fetch pending requests for this DIC's site and department
-      const pendingResponse = await fetch(
-        `/api/leave-requests?type=pending-dic&site=${encodeURIComponent(user.site)}&departemen=${encodeURIComponent(user.departemen)}`,
-      )
-      const pendingData = await pendingResponse.json()
-      setPendingRequests(
-        pendingData.sort(
-          (a: LeaveRequest, b: LeaveRequest) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime(),
-        ),
-      )
-
-      const allResponse = await fetch(
-        `/api/leave-requests?type=site-dept&site=${encodeURIComponent(user.site)}&departemen=${encodeURIComponent(user.departemen)}`,
-      )
-      const allData = await allResponse.json()
-
-      console.log("[v0] DIC loaded", allData.length, "requests from site:", user.site, "dept:", user.departemen)
-
-      setAllRequests(
-        allData.sort(
-          (a: LeaveRequest, b: LeaveRequest) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
-        ),
-      )
-      setFilteredRequests(allData)
-
-      const siteStats = {
-        total: allData.length,
-        pending: allData.filter(
-          (r: LeaveRequest) => r.status === "pending_dic" || r.status === "pending_pjo" || r.status === "pending_hr_ho",
-        ).length,
-        approved: allData.filter((r: LeaveRequest) => r.status === "approved").length,
-        rejected: allData.filter((r: LeaveRequest) => r.status === "rejected").length,
-      }
-      setStats(siteStats)
-    } catch (error) {
-      console.error("Error loading leave requests:", error)
-    }
+  const stats = {
+    total: allRequests.length,
+    pending: pendingRequests.length,
+    approved: allRequests.filter(
+      (r) =>
+        r.status === "pending_pjo" ||
+        r.status === "pending_hr_ho" ||
+        r.status === "di_proses" ||
+        r.status === "tiket_issued",
+    ).length,
+    rejected: allRequests.filter((r) => r.status === "ditolak_dic").length,
   }
 
-  useEffect(() => {
-    if (!searchQuery.trim()) {
-      if (activeTab === "pending") {
-        setFilteredRequests(pendingRequests)
-      } else if (activeTab === "all") {
-        setFilteredRequests(allRequests)
-      } else if (activeTab === "approved") {
-        setFilteredRequests(allRequests.filter((r) => r.status === "approved"))
-      } else if (activeTab === "rejected") {
-        setFilteredRequests(allRequests.filter((r) => r.status === "rejected"))
-      } else if (activeTab === "submitted") {
-        setFilteredRequests(allRequests)
-      }
-      return
-    }
-
-    const query = searchQuery.toLowerCase()
-    let baseRequests = allRequests
-
-    if (activeTab === "pending") {
-      baseRequests = pendingRequests
-    } else if (activeTab === "approved") {
-      baseRequests = allRequests.filter((r) => r.status === "approved")
-    } else if (activeTab === "rejected") {
-      baseRequests = allRequests.filter((r) => r.status === "rejected")
-    }
-
-    const filtered = baseRequests.filter((request) => {
-      return (
-        (request.userName?.toLowerCase() || "").includes(query) ||
-        (request.jenisPengajuanCuti?.toLowerCase() || "").includes(query) ||
-        getStatusLabel(request.status).toLowerCase().includes(query) ||
-        (request.alasan?.toLowerCase() || "").includes(query)
+  const filteredRequests = searchQuery
+    ? allRequests.filter(
+        (r) =>
+          r.userName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+          r.jenisCuti?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+          r.userNik?.includes(searchQuery),
       )
-    })
-    setFilteredRequests(filtered)
-  }, [searchQuery, pendingRequests, allRequests, activeTab])
+    : allRequests
 
-  const handleApprovalAction = () => {
-    loadData()
-    setSelectedRequest(null)
-  }
-
-  if (!user) return null
+  if (loading)
+    return (
+      <DashboardLayout>
+        <div className="text-center py-12">Loading...</div>
+      </DashboardLayout>
+    )
 
   return (
     <DashboardLayout title="Dashboard DIC">
       <div className="space-y-6">
-        {/* Stats Cards */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Total Pengajuan</CardTitle>
+              <CardTitle className="text-sm font-medium">Total</CardTitle>
               <FileText className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">{stats.total}</div>
-              <p className="text-xs text-muted-foreground">Site: {user.site}</p>
             </CardContent>
           </Card>
 
@@ -149,8 +106,7 @@ export default function DICDashboard() {
               <Clock className="h-4 w-4 text-yellow-600" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{pendingRequests.length}</div>
-              <p className="text-xs text-muted-foreground">Perlu ditindaklanjuti</p>
+              <div className="text-2xl font-bold">{stats.pending}</div>
             </CardContent>
           </Card>
 
@@ -175,15 +131,16 @@ export default function DICDashboard() {
           </Card>
         </div>
 
-        {/* Requests with Tabs */}
         <Card>
           <CardHeader>
             <CardTitle>Daftar Pengajuan Izin</CardTitle>
-            <CardDescription>Tinjau dan kelola semua pengajuan izin dari karyawan di departemen Anda</CardDescription>
+            <CardDescription>
+              Tinjau pengajuan izin dari departemen {user?.departemen} di site {user?.site}
+            </CardDescription>
             <div className="relative mt-4">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
               <Input
-                placeholder="Cari berdasarkan nama, jenis izin, atau status..."
+                placeholder="Cari nama, NIK, atau jenis cuti..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="pl-10"
@@ -191,33 +148,28 @@ export default function DICDashboard() {
             </div>
           </CardHeader>
           <CardContent>
-            <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-              <TabsList className="grid w-full grid-cols-5">
-                <TabsTrigger value="pending">Menunggu ({pendingRequests.length})</TabsTrigger>
-                <TabsTrigger value="all">Semua ({allRequests.length})</TabsTrigger>
-                <TabsTrigger value="submitted">Saya Setujui</TabsTrigger>
-                <TabsTrigger value="approved">Disetujui</TabsTrigger>
-                <TabsTrigger value="rejected">Ditolak</TabsTrigger>
+            <Tabs defaultValue="pending" className="w-full">
+              <TabsList className="grid w-full grid-cols-4">
+                <TabsTrigger value="pending">Menunggu ({stats.pending})</TabsTrigger>
+                <TabsTrigger value="all">Semua ({stats.total})</TabsTrigger>
+                <TabsTrigger value="approved">Disetujui ({stats.approved})</TabsTrigger>
+                <TabsTrigger value="rejected">Ditolak ({stats.rejected})</TabsTrigger>
               </TabsList>
 
               <TabsContent value="pending" className="mt-4">
-                {filteredRequests.length === 0 ? (
+                {pendingRequests.length === 0 ? (
                   <div className="text-center py-12">
                     <CheckCircle className="h-12 w-12 text-green-300 mx-auto mb-4" />
-                    <p className="text-slate-600">
-                      {searchQuery
-                        ? "Tidak ada pengajuan yang sesuai dengan pencarian"
-                        : "Tidak ada pengajuan yang menunggu persetujuan"}
-                    </p>
+                    <p className="text-slate-600">Tidak ada pengajuan yang menunggu persetujuan</p>
                   </div>
                 ) : (
                   <div className="space-y-4">
-                    {filteredRequests.map((request) => (
+                    {pendingRequests.map((request) => (
                       <ApprovalCard
                         key={request.id}
                         request={request}
-                        onApprove={handleApprovalAction}
-                        onReject={handleApprovalAction}
+                        onApprove={() => loadData()}
+                        onReject={() => loadData()}
                         onViewDetail={() => setSelectedRequest(request)}
                       />
                     ))}
@@ -229,64 +181,48 @@ export default function DICDashboard() {
                 {filteredRequests.length === 0 ? (
                   <div className="text-center py-12">
                     <FileText className="h-12 w-12 text-slate-300 mx-auto mb-4" />
-                    <p className="text-slate-600">
-                      {searchQuery ? "Tidak ada pengajuan yang sesuai dengan pencarian" : "Tidak ada pengajuan"}
-                    </p>
+                    <p className="text-slate-600">Tidak ada pengajuan</p>
                   </div>
                 ) : (
                   <div className="space-y-3">
                     {filteredRequests.map((request) => (
-                      <RequestCard key={request.id} request={request} onSelect={setSelectedRequest} />
-                    ))}
-                  </div>
-                )}
-              </TabsContent>
-
-              <TabsContent value="submitted" className="mt-4">
-                {filteredRequests.length === 0 ? (
-                  <div className="text-center py-12">
-                    <CheckCircle className="h-12 w-12 text-slate-300 mx-auto mb-4" />
-                    <p className="text-slate-600">
-                      {searchQuery
-                        ? "Tidak ada pengajuan yang sesuai dengan pencarian"
-                        : "Belum ada pengajuan yang Anda setujui"}
-                    </p>
-                  </div>
-                ) : (
-                  <div className="space-y-3">
-                    {filteredRequests.map((request) => (
-                      <RequestCard key={request.id} request={request} onSelect={setSelectedRequest} />
+                      <RequestRow key={request.id} request={request} onSelect={setSelectedRequest} />
                     ))}
                   </div>
                 )}
               </TabsContent>
 
               <TabsContent value="approved" className="mt-4">
-                {filteredRequests.length === 0 ? (
+                {filteredRequests.filter((r) => r.status !== "pending_dic" && r.status !== "ditolak_dic").length ===
+                0 ? (
                   <div className="text-center py-12">
                     <CheckCircle className="h-12 w-12 text-slate-300 mx-auto mb-4" />
                     <p className="text-slate-600">Tidak ada pengajuan yang disetujui</p>
                   </div>
                 ) : (
                   <div className="space-y-3">
-                    {filteredRequests.map((request) => (
-                      <RequestCard key={request.id} request={request} onSelect={setSelectedRequest} />
-                    ))}
+                    {filteredRequests
+                      .filter((r) => r.status !== "pending_dic" && r.status !== "ditolak_dic")
+                      .map((request) => (
+                        <RequestRow key={request.id} request={request} onSelect={setSelectedRequest} />
+                      ))}
                   </div>
                 )}
               </TabsContent>
 
               <TabsContent value="rejected" className="mt-4">
-                {filteredRequests.length === 0 ? (
+                {filteredRequests.filter((r) => r.status === "ditolak_dic").length === 0 ? (
                   <div className="text-center py-12">
                     <XCircle className="h-12 w-12 text-slate-300 mx-auto mb-4" />
                     <p className="text-slate-600">Tidak ada pengajuan yang ditolak</p>
                   </div>
                 ) : (
                   <div className="space-y-3">
-                    {filteredRequests.map((request) => (
-                      <RequestCard key={request.id} request={request} onSelect={setSelectedRequest} />
-                    ))}
+                    {filteredRequests
+                      .filter((r) => r.status === "ditolak_dic")
+                      .map((request) => (
+                        <RequestRow key={request.id} request={request} onSelect={setSelectedRequest} />
+                      ))}
                   </div>
                 )}
               </TabsContent>
@@ -307,33 +243,19 @@ export default function DICDashboard() {
   )
 }
 
-function RequestCard({
-  request,
-  onSelect,
-}: {
-  request: LeaveRequest
-  onSelect: (request: LeaveRequest) => void
-}) {
+function RequestRow({ request, onSelect }: { request: LeaveRequest; onSelect: (r: LeaveRequest) => void }) {
   return (
     <div
-      className="border border-slate-200 rounded-lg p-4 hover:bg-slate-50 cursor-pointer transition-colors"
+      className="border rounded-lg p-4 hover:bg-slate-50 cursor-pointer transition"
       onClick={() => onSelect(request)}
     >
-      <div className="flex justify-between items-start mb-3">
-        <div className="flex-1">
-          <h3 className="font-semibold text-lg text-slate-900 mb-1">{request.userName || "Nama tidak tersedia"}</h3>
-          <div className="flex items-center gap-2 mb-2">
-            <Badge variant="outline" className="text-xs">
-              {request.jenisPengajuanCuti}
-            </Badge>
-          </div>
-          <p className="text-sm text-slate-600">
-            {formatDate(request.tanggalMulai)} - {formatDate(request.tanggalSelesai)} ({request.jumlahHari} hari)
-          </p>
-        </div>
+      <div className="flex justify-between items-start mb-2">
+        <h3 className="font-semibold">{request.userName}</h3>
         <Badge className={getStatusColor(request.status)}>{getStatusLabel(request.status)}</Badge>
       </div>
-      <p className="text-sm text-slate-700 line-clamp-2">{request.alasan}</p>
+      <p className="text-sm text-slate-600">
+        {formatDate(request.periodeAwal)} - {formatDate(request.periodeAkhir)} ({request.jumlahHari} hari)
+      </p>
     </div>
   )
 }

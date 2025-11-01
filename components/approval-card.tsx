@@ -44,39 +44,24 @@ export function ApprovalCard({
     setIsApproving(true)
 
     try {
-      // Determine next status based on current status and user role
-      let nextStatus = request.status
-      if (request.status === "pending_dic") {
-        nextStatus = "pending_pjo"
-      } else if (request.status === "pending_pjo") {
-        nextStatus = "pending_hr_ho"
-      } else if (request.status === "pending_hr_ho") {
-        nextStatus = "approved"
-      }
-
-      // Update leave request status
-      await fetch("/api/leave-requests", {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          id: request.id,
-          status: nextStatus,
-        }),
-      })
-
-      // Add approval history
-      await fetch("/api/approvals", {
+      const response = await fetch("/api/workflow", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          leaveRequestId: request.id,
+          action: "approve",
+          requestId: request.id,
           approverNik: user.nik,
-          approverName: user.nama,
           approverRole: user.role,
-          action: "approved",
           notes: notes,
         }),
       })
+
+      const result = await response.json()
+
+      if (!result.success) {
+        setError(result.error || "Gagal menyetujui pengajuan")
+        return
+      }
 
       setNotes("")
       onApprove?.()
@@ -98,29 +83,24 @@ export function ApprovalCard({
     setIsRejecting(true)
 
     try {
-      // Update leave request status to rejected
-      await fetch("/api/leave-requests", {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          id: request.id,
-          status: "rejected",
-        }),
-      })
-
-      // Add approval history
-      await fetch("/api/approvals", {
+      const response = await fetch("/api/workflow", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          leaveRequestId: request.id,
+          action: "reject",
+          requestId: request.id,
           approverNik: user.nik,
-          approverName: user.nama,
           approverRole: user.role,
-          action: "rejected",
           notes: notes,
         }),
       })
+
+      const result = await response.json()
+
+      if (!result.success) {
+        setError(result.error || "Gagal menolak pengajuan")
+        return
+      }
 
       setNotes("")
       onReject?.()
@@ -158,6 +138,12 @@ export function ApprovalCard({
               <p className="text-xs text-slate-500">Departemen</p>
               <p className="font-medium text-slate-900">{request.departemen}</p>
             </div>
+            {showSite && (
+              <div>
+                <p className="text-xs text-slate-500">Site</p>
+                <p className="font-medium text-slate-900">{request.site}</p>
+              </div>
+            )}
             <div className="flex items-start gap-2">
               <Calendar className="h-4 w-4 text-slate-500 mt-0.5 flex-shrink-0" />
               <div>

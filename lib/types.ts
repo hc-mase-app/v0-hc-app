@@ -1,6 +1,14 @@
 export type UserRole = "user" | "hr_site" | "dic" | "pjo_site" | "hr_ho" | "hr_ticketing" | "super_admin"
 
-export type LeaveStatus = "pending_dic" | "pending_pjo" | "pending_hr_ho" | "approved" | "rejected"
+export type LeaveStatus =
+  | "pending_dic"
+  | "pending_pjo"
+  | "pending_hr_ho"
+  | "di_proses"
+  | "tiket_issued"
+  | "ditolak_dic"
+  | "ditolak_pjo"
+  | "ditolak_hr_ho"
 
 export interface User {
   id: string

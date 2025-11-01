@@ -44,12 +44,8 @@ export default function HRSiteDashboard() {
     if (!user) return
 
     try {
-      const response = await fetch(
-        `/api/leave-requests?type=site-dept&site=${encodeURIComponent(user.site)}&departemen=${encodeURIComponent(user.departemen)}`,
-      )
+      const response = await fetch(`/api/workflow?action=all&role=hr_site&site=${encodeURIComponent(user.site)}`)
       const data = await response.json()
-
-      console.log("[v0] HR Site loaded", data.length, "requests from site:", user.site, "dept:", user.departemen)
 
       const sortedRequests = data.sort(
         (a: LeaveRequest, b: LeaveRequest) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
@@ -62,8 +58,8 @@ export default function HRSiteDashboard() {
         pending: data.filter(
           (r: LeaveRequest) => r.status === "pending_dic" || r.status === "pending_pjo" || r.status === "pending_hr_ho",
         ).length,
-        approved: data.filter((r: LeaveRequest) => r.status === "approved").length,
-        rejected: data.filter((r: LeaveRequest) => r.status === "rejected").length,
+        approved: data.filter((r: LeaveRequest) => r.status === "di_proses" || r.status === "tiket_issued").length,
+        rejected: data.filter((r: LeaveRequest) => r.status?.includes("ditolak")).length,
       }
       setStats(stats)
     } catch (error) {
@@ -82,9 +78,9 @@ export default function HRSiteDashboard() {
           ),
         )
       } else if (activeTab === "approved") {
-        setFilteredRequests(requests.filter((r) => r.status === "approved"))
+        setFilteredRequests(requests.filter((r) => r.status === "di_proses" || r.status === "tiket_issued"))
       } else if (activeTab === "rejected") {
-        setFilteredRequests(requests.filter((r) => r.status === "rejected"))
+        setFilteredRequests(requests.filter((r) => r.status?.includes("ditolak")))
       }
       return
     }
@@ -97,9 +93,9 @@ export default function HRSiteDashboard() {
         (r) => r.status === "pending_dic" || r.status === "pending_pjo" || r.status === "pending_hr_ho",
       )
     } else if (activeTab === "approved") {
-      baseRequests = requests.filter((r) => r.status === "approved")
+      baseRequests = requests.filter((r) => r.status === "di_proses" || r.status === "tiket_issued")
     } else if (activeTab === "rejected") {
-      baseRequests = requests.filter((r) => r.status === "rejected")
+      baseRequests = requests.filter((r) => r.status?.includes("ditolak"))
     }
 
     const filtered = baseRequests.filter((request) => {
@@ -170,8 +166,8 @@ export default function HRSiteDashboard() {
         {/* Actions */}
         <div className="flex justify-between items-center">
           <div>
-            <h2 className="text-2xl font-bold text-slate-900">Pengajuan Izin Saya</h2>
-            <p className="text-sm text-slate-600">Kelola dan pantau pengajuan izin yang Anda buat</p>
+            <h2 className="text-2xl font-bold text-slate-900">Pengajuan Izin</h2>
+            <p className="text-sm text-slate-600">Kelola pengajuan izin untuk site {user.site}</p>
           </div>
           <Button onClick={() => setIsNewRequestOpen(true)}>
             <Plus className="h-4 w-4 mr-2" />
