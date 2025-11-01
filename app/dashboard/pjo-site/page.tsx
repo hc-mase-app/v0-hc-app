@@ -44,36 +44,56 @@ export default function PJOSiteDashboard() {
     if (!user) return
 
     try {
-      console.log("[v0] PJO loadData - user site:", user.site)
+      console.log("[v0] PJO loadData - user:", {
+        id: user.id,
+        role: user.role,
+        site: user.site,
+        departemen: user.departemen,
+        name: user.name,
+      })
 
-      // Fetch pending requests for PJO (same site, all departments)
       const pendingRes = await fetch(`/api/leave-requests?type=pending-pjo&site=${encodeURIComponent(user.site)}`)
+      console.log("[v0] PJO pending response status:", pendingRes.status)
       const pending = await pendingRes.json()
-      console.log("[v0] PJO pending requests:", pending.length, "requests fetched")
-      setPendingRequests(
-        pending.sort(
-          (a: LeaveRequest, b: LeaveRequest) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime(),
-        ),
-      )
+      console.log("[v0] PJO pending requests response:", pending)
+      console.log("[v0] PJO pending requests count:", Array.isArray(pending) ? pending.length : "not an array")
 
-      // Fetch all requests from the same site
+      if (Array.isArray(pending)) {
+        setPendingRequests(
+          pending.sort(
+            (a: LeaveRequest, b: LeaveRequest) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime(),
+          ),
+        )
+      } else {
+        console.error("[v0] PJO pending is not an array:", pending)
+        setPendingRequests([])
+      }
+
       const allRes = await fetch(`/api/leave-requests?type=site&site=${encodeURIComponent(user.site)}`)
+      console.log("[v0] PJO all response status:", allRes.status)
       const all = await allRes.json()
-      console.log("[v0] PJO all requests:", all.length, "requests fetched")
-      setAllRequests(
-        all.sort(
-          (a: LeaveRequest, b: LeaveRequest) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
-        ),
-      )
+      console.log("[v0] PJO all requests response:", all)
+      console.log("[v0] PJO all requests count:", Array.isArray(all) ? all.length : "not an array")
+
+      if (Array.isArray(all)) {
+        setAllRequests(
+          all.sort(
+            (a: LeaveRequest, b: LeaveRequest) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
+          ),
+        )
+      } else {
+        console.error("[v0] PJO all is not an array:", all)
+        setAllRequests([])
+      }
 
       // Calculate stats
       setStats({
-        total: all.length,
-        pendingDIC: all.filter((r: LeaveRequest) => r.status === "pending_dic").length,
-        pendingPJO: pending.length,
-        pendingHRHO: all.filter((r: LeaveRequest) => r.status === "pending_hr_ho").length,
-        approved: all.filter((r: LeaveRequest) => r.status === "approved").length,
-        rejected: all.filter((r: LeaveRequest) => r.status === "rejected").length,
+        total: Array.isArray(all) ? all.length : 0,
+        pendingDIC: Array.isArray(all) ? all.filter((r: LeaveRequest) => r.status === "pending_dic").length : 0,
+        pendingPJO: Array.isArray(pending) ? pending.length : 0,
+        pendingHRHO: Array.isArray(all) ? all.filter((r: LeaveRequest) => r.status === "pending_hr_ho").length : 0,
+        approved: Array.isArray(all) ? all.filter((r: LeaveRequest) => r.status === "approved").length : 0,
+        rejected: Array.isArray(all) ? all.filter((r: LeaveRequest) => r.status === "rejected").length : 0,
       })
     } catch (error) {
       console.error("[v0] PJO Error loading data:", error)

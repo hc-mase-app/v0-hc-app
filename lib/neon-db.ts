@@ -358,16 +358,16 @@ export async function getPendingRequestsForPJO(site: string) {
   try {
     console.log("[v0] getPendingRequestsForPJO called with site:", site)
 
-    const result = (await sql`
+    const result = await sql`
       SELECT 
         lr.*,
         u.name, u.site, u.jabatan, u.departemen, u.poh, u.status_karyawan,
         u.no_ktp, u.no_telp, u.email, u.tanggal_lahir, u.jenis_kelamin
       FROM leave_requests lr
       LEFT JOIN users u ON lr.nik = u.nik
-      WHERE lr.status = 'pending_pjo' AND u.site = $1
+      WHERE lr.status = 'pending_pjo' AND u.site = ${site}
       ORDER BY lr.created_at DESC
-    `) as any
+    `
 
     console.log("[v0] getPendingRequestsForPJO found", result.length, "requests for site:", site)
 

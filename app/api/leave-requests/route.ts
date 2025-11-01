@@ -23,7 +23,7 @@ export async function GET(request: NextRequest) {
     const site = searchParams.get("site")
     const departemen = searchParams.get("departemen")
 
-    console.log("[v0] GET /api/leave-requests called with params:", { type, userId, status, site, departemen })
+    console.log("[v0] GET /api/leave-requests called:", { type, userId, status, site, departemen })
 
     let result
 
@@ -42,18 +42,20 @@ export async function GET(request: NextRequest) {
     } else if (type === "pending-dic" && site) {
       result = await getPendingRequestsForDIC(site)
     } else if (type === "pending-pjo" && site) {
+      console.log("[v0] Calling getPendingRequestsForPJO with site:", site)
       result = await getPendingRequestsForPJO(site)
+      console.log("[v0] getPendingRequestsForPJO returned:", result)
     } else if (type === "pending-hr-ho") {
       result = await getPendingRequestsForHRHO()
     } else {
       result = await getLeaveRequests()
     }
 
-    console.log("[v0] Returning", result.length, "leave requests")
+    console.log("[v0] API returning result:", result)
     return NextResponse.json(result)
   } catch (error) {
-    console.error("[v0] Error fetching leave requests:", error)
-    return NextResponse.json({ error: "Terjadi kesalahan" }, { status: 500 })
+    console.error("[v0] API error:", error)
+    return NextResponse.json({ error: String(error) }, { status: 500 })
   }
 }
 
