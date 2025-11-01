@@ -7,7 +7,6 @@ import { Badge } from "@/components/ui/badge"
 import { Textarea } from "@/components/ui/textarea"
 import { Label } from "@/components/ui/label"
 import type { LeaveRequest } from "@/lib/types"
-import { Database } from "@/lib/database"
 import { formatDate, getStatusLabel, getStatusColor } from "@/lib/utils"
 import { Calendar, CheckCircle, XCircle, Eye } from "lucide-react"
 import { Alert, AlertDescription } from "@/components/ui/alert"
@@ -35,7 +34,7 @@ export function ApprovalCard({
   const [notes, setNotes] = useState("")
   const [error, setError] = useState("")
 
-  const handleApprove = () => {
+  const handleApprove = async () => {
     if (!user || !notes.trim()) {
       setError("Catatan harus diisi")
       return
@@ -44,14 +43,52 @@ export function ApprovalCard({
     setError("")
     setIsApproving(true)
 
-    Database.approveRequest(request.id, user.id, user.nama, user.role, notes)
+    try {
+      // Determine next status based on current status and user role
+      let nextStatus = request.status
+      if (request.status === "pending_dic") {
+        nextStatus = "pending_pjo"
+      } else if (request.status === "pending_pjo") {
+        nextStatus = "pending_hr_ho"
+      } else if (request.status === "pending_hr_ho") {
+        nextStatus = "approved"
+      }
 
-    setNotes("")
-    setIsApproving(false)
-    onApprove?.()
+      // Update leave request status
+      await fetch("/api/leave-requests", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          id: request.id,
+          status: nextStatus,
+        }),
+      })
+
+      // Add approval history
+      await fetch("/api/approvals", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          leaveRequestId: request.id,
+          approverNik: user.nik,
+          approverName: user.nama,
+          approverRole: user.role,
+          action: "approved",
+          notes: notes,
+        }),
+      })
+
+      setNotes("")
+      onApprove?.()
+    } catch (error) {
+      console.error("Error approving request:", error)
+      setError("Gagal menyetujui pengajuan")
+    } finally {
+      setIsApproving(false)
+    }
   }
 
-  const handleReject = () => {
+  const handleReject = async () => {
     if (!user || !notes.trim()) {
       setError("Catatan penolakan harus diisi")
       return
@@ -60,11 +97,39 @@ export function ApprovalCard({
     setError("")
     setIsRejecting(true)
 
-    Database.rejectRequest(request.id, user.id, user.nama, user.role, notes)
+    try {
+      // Update leave request status to rejected
+      await fetch("/api/leave-requests", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          id: request.id,
+          status: "rejected",
+        }),
+      })
 
-    setNotes("")
-    setIsRejecting(false)
-    onReject?.()
+      // Add approval history
+      await fetch("/api/approvals", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          leaveRequestId: request.id,
+          approverNik: user.nik,
+          approverName: user.nama,
+          approverRole: user.role,
+          action: "rejected",
+          notes: notes,
+        }),
+      })
+
+      setNotes("")
+      onReject?.()
+    } catch (error) {
+      console.error("Error rejecting request:", error)
+      setError("Gagal menolak pengajuan")
+    } finally {
+      setIsRejecting(false)
+    }
   }
 
   return (

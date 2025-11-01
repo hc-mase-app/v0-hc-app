@@ -5,14 +5,13 @@ import { useAuth } from "@/lib/auth-context"
 import { useRouter } from "next/navigation"
 import { DashboardLayout } from "@/components/dashboard-layout"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Clock, CheckCircle, XCircle, FileText, Building2 } from "lucide-react"
+import { Clock, CheckCircle, XCircle, FileText } from "lucide-react"
 import type { LeaveRequest } from "@/lib/types"
 import { ApprovalCard } from "@/components/approval-card"
 import { LeaveRequestDetailDialog } from "@/components/leave-request-detail-dialog"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { SITES } from "@/lib/mock-data"
 
-export default function HRHODashboard() {
+export default function PJOSiteDashboard() {
   const { user, isAuthenticated } = useAuth()
   const router = useRouter()
   const [pendingRequests, setPendingRequests] = useState<LeaveRequest[]>([])
@@ -26,7 +25,6 @@ export default function HRHODashboard() {
     rejected: 0,
   })
   const [selectedRequest, setSelectedRequest] = useState<LeaveRequest | null>(null)
-  const [selectedSite, setSelectedSite] = useState<string>("all")
 
   useEffect(() => {
     if (!isAuthenticated || !user) {
@@ -34,7 +32,7 @@ export default function HRHODashboard() {
       return
     }
 
-    if (user.role !== "hr_ho") {
+    if (user.role !== "pjo_site") {
       router.push("/dashboard")
       return
     }
@@ -43,9 +41,11 @@ export default function HRHODashboard() {
   }, [user, isAuthenticated, router])
 
   const loadData = async () => {
+    if (!user) return
+
     try {
-      // Fetch pending requests for HR HO (all sites, all departments)
-      const pendingRes = await fetch("/api/leave-requests?type=pending-hr-ho")
+      // Fetch pending requests for PJO (same site, all departments)
+      const pendingRes = await fetch(`/api/leave-requests?type=pending-pjo&site=${encodeURIComponent(user.site)}`)
       const pending = await pendingRes.json()
       setPendingRequests(
         pending.sort(
@@ -53,8 +53,8 @@ export default function HRHODashboard() {
         ),
       )
 
-      // Fetch all requests
-      const allRes = await fetch("/api/leave-requests")
+      // Fetch all requests from the same site
+      const allRes = await fetch(`/api/leave-requests?type=site&site=${encodeURIComponent(user.site)}`)
       const all = await allRes.json()
       setAllRequests(
         all.sort(
@@ -66,8 +66,8 @@ export default function HRHODashboard() {
       setStats({
         total: all.length,
         pendingDIC: all.filter((r: LeaveRequest) => r.status === "pending_dic").length,
-        pendingPJO: all.filter((r: LeaveRequest) => r.status === "pending_pjo").length,
-        pendingHRHO: pending.length,
+        pendingPJO: pending.length,
+        pendingHRHO: all.filter((r: LeaveRequest) => r.status === "pending_hr_ho").length,
         approved: all.filter((r: LeaveRequest) => r.status === "approved").length,
         rejected: all.filter((r: LeaveRequest) => r.status === "rejected").length,
       })
@@ -81,12 +81,10 @@ export default function HRHODashboard() {
     setSelectedRequest(null)
   }
 
-  const filteredAllRequests = selectedSite === "all" ? allRequests : allRequests.filter((r) => r.site === selectedSite)
-
   if (!user) return null
 
   return (
-    <DashboardLayout title="Dashboard HR Head Office">
+    <DashboardLayout title="Dashboard PJO Site">
       <div className="space-y-6">
         {/* Stats Cards */}
         <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-4">
@@ -116,7 +114,7 @@ export default function HRHODashboard() {
               <Clock className="h-4 w-4 text-blue-600" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{stats.pendingPJO}</div>
+              <div className="text-2xl font-bold">{pendingRequests.length}</div>
             </CardContent>
           </Card>
 
@@ -126,7 +124,7 @@ export default function HRHODashboard() {
               <Clock className="h-4 w-4 text-purple-600" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{pendingRequests.length}</div>
+              <div className="text-2xl font-bold">{stats.pendingHRHO}</div>
             </CardContent>
           </Card>
 
@@ -160,9 +158,9 @@ export default function HRHODashboard() {
           <TabsContent value="pending">
             <Card>
               <CardHeader>
-                <CardTitle>Pengajuan Menunggu Persetujuan HR HO</CardTitle>
+                <CardTitle>Pengajuan Menunggu Persetujuan PJO Site</CardTitle>
                 <CardDescription>
-                  Pengajuan yang telah disetujui DIC dan PJO, menunggu persetujuan final dari HR HO
+                  Pengajuan dari site {user.site} yang telah disetujui DIC, menunggu persetujuan PJO
                 </CardDescription>
               </CardHeader>
               <CardContent>
@@ -180,7 +178,6 @@ export default function HRHODashboard() {
                         onApprove={handleApprovalAction}
                         onReject={handleApprovalAction}
                         onViewDetail={() => setSelectedRequest(request)}
-                        showSite
                       />
                     ))}
                   </div>
@@ -192,42 +189,22 @@ export default function HRHODashboard() {
           <TabsContent value="all">
             <Card>
               <CardHeader>
-                <div className="flex justify-between items-center">
-                  <div>
-                    <CardTitle>Semua Pengajuan</CardTitle>
-                    <CardDescription>Lihat semua pengajuan dari seluruh site</CardDescription>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Building2 className="h-4 w-4 text-slate-500" />
-                    <select
-                      className="border border-slate-300 rounded-md px-3 py-1.5 text-sm"
-                      value={selectedSite}
-                      onChange={(e) => setSelectedSite(e.target.value)}
-                    >
-                      <option value="all">Semua Site</option>
-                      {SITES.map((site) => (
-                        <option key={site} value={site}>
-                          {site}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                </div>
+                <CardTitle>Semua Pengajuan dari Site {user.site}</CardTitle>
+                <CardDescription>Lihat semua pengajuan dari site Anda</CardDescription>
               </CardHeader>
               <CardContent>
-                {filteredAllRequests.length === 0 ? (
+                {allRequests.length === 0 ? (
                   <div className="text-center py-12">
                     <FileText className="h-12 w-12 text-slate-300 mx-auto mb-4" />
                     <p className="text-slate-600">Tidak ada pengajuan</p>
                   </div>
                 ) : (
                   <div className="space-y-4">
-                    {filteredAllRequests.map((request) => (
+                    {allRequests.map((request) => (
                       <ApprovalCard
                         key={request.id}
                         request={request}
                         onViewDetail={() => setSelectedRequest(request)}
-                        showSite
                         readOnly
                       />
                     ))}
