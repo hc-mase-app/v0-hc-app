@@ -32,17 +32,17 @@ function transformLeaveRequestData(dbRequest: any) {
   return {
     id: dbRequest.id,
     userNik: dbRequest.nik,
-    userName: dbRequest.user_name || dbRequest.nik, // fallback to NIK if name not available
-    site: dbRequest.site,
-    jabatan: dbRequest.jabatan,
-    departemen: dbRequest.departemen,
-    poh: dbRequest.poh,
-    statusKaryawan: dbRequest.status_karyawan,
-    noKtp: dbRequest.no_ktp,
-    noTelp: dbRequest.no_telp,
-    email: dbRequest.email,
-    tanggalLahir: dbRequest.tanggal_lahir,
-    jenisKelamin: dbRequest.jenis_kelamin,
+    userName: dbRequest.user_name || dbRequest.name || dbRequest.nik, // Get name from joined users table
+    site: dbRequest.site, // From joined users table
+    jabatan: dbRequest.jabatan, // From joined users table
+    departemen: dbRequest.departemen, // From joined users table
+    poh: dbRequest.poh, // From joined users table
+    statusKaryawan: dbRequest.status_karyawan, // From joined users table
+    noKtp: dbRequest.no_ktp, // From joined users table
+    noTelp: dbRequest.no_telp, // From joined users table
+    email: dbRequest.email, // From joined users table
+    tanggalLahir: dbRequest.tanggal_lahir, // From joined users table
+    jenisKelamin: dbRequest.jenis_kelamin, // From joined users table
     jenisPengajuanCuti: dbRequest.jenis_cuti,
     jenisCuti: dbRequest.jenis_cuti,
     tanggalPengajuan: dbRequest.tanggal_pengajuan,
@@ -57,7 +57,7 @@ function transformLeaveRequestData(dbRequest: any) {
     tanggalCutiPeriodikBerikutnya: dbRequest.cuti_periodik_berikutnya,
     cutiPeriodikBerikutnya: dbRequest.cuti_periodik_berikutnya,
     catatan: dbRequest.catatan,
-    alasan: dbRequest.catatan, // alias for compatibility
+    alasan: dbRequest.catatan,
     status: dbRequest.status,
     submittedBy: dbRequest.submitted_by,
     bookingCode: dbRequest.booking_code,
@@ -220,7 +220,15 @@ export async function deleteUser(id: string) {
 
 export async function getLeaveRequests() {
   try {
-    const result = await sql`SELECT * FROM leave_requests ORDER BY created_at DESC`
+    const result = await sql`
+      SELECT 
+        lr.*,
+        u.name, u.site, u.jabatan, u.departemen, u.poh, u.status_karyawan,
+        u.no_ktp, u.no_telp, u.email, u.tanggal_lahir, u.jenis_kelamin
+      FROM leave_requests lr
+      LEFT JOIN users u ON lr.nik = u.nik
+      ORDER BY lr.created_at DESC
+    `
     return result.map(transformLeaveRequestData)
   } catch (error) {
     console.error("Error fetching leave requests:", error)
@@ -230,7 +238,15 @@ export async function getLeaveRequests() {
 
 export async function getLeaveRequestById(id: string) {
   try {
-    const result = await sql`SELECT * FROM leave_requests WHERE id = ${id}`
+    const result = await sql`
+      SELECT 
+        lr.*,
+        u.name, u.site, u.jabatan, u.departemen, u.poh, u.status_karyawan,
+        u.no_ktp, u.no_telp, u.email, u.tanggal_lahir, u.jenis_kelamin
+      FROM leave_requests lr
+      LEFT JOIN users u ON lr.nik = u.nik
+      WHERE lr.id = ${id}
+    `
     return transformLeaveRequestData(result[0])
   } catch (error) {
     console.error("Error fetching leave request:", error)
@@ -241,9 +257,14 @@ export async function getLeaveRequestById(id: string) {
 export async function getLeaveRequestsByUserId(userId: string) {
   try {
     const result = await sql`
-      SELECT * FROM leave_requests 
-      WHERE nik = ${userId} 
-      ORDER BY created_at DESC
+      SELECT 
+        lr.*,
+        u.name, u.site, u.jabatan, u.departemen, u.poh, u.status_karyawan,
+        u.no_ktp, u.no_telp, u.email, u.tanggal_lahir, u.jenis_kelamin
+      FROM leave_requests lr
+      LEFT JOIN users u ON lr.nik = u.nik
+      WHERE lr.nik = ${userId}
+      ORDER BY lr.created_at DESC
     `
     return result.map(transformLeaveRequestData)
   } catch (error) {
@@ -255,9 +276,14 @@ export async function getLeaveRequestsByUserId(userId: string) {
 export async function getLeaveRequestsBySite(site: string) {
   try {
     const result = await sql`
-      SELECT * FROM leave_requests 
-      WHERE site = ${site} 
-      ORDER BY created_at DESC
+      SELECT 
+        lr.*,
+        u.name, u.site, u.jabatan, u.departemen, u.poh, u.status_karyawan,
+        u.no_ktp, u.no_telp, u.email, u.tanggal_lahir, u.jenis_kelamin
+      FROM leave_requests lr
+      LEFT JOIN users u ON lr.nik = u.nik
+      WHERE u.site = ${site}
+      ORDER BY lr.created_at DESC
     `
     return result.map(transformLeaveRequestData)
   } catch (error) {
@@ -269,9 +295,14 @@ export async function getLeaveRequestsBySite(site: string) {
 export async function getLeaveRequestsByStatus(status: string) {
   try {
     const result = await sql`
-      SELECT * FROM leave_requests 
-      WHERE status = ${status} 
-      ORDER BY created_at DESC
+      SELECT 
+        lr.*,
+        u.name, u.site, u.jabatan, u.departemen, u.poh, u.status_karyawan,
+        u.no_ktp, u.no_telp, u.email, u.tanggal_lahir, u.jenis_kelamin
+      FROM leave_requests lr
+      LEFT JOIN users u ON lr.nik = u.nik
+      WHERE lr.status = ${status}
+      ORDER BY lr.created_at DESC
     `
     return result.map(transformLeaveRequestData)
   } catch (error) {
@@ -283,9 +314,14 @@ export async function getLeaveRequestsByStatus(status: string) {
 export async function getPendingRequestsForDIC(site: string) {
   try {
     const result = await sql`
-      SELECT * FROM leave_requests 
-      WHERE status = 'pending_dic' AND site = ${site} 
-      ORDER BY created_at DESC
+      SELECT 
+        lr.*,
+        u.name, u.site, u.jabatan, u.departemen, u.poh, u.status_karyawan,
+        u.no_ktp, u.no_telp, u.email, u.tanggal_lahir, u.jenis_kelamin
+      FROM leave_requests lr
+      LEFT JOIN users u ON lr.nik = u.nik
+      WHERE lr.status = 'pending_dic' AND u.site = ${site}
+      ORDER BY lr.created_at DESC
     `
     return result.map(transformLeaveRequestData)
   } catch (error) {
@@ -297,9 +333,14 @@ export async function getPendingRequestsForDIC(site: string) {
 export async function getPendingRequestsForDICBySiteDept(site: string, departemen: string) {
   try {
     const result = await sql`
-      SELECT * FROM leave_requests 
-      WHERE status = 'pending_dic' AND site = ${site} AND departemen = ${departemen}
-      ORDER BY created_at DESC
+      SELECT 
+        lr.*,
+        u.name, u.site, u.jabatan, u.departemen, u.poh, u.status_karyawan,
+        u.no_ktp, u.no_telp, u.email, u.tanggal_lahir, u.jenis_kelamin
+      FROM leave_requests lr
+      LEFT JOIN users u ON lr.nik = u.nik
+      WHERE lr.status = 'pending_dic' AND u.site = ${site} AND u.departemen = ${departemen}
+      ORDER BY lr.created_at DESC
     `
     return result.map(transformLeaveRequestData)
   } catch (error) {
@@ -311,9 +352,14 @@ export async function getPendingRequestsForDICBySiteDept(site: string, departeme
 export async function getPendingRequestsForPJO(site: string) {
   try {
     const result = await sql`
-      SELECT * FROM leave_requests 
-      WHERE status = 'pending_pjo' AND site = ${site} 
-      ORDER BY created_at DESC
+      SELECT 
+        lr.*,
+        u.name, u.site, u.jabatan, u.departemen, u.poh, u.status_karyawan,
+        u.no_ktp, u.no_telp, u.email, u.tanggal_lahir, u.jenis_kelamin
+      FROM leave_requests lr
+      LEFT JOIN users u ON lr.nik = u.nik
+      WHERE lr.status = 'pending_pjo' AND u.site = ${site}
+      ORDER BY lr.created_at DESC
     `
     return result.map(transformLeaveRequestData)
   } catch (error) {
@@ -325,9 +371,14 @@ export async function getPendingRequestsForPJO(site: string) {
 export async function getPendingRequestsForHRHO() {
   try {
     const result = await sql`
-      SELECT * FROM leave_requests 
-      WHERE status = 'pending_hr_ho' 
-      ORDER BY created_at DESC
+      SELECT 
+        lr.*,
+        u.name, u.site, u.jabatan, u.departemen, u.poh, u.status_karyawan,
+        u.no_ktp, u.no_telp, u.email, u.tanggal_lahir, u.jenis_kelamin
+      FROM leave_requests lr
+      LEFT JOIN users u ON lr.nik = u.nik
+      WHERE lr.status = 'pending_hr_ho'
+      ORDER BY lr.created_at DESC
     `
     return result.map(transformLeaveRequestData)
   } catch (error) {
@@ -339,9 +390,14 @@ export async function getPendingRequestsForHRHO() {
 export async function getApprovedRequests() {
   try {
     const result = await sql`
-      SELECT * FROM leave_requests 
-      WHERE status = 'approved' 
-      ORDER BY created_at DESC
+      SELECT 
+        lr.*,
+        u.name, u.site, u.jabatan, u.departemen, u.poh, u.status_karyawan,
+        u.no_ktp, u.no_telp, u.email, u.tanggal_lahir, u.jenis_kelamin
+      FROM leave_requests lr
+      LEFT JOIN users u ON lr.nik = u.nik
+      WHERE lr.status = 'approved'
+      ORDER BY lr.created_at DESC
     `
     return result.map(transformLeaveRequestData)
   } catch (error) {
@@ -418,9 +474,14 @@ export async function deleteLeaveRequest(id: string) {
 export async function getLeaveRequestsSubmittedBy(userId: string) {
   try {
     const result = await sql`
-      SELECT * FROM leave_requests 
-      WHERE submitted_by = ${userId} 
-      ORDER BY created_at DESC
+      SELECT 
+        lr.*,
+        u.name, u.site, u.jabatan, u.departemen, u.poh, u.status_karyawan,
+        u.no_ktp, u.no_telp, u.email, u.tanggal_lahir, u.jenis_kelamin
+      FROM leave_requests lr
+      LEFT JOIN users u ON lr.nik = u.nik
+      WHERE lr.submitted_by = ${userId}
+      ORDER BY lr.created_at DESC
     `
     return result.map(transformLeaveRequestData)
   } catch (error) {
