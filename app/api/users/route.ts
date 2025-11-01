@@ -34,13 +34,17 @@ export async function POST(request: NextRequest) {
       email: data.email,
       role: data.role,
       hasPassword: !!data.password,
+      tanggal_lahir: data.tanggal_lahir,
+      jenis_kelamin: data.jenis_kelamin,
+      status_karyawan: data.status_karyawan,
     })
     const result = await addUser(data)
     console.log("[v0] User created successfully:", result.id)
     return NextResponse.json(result)
   } catch (error) {
     console.error("[v0] Error creating user:", error)
-    return NextResponse.json({ error: "Terjadi kesalahan" }, { status: 500 })
+    const errorMessage = error instanceof Error ? error.message : "Terjadi kesalahan"
+    return NextResponse.json({ error: errorMessage }, { status: 500 })
   }
 }
 

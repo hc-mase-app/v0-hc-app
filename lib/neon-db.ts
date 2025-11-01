@@ -79,6 +79,16 @@ export async function addUser(user: any) {
       hasPassword: !!user.password,
     })
 
+    const tanggalLahir = user.tanggalLahir || user.tanggal_lahir || "1970-01-01"
+    const jenisKelamin = user.jenisKelamin || user.jenis_kelamin || "Laki-laki"
+    const statusKaryawan = user.statusKaryawan || user.status_karyawan || "Tetap"
+    const site = user.site || "HO"
+    const jabatan = user.jabatan || "Staff"
+    const departemen = user.departemen || "General"
+    const poh = user.poh || "Head Office"
+    const noKtp = user.noKtp || user.no_ktp || "0000000000000000"
+    const noTelp = user.noTelp || user.no_telp || "08000000000"
+
     const result = await sql`
       INSERT INTO users (
         nik, name, email, password, role, site, jabatan, departemen, poh, 
@@ -90,15 +100,15 @@ export async function addUser(user: any) {
         ${user.email}, 
         ${user.password}, 
         ${user.role}, 
-        ${user.site || null}, 
-        ${user.jabatan || null}, 
-        ${user.departemen || null}, 
-        ${user.poh || null},
-        ${user.statusKaryawan || user.status_karyawan || null}, 
-        ${user.noKtp || user.no_ktp || null}, 
-        ${user.noTelp || user.no_telp || null}, 
-        ${user.tanggalLahir || user.tanggal_lahir || null}, 
-        ${user.jenisKelamin || user.jenis_kelamin || null}
+        ${site}, 
+        ${jabatan}, 
+        ${departemen}, 
+        ${poh},
+        ${statusKaryawan}, 
+        ${noKtp}, 
+        ${noTelp}, 
+        ${tanggalLahir}, 
+        ${jenisKelamin}
       )
       RETURNING *
     `
