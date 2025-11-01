@@ -202,7 +202,7 @@ export async function getLeaveRequestsByUserId(userId: string) {
   try {
     const result = await sql`
       SELECT * FROM leave_requests 
-      WHERE user_nik = ${userId} 
+      WHERE nik = ${userId} 
       ORDER BY created_at DESC
     `
     return result
@@ -298,30 +298,34 @@ export async function getApprovedRequests() {
 
 export async function addLeaveRequest(request: any) {
   try {
+    console.log("[v0] addLeaveRequest called with data:", request)
+
+    // Only inserting columns that exist in the database schema
     const result = await sql`
       INSERT INTO leave_requests (
-        user_nik, user_name, site, jabatan, departemen, poh, status_karyawan,
-        no_ktp, no_telp, email, jenis_cuti, tanggal_pengajuan, periode_awal,
-        periode_akhir, jumlah_hari, berangkat_dari, tujuan, tanggal_keberangkatan,
-        cuti_periodik_berikutnya, catatan, status, submitted_by,
-        tanggal_lahir, jenis_kelamin, booking_code
+        nik, jenis_cuti, tanggal_pengajuan, periode_awal,
+        periode_akhir, jumlah_hari, berangkat_dari, tujuan,
+        cuti_periodik_berikutnya, catatan, status, submitted_by
       ) VALUES (
-        ${request.userNik}, ${request.userName}, ${request.site}, 
-        ${request.jabatan}, ${request.departemen}, ${request.poh}, 
-        ${request.statusKaryawan}, ${request.noKtp}, ${request.noTelp}, 
-        ${request.email}, ${request.jenisCuti}, ${request.tanggalPengajuan}, 
-        ${request.periodeAwal}, ${request.periodeAkhir}, ${request.jumlahHari}, 
-        ${request.berangkatDari}, ${request.tujuan}, ${request.tanggalKeberangkatan || null},
-        ${request.cutiPeriodikBerikutnya || null}, ${request.catatan || null}, 
-        ${request.status}, ${request.submittedBy || null},
-        ${request.tanggalLahir || null}, ${request.jenisKelamin || null}, 
-        ${request.bookingCode || null}
+        ${request.userNik || request.nik}, 
+        ${request.jenisCuti || request.jenisPengajuanCuti}, 
+        ${request.tanggalPengajuan}, 
+        ${request.periodeAwal || request.tanggalMulai}, 
+        ${request.periodeAkhir || request.tanggalSelesai}, 
+        ${request.jumlahHari}, 
+        ${request.berangkatDari || null}, 
+        ${request.tujuan || null},
+        ${request.cutiPeriodikBerikutnya || request.tanggalCutiPeriodikBerikutnya || null}, 
+        ${request.catatan || null}, 
+        ${request.status || "pending_dic"}, 
+        ${request.submittedBy || null}
       )
       RETURNING *
     `
+    console.log("[v0] Leave request created successfully with ID:", result[0].id)
     return result[0]
   } catch (error) {
-    console.error("Error adding leave request:", error)
+    console.error("[v0] Error adding leave request:", error)
     throw error
   }
 }
