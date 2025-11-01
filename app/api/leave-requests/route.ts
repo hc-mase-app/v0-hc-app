@@ -5,6 +5,7 @@ import {
   getLeaveRequestsSubmittedBy,
   getLeaveRequestsByStatus,
   getLeaveRequestsBySite,
+  getLeaveRequestsBySiteDept,
   getPendingRequestsForDIC,
   getPendingRequestsForDICBySiteDept,
   getPendingRequestsForPJO,
@@ -22,6 +23,8 @@ export async function GET(request: NextRequest) {
     const site = searchParams.get("site")
     const departemen = searchParams.get("departemen")
 
+    console.log("[v0] GET /api/leave-requests called with params:", { type, userId, status, site, departemen })
+
     let result
 
     if (type === "submitted-by" && userId) {
@@ -30,6 +33,8 @@ export async function GET(request: NextRequest) {
       result = await getLeaveRequestsByUserId(userId)
     } else if (type === "status" && status) {
       result = await getLeaveRequestsByStatus(status)
+    } else if (type === "site-dept" && site && departemen) {
+      result = await getLeaveRequestsBySiteDept(site, departemen)
     } else if (type === "site" && site) {
       result = await getLeaveRequestsBySite(site)
     } else if (type === "pending-dic" && site && departemen) {
@@ -44,9 +49,10 @@ export async function GET(request: NextRequest) {
       result = await getLeaveRequests()
     }
 
+    console.log("[v0] Returning", result.length, "leave requests")
     return NextResponse.json(result)
   } catch (error) {
-    console.error("Error fetching leave requests:", error)
+    console.error("[v0] Error fetching leave requests:", error)
     return NextResponse.json({ error: "Terjadi kesalahan" }, { status: 500 })
   }
 }

@@ -54,26 +54,27 @@ export default function DICDashboard() {
         ),
       )
 
-      // Fetch all requests for this site
-      const allResponse = await fetch(`/api/leave-requests?type=site&site=${encodeURIComponent(user.site)}`)
+      const allResponse = await fetch(
+        `/api/leave-requests?type=site-dept&site=${encodeURIComponent(user.site)}&departemen=${encodeURIComponent(user.departemen)}`,
+      )
       const allData = await allResponse.json()
 
-      // Filter by department
-      const deptRequests = allData.filter((r: LeaveRequest) => r.departemen === user.departemen)
+      console.log("[v0] DIC loaded", allData.length, "requests from site:", user.site, "dept:", user.departemen)
+
       setAllRequests(
-        deptRequests.sort(
+        allData.sort(
           (a: LeaveRequest, b: LeaveRequest) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
         ),
       )
-      setFilteredRequests(deptRequests)
+      setFilteredRequests(allData)
 
       const siteStats = {
-        total: deptRequests.length,
-        pending: deptRequests.filter(
+        total: allData.length,
+        pending: allData.filter(
           (r: LeaveRequest) => r.status === "pending_dic" || r.status === "pending_pjo" || r.status === "pending_hr_ho",
         ).length,
-        approved: deptRequests.filter((r: LeaveRequest) => r.status === "approved").length,
-        rejected: deptRequests.filter((r: LeaveRequest) => r.status === "rejected").length,
+        approved: allData.filter((r: LeaveRequest) => r.status === "approved").length,
+        rejected: allData.filter((r: LeaveRequest) => r.status === "rejected").length,
       }
       setStats(siteStats)
     } catch (error) {

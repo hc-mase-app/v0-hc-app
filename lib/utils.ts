@@ -10,7 +10,10 @@ export function generateId(prefix = "id"): string {
 }
 
 export function formatDate(dateString: string): string {
+  if (!dateString) return "-"
   const date = new Date(dateString)
+  // Check if date is valid
+  if (isNaN(date.getTime())) return "-"
   return date.toLocaleDateString("id-ID", {
     year: "numeric",
     month: "long",
@@ -19,7 +22,10 @@ export function formatDate(dateString: string): string {
 }
 
 export function formatDateTime(dateString: string): string {
+  if (!dateString) return "-"
   const date = new Date(dateString)
+  // Check if date is valid
+  if (isNaN(date.getTime())) return "-"
   return date.toLocaleString("id-ID", {
     year: "numeric",
     month: "long",

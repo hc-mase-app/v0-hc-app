@@ -420,7 +420,7 @@ export async function addLeaveRequest(request: any) {
       INSERT INTO leave_requests (
         nik, jenis_cuti, tanggal_pengajuan, periode_awal,
         periode_akhir, jumlah_hari, berangkat_dari, tujuan,
-        cuti_periodik_berikutnya, catatan, status, submitted_by
+        tanggal_keberangkatan, cuti_periodik_berikutnya, catatan, status, submitted_by
       ) VALUES (
         ${request.userNik || request.nik}, 
         ${request.jenisCuti || request.jenisPengajuanCuti}, 
@@ -430,6 +430,7 @@ export async function addLeaveRequest(request: any) {
         ${request.jumlahHari}, 
         ${request.berangkatDari || null}, 
         ${request.tujuan || null},
+        ${request.tanggalKeberangkatan || request.periodeAwal || request.tanggalMulai || null}, 
         ${request.cutiPeriodikBerikutnya || request.tanggalCutiPeriodikBerikutnya || null}, 
         ${request.catatan || null}, 
         ${request.status || "pending_dic"}, 
@@ -500,6 +501,27 @@ export async function getLeaveRequestsSubmittedBy(userId: string) {
     return result.map(transformLeaveRequestData)
   } catch (error) {
     console.error("Error fetching leave requests submitted by user:", error)
+    return []
+  }
+}
+
+export async function getLeaveRequestsBySiteDept(site: string, departemen: string) {
+  try {
+    console.log("[v0] getLeaveRequestsBySiteDept called with site:", site, "departemen:", departemen)
+    const result = await sql`
+      SELECT 
+        lr.*,
+        u.name, u.site, u.jabatan, u.departemen, u.poh, u.status_karyawan,
+        u.no_ktp, u.no_telp, u.email, u.tanggal_lahir, u.jenis_kelamin
+      FROM leave_requests lr
+      LEFT JOIN users u ON lr.nik = u.nik
+      WHERE u.site = ${site} AND u.departemen = ${departemen}
+      ORDER BY lr.created_at DESC
+    `
+    console.log("[v0] getLeaveRequestsBySiteDept found", result.length, "requests")
+    return result.map(transformLeaveRequestData)
+  } catch (error) {
+    console.error("[v0] Error fetching leave requests by site/dept:", error)
     return []
   }
 }
