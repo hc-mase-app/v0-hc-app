@@ -187,20 +187,25 @@ export async function addUser(user: any) {
 
 export async function updateUser(id: string, updates: any) {
   try {
-    const setClause = Object.entries(updates)
-      .map(([key, value]) => {
-        const dbKey = key.replace(/([A-Z])/g, "_$1").toLowerCase()
-        return `${dbKey} = '${value}'`
-      })
-      .join(", ")
+    const fields = Object.keys(updates)
+    const values = Object.values(updates)
 
-    const result = await sql`
+    // Convert camelCase to snake_case for database columns
+    const dbFields = fields.map((key) => key.replace(/([A-Z])/g, "_$1").toLowerCase())
+
+    // Build SET clause parts
+    const setClauses = dbFields.map((field, index) => `${field} = $${index + 1}`).join(", ")
+
+    // Use sql.query for dynamic queries with placeholders
+    const queryText = `
       UPDATE users 
-      SET ${sql(setClause)}, updated_at = CURRENT_TIMESTAMP 
-      WHERE id = ${id} 
+      SET ${setClauses}, updated_at = CURRENT_TIMESTAMP 
+      WHERE id = $${values.length + 1}
       RETURNING *
     `
-    return transformUserData(result[0])
+
+    const result = await sql.query(queryText, [...values, id])
+    return transformUserData(result.rows[0])
   } catch (error) {
     console.error("Error updating user:", error)
     throw error
@@ -442,22 +447,31 @@ export async function addLeaveRequest(request: any) {
 
 export async function updateLeaveRequest(id: string, updates: any) {
   try {
-    const setClause = Object.entries(updates)
-      .map(([key, value]) => {
-        const dbKey = key.replace(/([A-Z])/g, "_$1").toLowerCase()
-        return `${dbKey} = '${value}'`
-      })
-      .join(", ")
+    console.log("[v0] updateLeaveRequest called with id:", id, "updates:", updates)
 
-    const result = await sql`
+    const fields = Object.keys(updates)
+    const values = Object.values(updates)
+
+    // Convert camelCase to snake_case for database columns
+    const dbFields = fields.map((key) => key.replace(/([A-Z])/g, "_$1").toLowerCase())
+
+    // Build SET clause parts
+    const setClauses = dbFields.map((field, index) => `${field} = $${index + 1}`).join(", ")
+
+    // Use sql.query for dynamic queries with placeholders
+    const queryText = `
       UPDATE leave_requests 
-      SET ${sql(setClause)}, updated_at = CURRENT_TIMESTAMP 
-      WHERE id = ${id} 
+      SET ${setClauses}, updated_at = CURRENT_TIMESTAMP 
+      WHERE id = $${values.length + 1}
       RETURNING *
     `
-    return result[0]
+
+    console.log("[v0] Executing query:", queryText, "with values:", [...values, id])
+    const result = await sql.query(queryText, [...values, id])
+    console.log("[v0] Update successful, result:", result.rows[0])
+    return result.rows[0]
   } catch (error) {
-    console.error("Error updating leave request:", error)
+    console.error("[v0] Error updating leave request:", error)
     throw error
   }
 }
