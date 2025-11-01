@@ -6,7 +6,6 @@ import { useRouter } from "next/navigation"
 import { DashboardLayout } from "@/components/dashboard-layout"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Users, UserPlus, Building2, Shield, Upload } from "lucide-react"
-import { Database } from "@/lib/database"
 import type { User } from "@/lib/types"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -51,9 +50,16 @@ export default function AdminDashboard() {
     loadData()
   }, [user, isAuthenticated, router])
 
-  const loadData = () => {
-    const allUsers = Database.getUsers()
-    setUsers(allUsers.sort((a, b) => a.nama.localeCompare(b.nama)))
+  const loadData = async () => {
+    try {
+      const response = await fetch("/api/users")
+      if (response.ok) {
+        const data = await response.json()
+        setUsers(data.sort((a: User, b: User) => a.nama.localeCompare(b.nama)))
+      }
+    } catch (error) {
+      console.error("Error loading users:", error)
+    }
   }
 
   const handleUserCreated = () => {
@@ -67,11 +73,19 @@ export default function AdminDashboard() {
     setEditingUser(null)
   }
 
-  const handleDeleteUser = () => {
+  const handleDeleteUser = async () => {
     if (deletingUser) {
-      Database.deleteUser(deletingUser.id)
-      loadData()
-      setDeletingUser(null)
+      try {
+        const response = await fetch(`/api/users?id=${deletingUser.id}`, {
+          method: "DELETE",
+        })
+        if (response.ok) {
+          loadData()
+          setDeletingUser(null)
+        }
+      } catch (error) {
+        console.error("Error deleting user:", error)
+      }
     }
   }
 

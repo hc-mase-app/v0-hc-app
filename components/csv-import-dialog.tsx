@@ -7,8 +7,6 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Alert, AlertDescription } from "@/components/ui/alert"
-import { Database } from "@/lib/database"
-import { generateId } from "@/lib/utils"
 import type { User, UserRole } from "@/lib/types"
 import { AlertCircle, CheckCircle2, Upload } from "lucide-react"
 
@@ -124,6 +122,9 @@ export function CSVImportDialog({ open, onOpenChange, onSuccess }: CSVImportDial
       const parsedUsers: ParsedUser[] = []
       const parseErrors: string[] = []
 
+      const existingUsersResponse = await fetch("/api/users")
+      const existingUsers = existingUsersResponse.ok ? await existingUsersResponse.json() : []
+
       for (let i = 1; i < lines.length; i++) {
         const values = parseCSVLine(lines[i])
         const row = i + 1
@@ -141,13 +142,6 @@ export function CSVImportDialog({ open, onOpenChange, onSuccess }: CSVImportDial
           const statusKaryawanIndex = headers.indexOf("status_karyawan")
           const noKtpIndex = headers.indexOf("no_ktp")
           const noTelpIndex = headers.indexOf("no_telp")
-
-          console.log(`[v0] Row ${row} values:`, {
-            nik: values[nikIndex],
-            password: values[passwordIndex],
-            totalValues: values.length,
-            totalHeaders: headers.length,
-          })
 
           const user: ParsedUser = {
             nik: values[nikIndex] || "",
@@ -180,8 +174,7 @@ export function CSVImportDialog({ open, onOpenChange, onSuccess }: CSVImportDial
           if (!user.noTelp) throw new Error("No Telp tidak boleh kosong")
 
           // Check duplicate NIK
-          const existingUsers = Database.getUsers()
-          if (existingUsers.some((u) => u.nik === user.nik)) {
+          if (existingUsers.some((u: User) => u.nik === user.nik)) {
             throw new Error(`NIK sudah terdaftar: ${user.nik}`)
           }
 
@@ -207,52 +200,50 @@ export function CSVImportDialog({ open, onOpenChange, onSuccess }: CSVImportDial
     setIsImporting(true)
     const result: ImportResult = { success: 0, failed: 0, errors: [] }
 
-    try {
-      const existingUsers = Database.getUsers()
+    for (let i = 0; i < preview.length; i++) {
+      try {
+        const user = preview[i]
 
-      for (let i = 0; i < preview.length; i++) {
-        try {
-          const user = preview[i]
-
-          // Double-check for duplicate NIK
-          if (existingUsers.some((u) => u.nik === user.nik)) {
-            throw new Error(`NIK sudah terdaftar`)
-          }
-
-          const newUser: User = {
-            id: generateId("user"),
-            nik: user.nik,
-            nama: user.nama,
-            email: `${user.emailPrefix}@3s-gsm.com`,
-            password: user.password,
-            role: user.role,
-            site: user.site,
-            jabatan: user.jabatan,
-            departemen: user.departemen,
-            poh: user.poh,
-            statusKaryawan: user.statusKaryawan,
-            noKtp: user.noKtp,
-            noTelp: user.noTelp,
-            tanggalBergabung: new Date().toISOString().split("T")[0],
-          }
-
-          Database.addUser(newUser)
-          existingUsers.push(newUser)
-          result.success++
-        } catch (error) {
-          result.failed++
-          result.errors.push({
-            row: i + 2,
-            error: error instanceof Error ? error.message : "Error tidak diketahui",
-          })
+        const newUser = {
+          nik: user.nik,
+          name: user.nama,
+          email: `${user.emailPrefix}@3s-gsm.com`,
+          password: user.password,
+          role: user.role,
+          site: user.site,
+          jabatan: user.jabatan,
+          departemen: user.departemen,
+          poh: user.poh,
+          status_karyawan: user.statusKaryawan,
+          no_ktp: user.noKtp,
+          no_telp: user.noTelp,
         }
-      }
 
-      setImportResult(result)
-      setStep("result")
-    } finally {
-      setIsImporting(false)
+        const response = await fetch("/api/users", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(newUser),
+        })
+
+        if (!response.ok) {
+          throw new Error("Gagal menambahkan user")
+        }
+
+        result.success++
+      } catch (error) {
+        result.failed++
+        result.errors.push({
+          row: i + 2,
+          error: error instanceof Error ? error.message : "Error tidak diketahui",
+        })
+      }
     }
+
+    setImportResult(result)
+    setStep("result")
+    setIsImporting(false)
   }
 
   const handleClose = () => {

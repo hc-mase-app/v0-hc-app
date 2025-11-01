@@ -8,9 +8,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Database } from "@/lib/database"
 import { SITES } from "@/lib/mock-data"
-import { generateId } from "@/lib/utils"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import type { UserRole } from "@/lib/types"
 
@@ -65,54 +63,63 @@ export function NewUserDialog({ open, onOpenChange, onSuccess }: NewUserDialogPr
       return
     }
 
-    const existingUsers = Database.getUsers()
-    if (existingUsers.some((u) => u.nik === nik)) {
-      setError("NIK sudah terdaftar")
-      return
-    }
-
     setIsSubmitting(true)
 
-    const email = `${emailPrefix}@3s-gsm.com`
+    try {
+      const email = `${emailPrefix}@3s-gsm.com`
 
-    const newUser = {
-      id: generateId("user"),
-      nik,
-      nama,
-      email,
-      password,
-      role: role as UserRole,
-      site,
-      jabatan,
-      departemen,
-      poh,
-      statusKaryawan: statusKaryawan as "Kontrak" | "Tetap",
-      noKtp,
-      noTelp,
-      tanggalBergabung: new Date().toISOString().split("T")[0],
-      tanggalLahir,
-      jenisKelamin: jenisKelamin as "Laki-laki" | "Perempuan",
+      const newUser = {
+        nik,
+        name: nama,
+        email,
+        password,
+        role: role as UserRole,
+        site,
+        jabatan,
+        departemen,
+        poh,
+        status_karyawan: statusKaryawan,
+        no_ktp: noKtp,
+        no_telp: noTelp,
+        tanggal_lahir: tanggalLahir,
+        jenis_kelamin: jenisKelamin,
+      }
+
+      const response = await fetch("/api/users", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(newUser),
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.error || "Gagal menambahkan pengguna")
+      }
+
+      // Reset form
+      setNik("")
+      setNama("")
+      setEmailPrefix("")
+      setPassword("")
+      setRole("")
+      setSite("")
+      setJabatan("")
+      setDepartemen("")
+      setPoh("")
+      setStatusKaryawan("")
+      setNoKtp("")
+      setNoTelp("")
+      setTanggalLahir("")
+      setJenisKelamin("")
+
+      onSuccess()
+    } catch (error) {
+      setError(error instanceof Error ? error.message : "Terjadi kesalahan")
+    } finally {
+      setIsSubmitting(false)
     }
-
-    Database.addUser(newUser)
-
-    setNik("")
-    setNama("")
-    setEmailPrefix("")
-    setPassword("")
-    setRole("")
-    setSite("")
-    setJabatan("")
-    setDepartemen("")
-    setPoh("")
-    setStatusKaryawan("")
-    setNoKtp("")
-    setNoTelp("")
-    setTanggalLahir("")
-    setJenisKelamin("")
-    setIsSubmitting(false)
-
-    onSuccess()
   }
 
   return (

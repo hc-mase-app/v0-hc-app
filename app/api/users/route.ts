@@ -1,5 +1,5 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { getUsers, getUserById, getUsersByRole, addUser, updateUser } from "@/lib/neon-db"
+import { getUsers, getUserById, getUsersByRole, addUser, updateUser, deleteUser } from "@/lib/neon-db"
 
 export async function GET(request: NextRequest) {
   try {
@@ -57,6 +57,23 @@ export async function PUT(request: NextRequest) {
     return NextResponse.json(result)
   } catch (error) {
     console.error("Error updating user:", error)
+    return NextResponse.json({ error: "Terjadi kesalahan" }, { status: 500 })
+  }
+}
+
+export async function DELETE(request: NextRequest) {
+  try {
+    const searchParams = request.nextUrl.searchParams
+    const id = searchParams.get("id")
+
+    if (!id) {
+      return NextResponse.json({ error: "ID diperlukan" }, { status: 400 })
+    }
+
+    await deleteUser(id)
+    return NextResponse.json({ success: true })
+  } catch (error) {
+    console.error("Error deleting user:", error)
     return NextResponse.json({ error: "Terjadi kesalahan" }, { status: 500 })
   }
 }

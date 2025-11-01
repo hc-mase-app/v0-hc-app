@@ -8,7 +8,6 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Database } from "@/lib/database"
 import { SITES } from "@/lib/mock-data"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import type { User, UserRole } from "@/lib/types"
@@ -81,36 +80,52 @@ export function EditUserDialog({ user, open, onOpenChange, onSuccess }: EditUser
       return
     }
 
-    const existingUsers = Database.getUsers()
-    if (existingUsers.some((u) => u.nik === nik && u.id !== user.id)) {
-      setError("NIK sudah terdaftar")
-      return
-    }
-
     setIsSubmitting(true)
 
-    const email = `${emailPrefix}@3s-gsm.com`
+    try {
+      const email = `${emailPrefix}@3s-gsm.com`
 
-    const updates: Partial<User> = {
-      nik,
-      nama,
-      email,
-      role,
-      site,
-      jabatan,
-      departemen,
-      poh,
-      statusKaryawan,
-      noKtp,
-      noTelp,
-      tanggalLahir,
-      jenisKelamin,
+      const updates = {
+        id: user.id,
+        nik,
+        name: nama,
+        email,
+        role,
+        site,
+        jabatan,
+        departemen,
+        poh,
+        status_karyawan: statusKaryawan,
+        no_ktp: noKtp,
+        no_telp: noTelp,
+        tanggal_lahir: tanggalLahir,
+        jenis_kelamin: jenisKelamin,
+      }
+
+      // Only include password if it's been changed
+      if (password) {
+        Object.assign(updates, { password })
+      }
+
+      const response = await fetch("/api/users", {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(updates),
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.error || "Gagal mengupdate pengguna")
+      }
+
+      onSuccess()
+    } catch (error) {
+      setError(error instanceof Error ? error.message : "Terjadi kesalahan")
+    } finally {
+      setIsSubmitting(false)
     }
-
-    Database.updateUser(user.id, updates)
-
-    setIsSubmitting(false)
-    onSuccess()
   }
 
   return (
