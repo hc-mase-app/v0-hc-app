@@ -29,6 +29,8 @@ interface ParsedUser {
   statusKaryawan: "Kontrak" | "Tetap"
   noKtp: string
   noTelp: string
+  tanggalLahir: string
+  jenisKelamin: string
 }
 
 interface ImportResult {
@@ -111,6 +113,8 @@ export function CSVImportDialog({ open, onOpenChange, onSuccess }: CSVImportDial
         "status_karyawan",
         "no_ktp",
         "no_telp",
+        "tanggal_lahir",
+        "jenis_kelamin",
       ]
 
       const missingHeaders = requiredHeaders.filter((h) => !headers.includes(h))
@@ -142,6 +146,8 @@ export function CSVImportDialog({ open, onOpenChange, onSuccess }: CSVImportDial
           const statusKaryawanIndex = headers.indexOf("status_karyawan")
           const noKtpIndex = headers.indexOf("no_ktp")
           const noTelpIndex = headers.indexOf("no_telp")
+          const tanggalLahirIndex = headers.indexOf("tanggal_lahir")
+          const jenisKelaminIndex = headers.indexOf("jenis_kelamin")
 
           const user: ParsedUser = {
             nik: values[nikIndex] || "",
@@ -156,9 +162,10 @@ export function CSVImportDialog({ open, onOpenChange, onSuccess }: CSVImportDial
             statusKaryawan: (values[statusKaryawanIndex] || "") as "Kontrak" | "Tetap",
             noKtp: values[noKtpIndex] || "",
             noTelp: values[noTelpIndex] || "",
+            tanggalLahir: values[tanggalLahirIndex] || "1970-01-01",
+            jenisKelamin: values[jenisKelaminIndex] || "Laki-laki",
           }
 
-          // Validation
           if (!user.nik) throw new Error("NIK tidak boleh kosong")
           if (!user.nama) throw new Error("Nama tidak boleh kosong")
           if (!user.emailPrefix) throw new Error("Email prefix tidak boleh kosong")
@@ -172,8 +179,9 @@ export function CSVImportDialog({ open, onOpenChange, onSuccess }: CSVImportDial
             throw new Error(`Status karyawan tidak valid: ${user.statusKaryawan}`)
           if (!user.noKtp) throw new Error("No KTP tidak boleh kosong")
           if (!user.noTelp) throw new Error("No Telp tidak boleh kosong")
+          if (!user.tanggalLahir) throw new Error("Tanggal lahir tidak boleh kosong")
+          if (!user.jenisKelamin) throw new Error("Jenis kelamin tidak boleh kosong")
 
-          // Check duplicate NIK
           if (existingUsers.some((u: User) => u.nik === user.nik)) {
             throw new Error(`NIK sudah terdaftar: ${user.nik}`)
           }
@@ -217,6 +225,8 @@ export function CSVImportDialog({ open, onOpenChange, onSuccess }: CSVImportDial
           status_karyawan: user.statusKaryawan,
           no_ktp: user.noKtp,
           no_telp: user.noTelp,
+          tanggal_lahir: user.tanggalLahir,
+          jenis_kelamin: user.jenisKelamin,
         }
 
         const response = await fetch("/api/users", {
@@ -297,10 +307,11 @@ export function CSVImportDialog({ open, onOpenChange, onSuccess }: CSVImportDial
               <h4 className="font-medium text-sm mb-3">Format CSV yang diharapkan:</h4>
               <div className="text-xs text-slate-600 font-mono overflow-x-auto">
                 <div>
-                  nik,nama,email_prefix,password,role,site,jabatan,departemen,poh,status_karyawan,no_ktp,no_telp
+                  nik,nama,email_prefix,password,role,site,jabatan,departemen,poh,status_karyawan,no_ktp,no_telp,tanggal_lahir,jenis_kelamin
                 </div>
                 <div className="mt-2 text-slate-500">
-                  HR002,Dina Kusuma,dina,pass123,hr_site,Head Office,GL,HCGA,POH007,Tetap,3201234567890129,081234567896
+                  HR002,Dina Kusuma,dina,pass123,hr_site,Head
+                  Office,GL,HCGA,POH007,Tetap,3201234567890129,081234567896,1990-05-15,Perempuan
                 </div>
               </div>
             </div>
@@ -329,6 +340,8 @@ export function CSVImportDialog({ open, onOpenChange, onSuccess }: CSVImportDial
                       <th className="text-left p-2 font-medium">Site</th>
                       <th className="text-left p-2 font-medium">Jabatan</th>
                       <th className="text-left p-2 font-medium">Status</th>
+                      <th className="text-left p-2 font-medium">Tanggal Lahir</th>
+                      <th className="text-left p-2 font-medium">Jenis Kelamin</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -342,6 +355,8 @@ export function CSVImportDialog({ open, onOpenChange, onSuccess }: CSVImportDial
                         <td className="p-2">{user.site}</td>
                         <td className="p-2">{user.jabatan}</td>
                         <td className="p-2">{user.statusKaryawan}</td>
+                        <td className="p-2">{user.tanggalLahir}</td>
+                        <td className="p-2">{user.jenisKelamin}</td>
                       </tr>
                     ))}
                   </tbody>

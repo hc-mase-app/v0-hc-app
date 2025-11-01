@@ -2,12 +2,36 @@ import { neon } from "@neondatabase/serverless"
 
 const sql = neon(process.env.DATABASE_URL || "")
 
+function transformUserData(dbUser: any) {
+  if (!dbUser) return null
+
+  return {
+    id: dbUser.id,
+    nik: dbUser.nik,
+    nama: dbUser.name, // database column is 'name', frontend expects 'nama'
+    email: dbUser.email,
+    password: dbUser.password,
+    role: dbUser.role,
+    site: dbUser.site,
+    jabatan: dbUser.jabatan,
+    departemen: dbUser.departemen,
+    poh: dbUser.poh,
+    statusKaryawan: dbUser.status_karyawan,
+    noKtp: dbUser.no_ktp,
+    noTelp: dbUser.no_telp,
+    tanggalLahir: dbUser.tanggal_lahir,
+    jenisKelamin: dbUser.jenis_kelamin,
+    createdAt: dbUser.created_at,
+    updatedAt: dbUser.updated_at,
+  }
+}
+
 // ============ USER OPERATIONS ============
 
 export async function getUsers() {
   try {
     const result = await sql`SELECT * FROM users ORDER BY created_at DESC`
-    return result
+    return result.map(transformUserData)
   } catch (error) {
     console.error("Error fetching users:", error)
     return []
@@ -17,7 +41,7 @@ export async function getUsers() {
 export async function getUserById(id: string) {
   try {
     const result = await sql`SELECT * FROM users WHERE id = ${id}`
-    return result[0] || null
+    return transformUserData(result[0])
   } catch (error) {
     console.error("Error fetching user:", error)
     return null
@@ -32,7 +56,7 @@ export async function getUserByNik(nik: string) {
     if (result.length > 0) {
       console.log("[v0] User data:", { nik: result[0].nik, email: result[0].email, role: result[0].role })
     }
-    return result[0] || null
+    return transformUserData(result[0])
   } catch (error) {
     console.error("[v0] Error fetching user by NIK:", error)
     return null
@@ -42,7 +66,7 @@ export async function getUserByNik(nik: string) {
 export async function getUserByEmail(email: string) {
   try {
     const result = await sql`SELECT * FROM users WHERE email = ${email}`
-    return result[0] || null
+    return transformUserData(result[0])
   } catch (error) {
     console.error("Error fetching user by email:", error)
     return null
@@ -52,7 +76,7 @@ export async function getUserByEmail(email: string) {
 export async function getUsersByRole(role: string) {
   try {
     const result = await sql`SELECT * FROM users WHERE role = ${role} ORDER BY name`
-    return result
+    return result.map(transformUserData)
   } catch (error) {
     console.error("Error fetching users by role:", error)
     return []
@@ -62,7 +86,7 @@ export async function getUsersByRole(role: string) {
 export async function getUsersBySite(site: string) {
   try {
     const result = await sql`SELECT * FROM users WHERE site = ${site} ORDER BY name`
-    return result
+    return result.map(transformUserData)
   } catch (error) {
     console.error("Error fetching users by site:", error)
     return []
@@ -113,7 +137,7 @@ export async function addUser(user: any) {
       RETURNING *
     `
     console.log("[v0] User created successfully with ID:", result[0].id)
-    return result[0]
+    return transformUserData(result[0])
   } catch (error) {
     console.error("[v0] Error adding user:", error)
     throw error
@@ -135,7 +159,7 @@ export async function updateUser(id: string, updates: any) {
       WHERE id = ${id} 
       RETURNING *
     `
-    return result[0]
+    return transformUserData(result[0])
   } catch (error) {
     console.error("Error updating user:", error)
     throw error
