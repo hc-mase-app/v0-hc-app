@@ -3,11 +3,9 @@
 import { useEffect, useState } from "react"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Badge } from "@/components/ui/badge"
-import { Alert, AlertDescription } from "@/components/ui/alert"
 import type { LeaveRequest, ApprovalHistory } from "@/lib/types"
-import { Database } from "@/lib/database"
 import { formatDate, getStatusLabel, getStatusColor } from "@/lib/utils"
-import { Calendar, FileText, Clock, MapPin, Plane, AlertCircle, User } from "lucide-react"
+import { Calendar, FileText, Clock, MapPin, Plane, User } from "lucide-react"
 import { ApprovalTimeline } from "@/components/approval-timeline"
 import { ApprovalProgress } from "@/components/approval-progress"
 
@@ -16,47 +14,35 @@ interface LeaveRequestDetailDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
   onUpdate?: () => void
-  currentUserId?: string
-  isUserRole?: boolean
 }
 
-export function LeaveRequestDetailDialog({
-  request,
-  open,
-  onOpenChange,
-  currentUserId,
-  isUserRole,
-}: LeaveRequestDetailDialogProps) {
+export function LeaveRequestDetailDialog({ request, open, onOpenChange }: LeaveRequestDetailDialogProps) {
   const [history, setHistory] = useState<ApprovalHistory[]>([])
-  const [hasAccess, setHasAccess] = useState(true)
+  const [loading, setLoading] = useState(false)
 
   useEffect(() => {
-    if (open) {
-      if (isUserRole && currentUserId && request.userId !== currentUserId) {
-        setHasAccess(false)
-        return
-      }
-
-      setHasAccess(true)
-      const approvalHistory = Database.getApprovalHistoryByRequestId(request.id)
-      setHistory(approvalHistory.sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()))
+    if (open && request.id) {
+      loadApprovalHistory()
     }
-  }, [request.id, open, currentUserId, isUserRole, request.userId])
+  }, [request.id, open])
 
-  if (!hasAccess) {
-    return (
-      <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className="max-w-2xl">
-          <DialogHeader>
-            <DialogTitle>Akses Ditolak</DialogTitle>
-          </DialogHeader>
-          <Alert variant="destructive">
-            <AlertCircle className="h-4 w-4" />
-            <AlertDescription>Anda tidak memiliki akses untuk melihat pengajuan ini.</AlertDescription>
-          </Alert>
-        </DialogContent>
-      </Dialog>
-    )
+  const loadApprovalHistory = async () => {
+    setLoading(true)
+    try {
+      const response = await fetch(`/api/approvals?type=by-request&requestId=${request.id}`)
+      const data = await response.json()
+      setHistory(
+        data.sort(
+          (a: ApprovalHistory, b: ApprovalHistory) =>
+            new Date(a.createdAt || a.timestamp).getTime() - new Date(b.createdAt || b.timestamp).getTime(),
+        ),
+      )
+    } catch (error) {
+      console.error("Error loading approval history:", error)
+      setHistory([])
+    } finally {
+      setLoading(false)
+    }
   }
 
   return (
@@ -219,9 +205,14 @@ export function LeaveRequestDetailDialog({
             </div>
           )}
 
-          <ApprovalProgress request={request} history={history} />
-
-          <ApprovalTimeline history={history} currentStatus={request.status} />
+          {loading ? (
+            <div className="text-center py-4 text-slate-500">Memuat riwayat persetujuan...</div>
+          ) : (
+            <>
+              <ApprovalProgress request={request} history={history} />
+              <ApprovalTimeline history={history} currentStatus={request.status} />
+            </>
+          )}
         </div>
       </DialogContent>
     </Dialog>
