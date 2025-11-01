@@ -23,7 +23,9 @@ export async function GET(request: NextRequest) {
     const site = searchParams.get("site")
     const departemen = searchParams.get("departemen")
 
-    console.log("[v0] GET /api/leave-requests called:", { type, userId, status, site, departemen })
+    console.log("[v0] API GET - Full searchParams:", Object.fromEntries(searchParams))
+    console.log("[v0] API GET - type:", type)
+    console.log("[v0] API GET - site:", site, "| type:", typeof site, "| length:", site?.length)
 
     let result
 
@@ -36,22 +38,22 @@ export async function GET(request: NextRequest) {
     } else if (type === "site-dept" && site && departemen) {
       result = await getLeaveRequestsBySiteDept(site, departemen)
     } else if (type === "site" && site) {
+      console.log("[v0] API GET - calling getLeaveRequestsBySite with site:", site)
       result = await getLeaveRequestsBySite(site)
     } else if (type === "pending-dic" && site && departemen) {
       result = await getPendingRequestsForDICBySiteDept(site, departemen)
     } else if (type === "pending-dic" && site) {
       result = await getPendingRequestsForDIC(site)
     } else if (type === "pending-pjo" && site) {
-      console.log("[v0] Calling getPendingRequestsForPJO with site:", site)
+      console.log("[v0] API GET - calling getPendingRequestsForPJO with site:", site)
       result = await getPendingRequestsForPJO(site)
-      console.log("[v0] getPendingRequestsForPJO returned:", result)
     } else if (type === "pending-hr-ho") {
       result = await getPendingRequestsForHRHO()
     } else {
       result = await getLeaveRequests()
     }
 
-    console.log("[v0] API returning result:", result)
+    console.log("[v0] API GET - result count:", Array.isArray(result) ? result.length : "not array")
     return NextResponse.json(result)
   } catch (error) {
     console.error("[v0] API error:", error)

@@ -356,16 +356,32 @@ export async function getPendingRequestsForDICBySiteDept(site: string, departeme
 
 export async function getPendingRequestsForPJO(site: string) {
   try {
-    console.log("[v0] getPendingRequestsForPJO called with site:", site)
-    console.log("[v0] Site type:", typeof site, "Site length:", site?.length)
+    console.log("\n========== getPendingRequestsForPJO DEBUG START ==========")
+    console.log("[v0] Input site parameter:", site)
+    console.log("[v0] Input site type:", typeof site)
+    console.log("[v0] Input site length:", site?.length)
+    console.log("[v0] Input site JSON:", JSON.stringify(site))
 
     if (!site || site.trim() === "") {
-      console.error("[v0] getPendingRequestsForPJO: site parameter is empty!")
+      console.error("[v0] ❌ EMPTY SITE PARAMETER!")
+      console.log("========== getPendingRequestsForPJO DEBUG END (EMPTY) ==========\n")
       return []
     }
 
     const trimmedSite = site.trim().toUpperCase()
-    console.log("[v0] getPendingRequestsForPJO: using trimmed site:", trimmedSite)
+    console.log("[v0] Trimmed & uppercase site:", trimmedSite)
+
+    const query = `
+      SELECT 
+        lr.*,
+        u.name, u.site, u.jabatan, u.departemen, u.poh, u.status_karyawan,
+        u.no_ktp, u.no_telp, u.email, u.tanggal_lahir, u.jenis_kelamin
+      FROM leave_requests lr
+      LEFT JOIN users u ON lr.nik = u.nik
+      WHERE lr.status = 'pending_pjo' AND UPPER(u.site) = '${trimmedSite}'
+      ORDER BY lr.created_at DESC
+    `
+    console.log("[v0] SQL Query:", query)
 
     const result = await sql`
       SELECT 
@@ -378,26 +394,35 @@ export async function getPendingRequestsForPJO(site: string) {
       ORDER BY lr.created_at DESC
     `
 
-    console.log("[v0] getPendingRequestsForPJO found", result.length, "requests for site:", site)
+    console.log("[v0] ✅ Query executed successfully")
+    console.log("[v0] Result count:", result.length)
 
     if (result.length > 0) {
-      console.log("[v0] First record sample:", {
-        id: result[0].id,
-        nik: result[0].nik,
-        site: result[0].site,
-        status: result[0].status,
-        name: result[0].name,
-        hasUserData: !!result[0].name,
+      console.log("[v0] First 3 records:")
+      result.slice(0, 3).forEach((r, i) => {
+        console.log(`  [${i}]`, {
+          id: r.id,
+          nik: r.nik,
+          status: r.status,
+          site: r.site,
+          name: r.name,
+        })
       })
     }
 
     const transformed = result.map(transformLeaveRequestData)
-    console.log("[v0] getPendingRequestsForPJO transformed data:", transformed.length, "items")
+    console.log("[v0] Transformed count:", transformed.length)
+    console.log("========== getPendingRequestsForPJO DEBUG END (SUCCESS) ==========\n")
     return transformed
   } catch (error) {
-    console.error("[v0] Error in getPendingRequestsForPJO:", error)
-    console.error("[v0] Error message:", String(error))
-    console.error("[v0] Error stack:", (error as any)?.stack)
+    console.error("========== getPendingRequestsForPJO ERROR ==========")
+    console.error("[v0] ❌ Error:", String(error))
+    console.error("[v0] Error type:", error?.constructor?.name)
+    if (error instanceof Error) {
+      console.error("[v0] Error message:", error.message)
+      console.error("[v0] Error stack:", error.stack?.split("\n").slice(0, 5).join("\n"))
+    }
+    console.error("==========================================================\n")
     return []
   }
 }
