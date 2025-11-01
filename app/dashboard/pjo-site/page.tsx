@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useCallback } from "react"
 import { useAuth } from "@/lib/auth-context"
 import { useRouter } from "next/navigation"
 import { DashboardLayout } from "@/components/dashboard-layout"
@@ -26,79 +26,111 @@ export default function PJOSiteDashboard() {
   })
   const [selectedRequest, setSelectedRequest] = useState<LeaveRequest | null>(null)
 
+  const loadData = useCallback(async () => {
+    if (!user || !user.site) {
+      console.log("[v0] PJO loadData - user or site is missing:", { userId: user?.id, site: user?.site })
+      return
+    }
+
+    try {
+      console.log("[v0] PJO loadData START - user:", {
+        id: user.id,
+        role: user.role,
+        site: user.site,
+        departemen: user.departemen,
+      })
+
+      // Fetch pending PJO requests
+      const siteParam = encodeURIComponent(user.site)
+      const pendingUrl = `/api/leave-requests?type=pending-pjo&site=${siteParam}`
+      console.log("[v0] PJO fetching pending from:", pendingUrl)
+
+      const pendingRes = await fetch(pendingUrl)
+      console.log("[v0] PJO pending response status:", pendingRes.status)
+
+      if (!pendingRes.ok) {
+        console.error("[v0] PJO pending fetch failed with status:", pendingRes.status)
+        const errorText = await pendingRes.text()
+        console.error("[v0] PJO pending error response:", errorText)
+        setPendingRequests([])
+      } else {
+        const pending = await pendingRes.json()
+        console.log("[v0] PJO pending requests received:", pending)
+        console.log("[v0] PJO pending requests count:", Array.isArray(pending) ? pending.length : "not an array")
+
+        if (Array.isArray(pending)) {
+          setPendingRequests(
+            pending.sort(
+              (a: LeaveRequest, b: LeaveRequest) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime(),
+            ),
+          )
+        } else {
+          console.error("[v0] PJO pending is not an array:", pending)
+          setPendingRequests([])
+        }
+      }
+
+      // Fetch all requests from site
+      const allUrl = `/api/leave-requests?type=site&site=${siteParam}`
+      console.log("[v0] PJO fetching all from:", allUrl)
+
+      const allRes = await fetch(allUrl)
+      console.log("[v0] PJO all response status:", allRes.status)
+
+      if (!allRes.ok) {
+        console.error("[v0] PJO all fetch failed with status:", allRes.status)
+        const errorText = await allRes.text()
+        console.error("[v0] PJO all error response:", errorText)
+        setAllRequests([])
+      } else {
+        const all = await allRes.json()
+        console.log("[v0] PJO all requests received:", all)
+        console.log("[v0] PJO all requests count:", Array.isArray(all) ? all.length : "not an array")
+
+        if (Array.isArray(all)) {
+          setAllRequests(
+            all.sort(
+              (a: LeaveRequest, b: LeaveRequest) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
+            ),
+          )
+
+          // Calculate stats
+          setStats({
+            total: all.length,
+            pendingDIC: all.filter((r: LeaveRequest) => r.status === "pending_dic").length,
+            pendingPJO: pendingRequests.length, // Fixed: pendingRequests is now declared
+            pendingHRHO: all.filter((r: LeaveRequest) => r.status === "pending_hr_ho").length,
+            approved: all.filter((r: LeaveRequest) => r.status === "approved").length,
+            rejected: all.filter((r: LeaveRequest) => r.status === "rejected").length,
+          })
+        } else {
+          console.error("[v0] PJO all is not an array:", all)
+          setAllRequests([])
+        }
+      }
+
+      console.log("[v0] PJO loadData END")
+    } catch (error) {
+      console.error("[v0] PJO Error loading data:", error)
+    }
+  }, [user, pendingRequests])
+
   useEffect(() => {
     if (!isAuthenticated || !user) {
+      console.log("[v0] PJO not authenticated or no user, redirecting to login")
       router.push("/login")
       return
     }
 
     if (user.role !== "pjo_site") {
+      console.log("[v0] PJO user role is not pjo_site, redirecting to dashboard")
       router.push("/dashboard")
       return
     }
 
+    console.log("[v0] PJO useEffect triggered, calling loadData")
     loadData()
-  }, [user, isAuthenticated, router])
-
-  const loadData = async () => {
-    if (!user) return
-
-    try {
-      console.log("[v0] PJO loadData - user:", {
-        id: user.id,
-        role: user.role,
-        site: user.site,
-        departemen: user.departemen,
-        name: user.name,
-      })
-
-      const pendingRes = await fetch(`/api/leave-requests?type=pending-pjo&site=${encodeURIComponent(user.site)}`)
-      console.log("[v0] PJO pending response status:", pendingRes.status)
-      const pending = await pendingRes.json()
-      console.log("[v0] PJO pending requests response:", pending)
-      console.log("[v0] PJO pending requests count:", Array.isArray(pending) ? pending.length : "not an array")
-
-      if (Array.isArray(pending)) {
-        setPendingRequests(
-          pending.sort(
-            (a: LeaveRequest, b: LeaveRequest) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime(),
-          ),
-        )
-      } else {
-        console.error("[v0] PJO pending is not an array:", pending)
-        setPendingRequests([])
-      }
-
-      const allRes = await fetch(`/api/leave-requests?type=site&site=${encodeURIComponent(user.site)}`)
-      console.log("[v0] PJO all response status:", allRes.status)
-      const all = await allRes.json()
-      console.log("[v0] PJO all requests response:", all)
-      console.log("[v0] PJO all requests count:", Array.isArray(all) ? all.length : "not an array")
-
-      if (Array.isArray(all)) {
-        setAllRequests(
-          all.sort(
-            (a: LeaveRequest, b: LeaveRequest) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
-          ),
-        )
-      } else {
-        console.error("[v0] PJO all is not an array:", all)
-        setAllRequests([])
-      }
-
-      // Calculate stats
-      setStats({
-        total: Array.isArray(all) ? all.length : 0,
-        pendingDIC: Array.isArray(all) ? all.filter((r: LeaveRequest) => r.status === "pending_dic").length : 0,
-        pendingPJO: Array.isArray(pending) ? pending.length : 0,
-        pendingHRHO: Array.isArray(all) ? all.filter((r: LeaveRequest) => r.status === "pending_hr_ho").length : 0,
-        approved: Array.isArray(all) ? all.filter((r: LeaveRequest) => r.status === "approved").length : 0,
-        rejected: Array.isArray(all) ? all.filter((r: LeaveRequest) => r.status === "rejected").length : 0,
-      })
-    } catch (error) {
-      console.error("[v0] PJO Error loading data:", error)
-    }
-  }
+  }, [user, isAuthenticated, router, loadData])
 
   const handleApprovalAction = () => {
     loadData()
@@ -138,7 +170,7 @@ export default function PJOSiteDashboard() {
               <Clock className="h-4 w-4 text-blue-600" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{pendingRequests.length}</div>
+              <div className="text-2xl font-bold">{stats.pendingPJO}</div>
             </CardContent>
           </Card>
 
