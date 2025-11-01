@@ -356,19 +356,34 @@ export async function getPendingRequestsForDICBySiteDept(site: string, departeme
 
 export async function getPendingRequestsForPJO(site: string) {
   try {
-    const result = await sql`
+    console.log("[v0] getPendingRequestsForPJO called with site:", site)
+
+    const result = (await sql`
       SELECT 
         lr.*,
         u.name, u.site, u.jabatan, u.departemen, u.poh, u.status_karyawan,
         u.no_ktp, u.no_telp, u.email, u.tanggal_lahir, u.jenis_kelamin
       FROM leave_requests lr
       LEFT JOIN users u ON lr.nik = u.nik
-      WHERE lr.status = 'pending_pjo' AND u.site = ${site}
+      WHERE lr.status = 'pending_pjo' AND u.site = $1
       ORDER BY lr.created_at DESC
-    `
+    `) as any
+
+    console.log("[v0] getPendingRequestsForPJO found", result.length, "requests for site:", site)
+
+    if (result.length > 0) {
+      console.log("[v0] First record sample:", {
+        id: result[0].id,
+        nik: result[0].nik,
+        site: result[0].site,
+        status: result[0].status,
+        hasUserData: !!result[0].name,
+      })
+    }
+
     return result.map(transformLeaveRequestData)
   } catch (error) {
-    console.error("Error fetching pending requests for PJO:", error)
+    console.error("[v0] Error in getPendingRequestsForPJO:", error)
     return []
   }
 }

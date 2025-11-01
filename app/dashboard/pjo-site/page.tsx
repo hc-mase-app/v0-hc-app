@@ -44,9 +44,12 @@ export default function PJOSiteDashboard() {
     if (!user) return
 
     try {
+      console.log("[v0] PJO loadData - user site:", user.site)
+
       // Fetch pending requests for PJO (same site, all departments)
       const pendingRes = await fetch(`/api/leave-requests?type=pending-pjo&site=${encodeURIComponent(user.site)}`)
       const pending = await pendingRes.json()
+      console.log("[v0] PJO pending requests:", pending.length, "requests fetched")
       setPendingRequests(
         pending.sort(
           (a: LeaveRequest, b: LeaveRequest) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime(),
@@ -56,6 +59,7 @@ export default function PJOSiteDashboard() {
       // Fetch all requests from the same site
       const allRes = await fetch(`/api/leave-requests?type=site&site=${encodeURIComponent(user.site)}`)
       const all = await allRes.json()
+      console.log("[v0] PJO all requests:", all.length, "requests fetched")
       setAllRequests(
         all.sort(
           (a: LeaveRequest, b: LeaveRequest) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
@@ -72,7 +76,7 @@ export default function PJOSiteDashboard() {
         rejected: all.filter((r: LeaveRequest) => r.status === "rejected").length,
       })
     } catch (error) {
-      console.error("Error loading data:", error)
+      console.error("[v0] PJO Error loading data:", error)
     }
   }
 
