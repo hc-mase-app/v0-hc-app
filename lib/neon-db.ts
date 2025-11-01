@@ -357,6 +357,15 @@ export async function getPendingRequestsForDICBySiteDept(site: string, departeme
 export async function getPendingRequestsForPJO(site: string) {
   try {
     console.log("[v0] getPendingRequestsForPJO called with site:", site)
+    console.log("[v0] Site type:", typeof site, "Site length:", site?.length)
+
+    if (!site || site.trim() === "") {
+      console.error("[v0] getPendingRequestsForPJO: site parameter is empty!")
+      return []
+    }
+
+    const trimmedSite = site.trim().toUpperCase()
+    console.log("[v0] getPendingRequestsForPJO: using trimmed site:", trimmedSite)
 
     const result = await sql`
       SELECT 
@@ -365,7 +374,7 @@ export async function getPendingRequestsForPJO(site: string) {
         u.no_ktp, u.no_telp, u.email, u.tanggal_lahir, u.jenis_kelamin
       FROM leave_requests lr
       LEFT JOIN users u ON lr.nik = u.nik
-      WHERE lr.status = 'pending_pjo' AND u.site = ${site}
+      WHERE lr.status = 'pending_pjo' AND UPPER(u.site) = ${trimmedSite}
       ORDER BY lr.created_at DESC
     `
 
@@ -377,13 +386,18 @@ export async function getPendingRequestsForPJO(site: string) {
         nik: result[0].nik,
         site: result[0].site,
         status: result[0].status,
+        name: result[0].name,
         hasUserData: !!result[0].name,
       })
     }
 
-    return result.map(transformLeaveRequestData)
+    const transformed = result.map(transformLeaveRequestData)
+    console.log("[v0] getPendingRequestsForPJO transformed data:", transformed.length, "items")
+    return transformed
   } catch (error) {
     console.error("[v0] Error in getPendingRequestsForPJO:", error)
+    console.error("[v0] Error message:", String(error))
+    console.error("[v0] Error stack:", (error as any)?.stack)
     return []
   }
 }
