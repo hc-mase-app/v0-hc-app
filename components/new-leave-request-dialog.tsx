@@ -10,9 +10,8 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Database } from "@/lib/database"
 import { LEAVE_TYPES } from "@/lib/mock-data"
-import { generateId, calculateDaysBetween } from "@/lib/utils"
+import { calculateDaysBetween } from "@/lib/utils"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import type { User } from "@/lib/types"
 
@@ -28,6 +27,7 @@ export function NewLeaveRequestDialog({ open, onOpenChange, onSuccess }: NewLeav
   const [selectedUser, setSelectedUser] = useState<User | null>(null)
   const [allUsers, setAllUsers] = useState<User[]>([])
   const [nikError, setNikError] = useState("")
+  const [isLoadingUser, setIsLoadingUser] = useState(false)
   const [jenisPengajuanCuti, setJenisPengajuanCuti] = useState("")
   const [tanggalPengajuan, setTanggalPengajuan] = useState(new Date().toISOString().split("T")[0])
   const [tanggalMulai, setTanggalMulai] = useState("")
@@ -50,25 +50,68 @@ export function NewLeaveRequestDialog({ open, onOpenChange, onSuccess }: NewLeav
 
   useEffect(() => {
     if (open) {
-      const users = Database.getUsers()
-      setAllUsers(users)
+      const fetchUsers = async () => {
+        try {
+          const response = await fetch("/api/users")
+          if (response.ok) {
+            const users = await response.json()
+            setAllUsers(users)
+          }
+        } catch (error) {
+          console.error("Error fetching users:", error)
+        }
+      }
+      fetchUsers()
     }
   }, [open])
 
   useEffect(() => {
-    if (nik.trim()) {
-      const foundUser = allUsers.find((u) => u.nik === nik.trim())
-      if (foundUser) {
-        setSelectedUser(foundUser)
+    const lookupUser = async () => {
+      if (nik.trim()) {
+        setIsLoadingUser(true)
         setNikError("")
+
+        try {
+          // Try to find user in the fetched list first (case-insensitive)
+          const trimmedNik = nik.trim().toUpperCase()
+          const foundUser = allUsers.find((u) => u.nik.trim().toUpperCase() === trimmedNik)
+
+          if (foundUser) {
+            setSelectedUser(foundUser)
+            setNikError("")
+          } else {
+            // If not found in list, try API lookup
+            const response = await fetch(`/api/users?nik=${encodeURIComponent(nik.trim())}`)
+            if (response.ok) {
+              const users = await response.json()
+              if (users.length > 0) {
+                setSelectedUser(users[0])
+                setNikError("")
+              } else {
+                setSelectedUser(null)
+                setNikError("NIK tidak ditemukan")
+              }
+            } else {
+              setSelectedUser(null)
+              setNikError("NIK tidak ditemukan")
+            }
+          }
+        } catch (error) {
+          console.error("Error looking up user:", error)
+          setSelectedUser(null)
+          setNikError("Terjadi kesalahan saat mencari NIK")
+        } finally {
+          setIsLoadingUser(false)
+        }
       } else {
         setSelectedUser(null)
-        setNikError("NIK tidak ditemukan")
+        setNikError("")
       }
-    } else {
-      setSelectedUser(null)
-      setNikError("")
     }
+
+    // Debounce the lookup
+    const timeoutId = setTimeout(lookupUser, 500)
+    return () => clearTimeout(timeoutId)
   }, [nik, allUsers])
 
   useEffect(() => {
@@ -127,55 +170,69 @@ export function NewLeaveRequestDialog({ open, onOpenChange, onSuccess }: NewLeav
 
     setIsSubmitting(true)
 
-    const jumlahHari = calculateDaysBetween(tanggalMulai, tanggalSelesai)
+    try {
+      const jumlahHari = calculateDaysBetween(tanggalMulai, tanggalSelesai)
 
-    const newRequest = {
-      id: generateId("req"),
-      userId: selectedUser.id,
-      userName: selectedUser.nama,
-      userNik: selectedUser.nik,
-      site: selectedUser.site,
-      jabatan: selectedUser.jabatan,
-      departemen: selectedUser.departemen,
-      poh: selectedUser.poh,
-      statusKaryawan: selectedUser.statusKaryawan,
-      noKtp: selectedUser.noKtp,
-      noTelp: selectedUser.noTelp,
-      email: selectedUser.email,
-      jenisPengajuanCuti,
-      tanggalPengajuan,
-      tanggalMulai,
-      tanggalSelesai,
-      jumlahHari,
-      berangkatDari,
-      tujuan,
-      tanggalKeberangkatan,
-      tanggalCutiPeriodikBerikutnya,
-      catatan,
-      status: "pending_dic" as const,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-      submittedBy: user.id,
-      submittedByName: user.nama,
+      const newRequest = {
+        userNik: selectedUser.nik,
+        userName: selectedUser.nama,
+        site: selectedUser.site,
+        jabatan: selectedUser.jabatan,
+        departemen: selectedUser.departemen,
+        poh: selectedUser.poh,
+        statusKaryawan: selectedUser.statusKaryawan,
+        noKtp: selectedUser.noKtp,
+        noTelp: selectedUser.noTelp,
+        email: selectedUser.email,
+        tanggalLahir: selectedUser.tanggalLahir,
+        jenisKelamin: selectedUser.jenisKelamin,
+        jenisCuti: jenisPengajuanCuti,
+        tanggalPengajuan,
+        periodeAwal: tanggalMulai,
+        periodeAkhir: tanggalSelesai,
+        jumlahHari,
+        berangkatDari,
+        tujuan,
+        tanggalKeberangkatan,
+        cutiPeriodikBerikutnya: tanggalCutiPeriodikBerikutnya || null,
+        catatan: catatan || null,
+        status: "pending_dic",
+        submittedBy: user.nik,
+      }
+
+      const response = await fetch("/api/leave-requests", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(newRequest),
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.error || "Gagal membuat pengajuan cuti")
+      }
+
+      // Reset form
+      setNik("")
+      setSelectedUser(null)
+      setNikError("")
+      setJenisPengajuanCuti("")
+      setTanggalPengajuan(new Date().toISOString().split("T")[0])
+      setTanggalMulai("")
+      setTanggalSelesai("")
+      setBerangkatDari("")
+      setTujuan("")
+      setTanggalKeberangkatan("")
+      setTanggalCutiPeriodikBerikutnya("")
+      setCatatan("")
+
+      onSuccess()
+    } catch (error) {
+      setError(error instanceof Error ? error.message : "Terjadi kesalahan")
+    } finally {
+      setIsSubmitting(false)
     }
-
-    Database.addLeaveRequest(newRequest)
-
-    setNik("")
-    setSelectedUser(null)
-    setNikError("")
-    setJenisPengajuanCuti("")
-    setTanggalPengajuan(new Date().toISOString().split("T")[0])
-    setTanggalMulai("")
-    setTanggalSelesai("")
-    setBerangkatDari("")
-    setTujuan("")
-    setTanggalKeberangkatan("")
-    setTanggalCutiPeriodikBerikutnya("")
-    setCatatan("")
-    setIsSubmitting(false)
-
-    onSuccess()
   }
 
   return (
@@ -192,12 +249,13 @@ export function NewLeaveRequestDialog({ open, onOpenChange, onSuccess }: NewLeav
             <Input
               id="nik"
               type="text"
-              placeholder="Masukkan NIK karyawan"
+              placeholder="Masukkan NIK karyawan (huruf atau angka)"
               value={nik}
               onChange={(e) => setNik(e.target.value)}
               required
               className={nikError ? "border-red-500" : ""}
             />
+            {isLoadingUser && <p className="text-sm text-blue-500">Mencari NIK...</p>}
             {nikError && <p className="text-sm text-red-500">{nikError}</p>}
             {selectedUser && <p className="text-sm text-green-600">✓ NIK ditemukan</p>}
           </div>

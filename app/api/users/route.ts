@@ -1,5 +1,5 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { getUsers, getUserById, getUsersByRole, addUser, updateUser, deleteUser } from "@/lib/neon-db"
+import { getUsers, getUserById, getUserByNik, getUsersByRole, addUser, updateUser, deleteUser } from "@/lib/neon-db"
 
 export async function GET(request: NextRequest) {
   try {
@@ -7,6 +7,7 @@ export async function GET(request: NextRequest) {
     const type = searchParams.get("type")
     const id = searchParams.get("id")
     const role = searchParams.get("role")
+    const nik = searchParams.get("nik")
 
     let result
 
@@ -14,6 +15,9 @@ export async function GET(request: NextRequest) {
       result = await getUserById(id)
     } else if (type === "by-role" && role) {
       result = await getUsersByRole(role)
+    } else if (nik) {
+      const user = await getUserByNik(nik)
+      result = user ? [user] : []
     } else {
       result = await getUsers()
     }

@@ -51,7 +51,8 @@ export async function getUserById(id: string) {
 export async function getUserByNik(nik: string) {
   try {
     console.log("[v0] getUserByNik called with NIK:", nik)
-    const result = await sql`SELECT * FROM users WHERE nik = ${nik}`
+    const trimmedNik = nik.trim()
+    const result = await sql`SELECT * FROM users WHERE UPPER(TRIM(nik)) = UPPER(${trimmedNik})`
     console.log("[v0] getUserByNik result:", result.length > 0 ? "User found" : "User not found")
     if (result.length > 0) {
       console.log("[v0] User data:", { nik: result[0].nik, email: result[0].email, role: result[0].role })
