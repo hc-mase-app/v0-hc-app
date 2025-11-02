@@ -8,7 +8,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { Label } from "@/components/ui/label"
 import type { LeaveRequest } from "@/lib/types"
 import { formatDate, getStatusLabel, getStatusColor } from "@/lib/utils"
-import { Calendar, CheckCircle, XCircle, Eye } from "lucide-react"
+import { CheckCircle, XCircle, Eye } from "lucide-react"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 
 interface ApprovalCardProps {
@@ -144,14 +144,26 @@ export function ApprovalCard({
                 <p className="font-medium text-slate-900">{request.site}</p>
               </div>
             )}
-            <div className="flex items-start gap-2">
-              <Calendar className="h-4 w-4 text-slate-500 mt-0.5 flex-shrink-0" />
-              <div>
-                <p className="text-xs text-slate-500 font-bold uppercase">Tanggal Keberangkatan</p>
-                <p className="font-medium text-slate-900">{formatDate(request.tanggalKeberangkatan)}</p>
-              </div>
+            <div>
+              <p className="text-xs text-slate-500">Periode</p>
+              <p className="font-medium text-slate-900">{formatDate(request.tanggalKeberangkatan)}</p>
             </div>
           </div>
+
+          {(request.tanggalMulai || request.tanggalSelesai) && (
+            <div className="pt-2 border-t border-slate-100">
+              <p className="text-xs text-slate-500 mb-1">Periode Cuti</p>
+              <p className="font-medium text-slate-900">
+                {request.tanggalMulai && request.tanggalSelesai
+                  ? `${formatDate(request.tanggalMulai)} - ${formatDate(request.tanggalSelesai)}`
+                  : request.tanggalMulai
+                    ? formatDate(request.tanggalMulai)
+                    : request.tanggalSelesai
+                      ? formatDate(request.tanggalSelesai)
+                      : "-"}
+              </p>
+            </div>
+          )}
         </div>
       </div>
 

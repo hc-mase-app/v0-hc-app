@@ -27,7 +27,7 @@ export default function UserDashboard() {
 
     const loadData = async () => {
       try {
-        const res = await fetch(`/api/workflow?action=user-requests&userNik=${user.nik}`)
+        const res = await fetch(`/api/workflow?action=user-requests&nik=${user.nik}`)
         const data = await res.json()
         setRequests(Array.isArray(data) ? data : [])
       } catch (error) {

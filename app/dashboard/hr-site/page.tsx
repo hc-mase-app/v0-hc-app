@@ -44,8 +44,20 @@ export default function HRSiteDashboard() {
     if (!user) return
 
     try {
+      console.log("[v0] HR Site loading data for:", { role: user.role, site: user.site })
+
       const response = await fetch(`/api/workflow?action=all&role=hr_site&site=${encodeURIComponent(user.site)}`)
       const data = await response.json()
+
+      console.log("[v0] HR Site received data:", data)
+
+      if (!response.ok || !Array.isArray(data)) {
+        console.error("[v0] HR Site API error:", data)
+        setRequests([])
+        setFilteredRequests([])
+        setStats({ total: 0, pending: 0, approved: 0, rejected: 0 })
+        return
+      }
 
       const sortedRequests = data.sort(
         (a: LeaveRequest, b: LeaveRequest) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
@@ -63,7 +75,10 @@ export default function HRSiteDashboard() {
       }
       setStats(stats)
     } catch (error) {
-      console.error("Error loading leave requests:", error)
+      console.error("[v0] Error loading leave requests:", error)
+      setRequests([])
+      setFilteredRequests([])
+      setStats({ total: 0, pending: 0, approved: 0, rejected: 0 })
     }
   }
 

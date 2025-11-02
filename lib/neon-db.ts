@@ -21,6 +21,7 @@ function transformUserData(dbUser: any) {
     noTelp: dbUser.no_telp,
     tanggalLahir: dbUser.tanggal_lahir,
     jenisKelamin: dbUser.jenis_kelamin,
+    tanggalBergabung: dbUser.tanggal_bergabung, // Added tanggalBergabung mapping for join date
     createdAt: dbUser.created_at,
     updatedAt: dbUser.updated_at,
   }
@@ -63,6 +64,22 @@ function transformLeaveRequestData(dbRequest: any) {
     bookingCode: dbRequest.booking_code,
     createdAt: dbRequest.created_at,
     updatedAt: dbRequest.updated_at,
+  }
+}
+
+function transformApprovalHistory(dbHistory: any) {
+  if (!dbHistory) return null
+
+  return {
+    id: dbHistory.id,
+    leaveRequestId: dbHistory.leave_request_id,
+    approverNik: dbHistory.approver_nik,
+    approverName: dbHistory.approver_name,
+    approverRole: dbHistory.approver_role,
+    action: dbHistory.action,
+    notes: dbHistory.notes,
+    timestamp: dbHistory.created_at,
+    createdAt: dbHistory.created_at,
   }
 }
 
@@ -153,11 +170,12 @@ export async function addUser(user: any) {
     const poh = user.poh || "Head Office"
     const noKtp = user.noKtp || user.no_ktp || "0000000000000000"
     const noTelp = user.noTelp || user.no_telp || "08000000000"
+    const tanggalBergabung = user.tanggalBergabung || user.tanggal_bergabung || "1970-01-01"
 
     const result = await sql`
       INSERT INTO users (
         nik, name, email, password, role, site, jabatan, departemen, poh, 
-        status_karyawan, no_ktp, no_telp, tanggal_lahir, jenis_kelamin
+        status_karyawan, no_ktp, no_telp, tanggal_lahir, jenis_kelamin, tanggal_bergabung
       )
       VALUES (
         ${user.nik}, 
@@ -173,7 +191,8 @@ export async function addUser(user: any) {
         ${noKtp}, 
         ${noTelp}, 
         ${tanggalLahir}, 
-        ${jenisKelamin}
+        ${jenisKelamin},
+        ${tanggalBergabung}
       )
       RETURNING *
     `
@@ -229,7 +248,7 @@ export async function getLeaveRequests() {
       SELECT 
         lr.*,
         u.name, u.site, u.jabatan, u.departemen, u.poh, u.status_karyawan,
-        u.no_ktp, u.no_telp, u.email, u.tanggal_lahir, u.jenis_kelamin
+        u.no_ktp, u.no_telp, u.email, u.tanggal_lahir, u.jenis_kelamin, u.tanggal_bergabung
       FROM leave_requests lr
       LEFT JOIN users u ON lr.nik = u.nik
       ORDER BY lr.created_at DESC
@@ -247,7 +266,7 @@ export async function getLeaveRequestById(id: string) {
       SELECT 
         lr.*,
         u.name, u.site, u.jabatan, u.departemen, u.poh, u.status_karyawan,
-        u.no_ktp, u.no_telp, u.email, u.tanggal_lahir, u.jenis_kelamin
+        u.no_ktp, u.no_telp, u.email, u.tanggal_lahir, u.jenis_kelamin, u.tanggal_bergabung
       FROM leave_requests lr
       LEFT JOIN users u ON lr.nik = u.nik
       WHERE lr.id = ${id}
@@ -265,7 +284,7 @@ export async function getLeaveRequestsByUserId(userId: string) {
       SELECT 
         lr.*,
         u.name, u.site, u.jabatan, u.departemen, u.poh, u.status_karyawan,
-        u.no_ktp, u.no_telp, u.email, u.tanggal_lahir, u.jenis_kelamin
+        u.no_ktp, u.no_telp, u.email, u.tanggal_lahir, u.jenis_kelamin, u.tanggal_bergabung
       FROM leave_requests lr
       LEFT JOIN users u ON lr.nik = u.nik
       WHERE lr.nik = ${userId}
@@ -284,7 +303,7 @@ export async function getLeaveRequestsBySite(site: string) {
       SELECT 
         lr.*,
         u.name, u.site, u.jabatan, u.departemen, u.poh, u.status_karyawan,
-        u.no_ktp, u.no_telp, u.email, u.tanggal_lahir, u.jenis_kelamin
+        u.no_ktp, u.no_telp, u.email, u.tanggal_lahir, u.jenis_kelamin, u.tanggal_bergabung
       FROM leave_requests lr
       LEFT JOIN users u ON lr.nik = u.nik
       WHERE u.site = ${site}
@@ -303,7 +322,7 @@ export async function getLeaveRequestsByStatus(status: string) {
       SELECT 
         lr.*,
         u.name, u.site, u.jabatan, u.departemen, u.poh, u.status_karyawan,
-        u.no_ktp, u.no_telp, u.email, u.tanggal_lahir, u.jenis_kelamin
+        u.no_ktp, u.no_telp, u.email, u.tanggal_lahir, u.jenis_kelamin, u.tanggal_bergabung
       FROM leave_requests lr
       LEFT JOIN users u ON lr.nik = u.nik
       WHERE lr.status = ${status}
@@ -322,7 +341,7 @@ export async function getPendingRequestsForDIC(site: string) {
       SELECT 
         lr.*,
         u.name, u.site, u.jabatan, u.departemen, u.poh, u.status_karyawan,
-        u.no_ktp, u.no_telp, u.email, u.tanggal_lahir, u.jenis_kelamin
+        u.no_ktp, u.no_telp, u.email, u.tanggal_lahir, u.jenis_kelamin, u.tanggal_bergabung
       FROM leave_requests lr
       LEFT JOIN users u ON lr.nik = u.nik
       WHERE lr.status = 'pending_dic' AND u.site = ${site}
@@ -341,7 +360,7 @@ export async function getPendingRequestsForDICBySiteDept(site: string, departeme
       SELECT 
         lr.*,
         u.name, u.site, u.jabatan, u.departemen, u.poh, u.status_karyawan,
-        u.no_ktp, u.no_telp, u.email, u.tanggal_lahir, u.jenis_kelamin
+        u.no_ktp, u.no_telp, u.email, u.tanggal_lahir, u.jenis_kelamin, u.tanggal_bergabung
       FROM leave_requests lr
       LEFT JOIN users u ON lr.nik = u.nik
       WHERE lr.status = 'pending_dic' AND u.site = ${site} AND u.departemen = ${departemen}
@@ -375,7 +394,7 @@ export async function getPendingRequestsForPJO(site: string) {
       SELECT 
         lr.*,
         u.name, u.site, u.jabatan, u.departemen, u.poh, u.status_karyawan,
-        u.no_ktp, u.no_telp, u.email, u.tanggal_lahir, u.jenis_kelamin
+        u.no_ktp, u.no_telp, u.email, u.tanggal_lahir, u.jenis_kelamin, u.tanggal_bergabung
       FROM leave_requests lr
       LEFT JOIN users u ON lr.nik = u.nik
       WHERE lr.status = 'pending_pjo' AND UPPER(u.site) = '${trimmedSite}'
@@ -387,7 +406,7 @@ export async function getPendingRequestsForPJO(site: string) {
       SELECT 
         lr.*,
         u.name, u.site, u.jabatan, u.departemen, u.poh, u.status_karyawan,
-        u.no_ktp, u.no_telp, u.email, u.tanggal_lahir, u.jenis_kelamin
+        u.no_ktp, u.no_telp, u.email, u.tanggal_lahir, u.jenis_kelamin, u.tanggal_bergabung
       FROM leave_requests lr
       LEFT JOIN users u ON lr.nik = u.nik
       WHERE lr.status = 'pending_pjo' AND UPPER(u.site) = ${trimmedSite}
@@ -433,7 +452,7 @@ export async function getPendingRequestsForHRHO() {
       SELECT 
         lr.*,
         u.name, u.site, u.jabatan, u.departemen, u.poh, u.status_karyawan,
-        u.no_ktp, u.no_telp, u.email, u.tanggal_lahir, u.jenis_kelamin
+        u.no_ktp, u.no_telp, u.email, u.tanggal_lahir, u.jenis_kelamin, u.tanggal_bergabung
       FROM leave_requests lr
       LEFT JOIN users u ON lr.nik = u.nik
       WHERE lr.status = 'pending_hr_ho'
@@ -452,7 +471,7 @@ export async function getApprovedRequests() {
       SELECT 
         lr.*,
         u.name, u.site, u.jabatan, u.departemen, u.poh, u.status_karyawan,
-        u.no_ktp, u.no_telp, u.email, u.tanggal_lahir, u.jenis_kelamin
+        u.no_ktp, u.no_telp, u.email, u.tanggal_lahir, u.jenis_kelamin, u.tanggal_bergabung
       FROM leave_requests lr
       LEFT JOIN users u ON lr.nik = u.nik
       WHERE lr.status = 'approved'
@@ -546,7 +565,7 @@ export async function getLeaveRequestsSubmittedBy(userId: string) {
       SELECT 
         lr.*,
         u.name, u.site, u.jabatan, u.departemen, u.poh, u.status_karyawan,
-        u.no_ktp, u.no_telp, u.email, u.tanggal_lahir, u.jenis_kelamin
+        u.no_ktp, u.no_telp, u.email, u.tanggal_lahir, u.jenis_kelamin, u.tanggal_bergabung
       FROM leave_requests lr
       LEFT JOIN users u ON lr.nik = u.nik
       WHERE lr.submitted_by = ${userId}
@@ -566,7 +585,7 @@ export async function getLeaveRequestsBySiteDept(site: string, departemen: strin
       SELECT 
         lr.*,
         u.name, u.site, u.jabatan, u.departemen, u.poh, u.status_karyawan,
-        u.no_ktp, u.no_telp, u.email, u.tanggal_lahir, u.jenis_kelamin
+        u.no_ktp, u.no_telp, u.email, u.tanggal_lahir, u.jenis_kelamin, u.tanggal_bergabung
       FROM leave_requests lr
       LEFT JOIN users u ON lr.nik = u.nik
       WHERE u.site = ${site} AND u.departemen = ${departemen}
@@ -585,7 +604,7 @@ export async function getLeaveRequestsBySiteDept(site: string, departemen: strin
 export async function getApprovalHistory() {
   try {
     const result = await sql`SELECT * FROM approval_history ORDER BY created_at DESC`
-    return result
+    return result.map(transformApprovalHistory)
   } catch (error) {
     console.error("Error fetching approval history:", error)
     return []
@@ -597,9 +616,9 @@ export async function getApprovalHistoryByRequestId(requestId: string) {
     const result = await sql`
       SELECT * FROM approval_history 
       WHERE leave_request_id = ${requestId} 
-      ORDER BY created_at DESC
+      ORDER BY created_at ASC
     `
-    return result
+    return result.map(transformApprovalHistory)
   } catch (error) {
     console.error("Error fetching approval history by request:", error)
     return []

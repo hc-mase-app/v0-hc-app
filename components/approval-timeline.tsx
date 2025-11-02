@@ -22,6 +22,7 @@ export function ApprovalTimeline({ history, currentStatus }: ApprovalTimelinePro
   const getActionLabel = (action: string) => {
     if (action === "approved") return "Disetujui"
     if (action === "rejected") return "Ditolak"
+    if (action === "tiket_issued") return "Tiket Sudah Di Terbitkan"
     return "Pending"
   }
 
@@ -86,9 +87,13 @@ export function ApprovalTimeline({ history, currentStatus }: ApprovalTimelinePro
                 ? "Menunggu PJO Site"
                 : currentStatus === "pending_hr_ho"
                   ? "Menunggu HR HO"
-                  : currentStatus === "approved"
-                    ? "Disetujui"
-                    : "Ditolak"}
+                  : currentStatus === "di_proses"
+                    ? "Sedang Diproses"
+                    : currentStatus === "tiket_issued"
+                      ? "Tiket Sudah Di Terbitkan"
+                      : currentStatus === "approved"
+                        ? "Disetujui"
+                        : "Ditolak"}
           </Badge>
         </p>
       </div>

@@ -12,7 +12,6 @@ import { Label } from "@/components/ui/label"
 import { AlertCircle, Save, Download, Trash2 } from "lucide-react"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import jsPDF from "jspdf"
-import { INITIAL_USERS } from "@/lib/mock-data"
 
 const DEPARTMENTS = ["Operation", "Produksi", "Plant", "SCM", "HCGA", "HSE", "Finance", "Accounting"]
 const SITES = ["Head Office", "BSF", "WBN", "HSM", "MHM", "PSN", "BEKB", "ABN", "KE", "TCMM", "TCM", "IM", "TMU"]
@@ -94,42 +93,66 @@ export default function AssessmentForm() {
     },
   })
 
-  const handleNikChange = (value: string) => {
+  const [isSearchingEmployee, setIsSearchingEmployee] = useState(false)
+
+  const handleNikChange = async (value: string) => {
     setFormData({ ...formData, nik: value })
 
-    if (value.trim()) {
-      const employee = INITIAL_USERS.find((user) => user.nik.toLowerCase() === value.toLowerCase())
-      if (employee) {
-        setFormData((prev) => ({
-          ...prev,
-          nik: employee.nik,
-          nama: employee.nama,
-          jabatan: employee.jabatan,
-          departemen: employee.departemen,
-          site: employee.site,
-          status_karyawan: employee.statusKaryawan,
-          tgl_masuk: employee.tanggalBergabung,
-        }))
+    if (value.trim().length === 10) {
+      setIsSearchingEmployee(true)
+      try {
+        const response = await fetch(`/api/users?nik=${encodeURIComponent(value.trim())}`)
+        if (response.ok) {
+          const users = await response.json()
+          if (users && users.length > 0) {
+            const employee = users[0]
+            setFormData((prev) => ({
+              ...prev,
+              nik: employee.nik,
+              nama: employee.nama,
+              jabatan: employee.jabatan,
+              departemen: employee.departemen,
+              site: employee.site,
+              status_karyawan: employee.statusKaryawan,
+              tgl_masuk: employee.tanggalBergabung || employee.createdAt?.split("T")[0] || "",
+            }))
+          }
+        }
+      } catch (error) {
+        console.error("[v0] Error fetching employee by NIK:", error)
+      } finally {
+        setIsSearchingEmployee(false)
       }
     }
   }
 
-  const handleNamaChange = (value: string) => {
+  const handleNamaChange = async (value: string) => {
     setFormData({ ...formData, nama: value })
 
-    if (value.trim()) {
-      const employee = INITIAL_USERS.find((user) => user.nama.toLowerCase().includes(value.toLowerCase()))
-      if (employee) {
-        setFormData((prev) => ({
-          ...prev,
-          nik: employee.nik,
-          nama: employee.nama,
-          jabatan: employee.jabatan,
-          departemen: employee.departemen,
-          site: employee.site,
-          status_karyawan: employee.statusKaryawan,
-          tgl_masuk: employee.tanggalBergabung,
-        }))
+    if (value.trim() && value.length >= 3) {
+      setIsSearchingEmployee(true)
+      try {
+        const response = await fetch("/api/users")
+        if (response.ok) {
+          const users = await response.json()
+          const employee = users.find((user: any) => user.nama.toLowerCase().includes(value.toLowerCase()))
+          if (employee) {
+            setFormData((prev) => ({
+              ...prev,
+              nik: employee.nik,
+              nama: employee.nama,
+              jabatan: employee.jabatan,
+              departemen: employee.departemen,
+              site: employee.site,
+              status_karyawan: employee.statusKaryawan,
+              tgl_masuk: employee.tanggalBergabung || employee.createdAt?.split("T")[0] || "",
+            }))
+          }
+        }
+      } catch (error) {
+        console.error("[v0] Error fetching employee by name:", error)
+      } finally {
+        setIsSearchingEmployee(false)
       }
     }
   }
@@ -471,7 +494,9 @@ export default function AssessmentForm() {
                 value={formData.nik}
                 onChange={(e) => handleNikChange(e.target.value)}
                 placeholder="Masukkan NIK atau cari..."
+                disabled={isSearchingEmployee}
               />
+              {isSearchingEmployee && <p className="text-xs text-gray-500 mt-1">Mencari data karyawan...</p>}
             </div>
             <div>
               <Label htmlFor="nama">Nama</Label>
@@ -480,6 +505,7 @@ export default function AssessmentForm() {
                 value={formData.nama}
                 onChange={(e) => handleNamaChange(e.target.value)}
                 placeholder="Masukkan Nama atau cari..."
+                disabled={isSearchingEmployee}
               />
             </div>
             <div>

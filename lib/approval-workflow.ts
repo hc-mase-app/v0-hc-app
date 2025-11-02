@@ -1,8 +1,22 @@
 // Centralized workflow logic with clear status transitions and role-based access
 
 import { neon } from "@neondatabase/serverless"
+import { ensureLeaveRequestsSchema } from "./db-migration"
+import { mapDbRowToLeaveRequest, mapDbRowsToLeaveRequests } from "./db-mapper"
 
 const sql = neon(process.env.DATABASE_URL || "")
+
+let migrationInitialized = false
+async function initializeMigration() {
+  if (!migrationInitialized) {
+    migrationInitialized = true
+    try {
+      await ensureLeaveRequestsSchema()
+    } catch (error) {
+      console.error("[v0] Migration initialization error:", error)
+    }
+  }
+}
 
 // ============ TYPE DEFINITIONS ============
 
@@ -35,14 +49,14 @@ const WORKFLOW_RULES: Record<UserRole, WorkflowRule | null> = {
     canApprove: ["pending_dic"],
     approveTransition: "pending_pjo",
     rejectTransition: "ditolak_dic",
-    accessFilter: (site, dept) => `lr.status = 'pending_dic' AND u.site = '${site}' AND u.departemen = '${dept}'`,
+    accessFilter: (site, dept) => `lr.status = 'pending_dic' AND lr.site = '${site}' AND lr.departemen = '${dept}'`,
   },
   pjo_site: {
     role: "pjo_site",
     canApprove: ["pending_pjo"],
     approveTransition: "pending_hr_ho",
     rejectTransition: "ditolak_pjo",
-    accessFilter: (site) => `lr.status = 'pending_pjo' AND u.site = '${site}'`,
+    accessFilter: (site) => `lr.status = 'pending_pjo' AND lr.site = '${site}'`,
   },
   hr_ho: {
     role: "hr_ho",
@@ -58,16 +72,17 @@ const WORKFLOW_RULES: Record<UserRole, WorkflowRule | null> = {
 // ============ QUERY BUILDER ============
 
 function buildLeaveRequestQuery(whereClause: string) {
+  // This is now used only for logging - actual queries will use template literals
   return `
     SELECT 
       lr.*,
-      u.name, u.site, u.jabatan, u.departemen, u.poh, u.status_karyawan,
+      u.name, u.jabatan, u.poh, u.status_karyawan,
       u.no_ktp, u.no_telp, u.email, u.tanggal_lahir, u.jenis_kelamin
     FROM leave_requests lr
     LEFT JOIN users u ON lr.nik = u.nik
     WHERE ${whereClause}
     ORDER BY lr.created_at DESC
-  `
+  `.trim()
 }
 
 // ============ DATA ACCESS FUNCTIONS ============
@@ -83,73 +98,167 @@ export async function getPendingRequestsForRole(
     if (!rule) {
       // Special cases
       if (role === "hr_ticketing") {
-        // HR Ticketing sees di_proses requests
-        const query = buildLeaveRequestQuery(`lr.status = 'di_proses'`)
-        return await sql.unsafe(query)
+        const result = await sql`
+          SELECT 
+            lr.*,
+            u.name, u.jabatan, u.poh, u.status_karyawan,
+            u.no_ktp, u.no_telp, u.email, u.tanggal_lahir, u.jenis_kelamin
+          FROM leave_requests lr
+          LEFT JOIN users u ON lr.nik = u.nik
+          WHERE lr.status = 'di_proses'
+          ORDER BY lr.created_at DESC
+        `
+        console.log(`[v0] Workflow query executed for ${role}, rows:`, result.length)
+        return mapDbRowsToLeaveRequests(Array.isArray(result) ? result : [])
       }
       return []
     }
 
-    const whereClause = rule.accessFilter(userSite, userDepartemen)
-    const query = buildLeaveRequestQuery(whereClause)
-    return await sql.unsafe(query)
+    let result: any[] = []
+
+    if (role === "dic") {
+      result = await sql`
+        SELECT 
+          lr.*,
+          u.name, u.jabatan, u.poh, u.status_karyawan,
+          u.no_ktp, u.no_telp, u.email, u.tanggal_lahir, u.jenis_kelamin
+        FROM leave_requests lr
+        LEFT JOIN users u ON lr.nik = u.nik
+        WHERE lr.status = 'pending_dic' AND lr.site = ${userSite} AND lr.departemen = ${userDepartemen}
+        ORDER BY lr.created_at DESC
+      `
+    } else if (role === "pjo_site") {
+      result = await sql`
+        SELECT 
+          lr.*,
+          u.name, u.jabatan, u.poh, u.status_karyawan,
+          u.no_ktp, u.no_telp, u.email, u.tanggal_lahir, u.jenis_kelamin
+        FROM leave_requests lr
+        LEFT JOIN users u ON lr.nik = u.nik
+        WHERE lr.status = 'pending_pjo' AND lr.site = ${userSite}
+        ORDER BY lr.created_at DESC
+      `
+    } else if (role === "hr_ho") {
+      result = await sql`
+        SELECT 
+          lr.*,
+          u.name, u.jabatan, u.poh, u.status_karyawan,
+          u.no_ktp, u.no_telp, u.email, u.tanggal_lahir, u.jenis_kelamin
+        FROM leave_requests lr
+        LEFT JOIN users u ON lr.nik = u.nik
+        WHERE lr.status = 'pending_hr_ho'
+        ORDER BY lr.created_at DESC
+      `
+    }
+
+    console.log(`[v0] Workflow query executed for ${role}, rows:`, result.length)
+    return mapDbRowsToLeaveRequests(Array.isArray(result) ? result : [])
   } catch (error) {
-    console.error(`[Workflow] Error fetching requests for ${role}:`, error)
+    console.error(`[v0] Workflow Error fetching requests for ${role}:`, error)
     return []
   }
 }
 
 export async function getAllRequestsForRole(role: UserRole, userSite: string, userDepartemen?: string): Promise<any[]> {
   try {
-    let whereClause = "1=1" // Default: all requests
+    let result: any[] = []
 
     switch (role) {
       case "hr_site":
-        whereClause = `u.site = '${userSite}'`
+        result = await sql`
+          SELECT 
+            lr.*,
+            u.name, u.jabatan, u.poh, u.status_karyawan,
+            u.no_ktp, u.no_telp, u.email, u.tanggal_lahir, u.jenis_kelamin
+          FROM leave_requests lr
+          LEFT JOIN users u ON lr.nik = u.nik
+          WHERE lr.site = ${userSite}
+          ORDER BY lr.created_at DESC
+        `
         break
       case "dic":
-        // See all from their site and department
-        whereClause = `u.site = '${userSite}' AND u.departemen = '${userDepartemen}'`
+        result = await sql`
+          SELECT 
+            lr.*,
+            u.name, u.jabatan, u.poh, u.status_karyawan,
+            u.no_ktp, u.no_telp, u.email, u.tanggal_lahir, u.jenis_kelamin
+          FROM leave_requests lr
+          LEFT JOIN users u ON lr.nik = u.nik
+          WHERE lr.site = ${userSite} AND lr.departemen = ${userDepartemen}
+          ORDER BY lr.created_at DESC
+        `
         break
       case "pjo_site":
-        // See all from their site
-        whereClause = `u.site = '${userSite}'`
+        result = await sql`
+          SELECT 
+            lr.*,
+            u.name, u.jabatan, u.poh, u.status_karyawan,
+            u.no_ktp, u.no_telp, u.email, u.tanggal_lahir, u.jenis_kelamin
+          FROM leave_requests lr
+          LEFT JOIN users u ON lr.nik = u.nik
+          WHERE lr.site = ${userSite}
+          ORDER BY lr.created_at DESC
+        `
         break
       case "hr_ho":
       case "hr_ticketing":
-        // See all requests
-        whereClause = "1=1"
+        result = await sql`
+          SELECT 
+            lr.*,
+            u.name, u.jabatan, u.poh, u.status_karyawan,
+            u.no_ktp, u.no_telp, u.email, u.tanggal_lahir, u.jenis_kelamin
+          FROM leave_requests lr
+          LEFT JOIN users u ON lr.nik = u.nik
+          ORDER BY lr.created_at DESC
+        `
         break
       case "user":
-        // Users see nothing in "all" view (they use getUserRequests instead)
         return []
     }
 
-    const query = buildLeaveRequestQuery(whereClause)
-    return await sql.unsafe(query)
+    console.log(`[v0] Query executed successfully for ${role}, rows:`, result.length)
+    return mapDbRowsToLeaveRequests(Array.isArray(result) ? result : [])
   } catch (error) {
-    console.error(`[Workflow] Error fetching all requests for ${role}:`, error)
+    console.error(`[v0] Workflow Error fetching all requests for ${role}:`, error)
+    console.error(`[v0] Error details:`, error)
     return []
   }
 }
 
 export async function getUserRequests(nik: string): Promise<any[]> {
   try {
-    const query = buildLeaveRequestQuery(`lr.nik = '${nik}'`)
-    return await sql.unsafe(query)
+    const result = await sql`
+      SELECT 
+        lr.*,
+        u.name, u.jabatan, u.poh, u.status_karyawan,
+        u.no_ktp, u.no_telp, u.email, u.tanggal_lahir, u.jenis_kelamin
+      FROM leave_requests lr
+      LEFT JOIN users u ON lr.nik = u.nik
+      WHERE lr.nik = ${nik}
+      ORDER BY lr.created_at DESC
+    `
+    console.log(`[v0] User requests query executed, rows:`, result.length)
+    return mapDbRowsToLeaveRequests(Array.isArray(result) ? result : [])
   } catch (error) {
-    console.error("[Workflow] Error fetching user requests:", error)
+    console.error("[v0] Workflow Error fetching user requests:", error)
     return []
   }
 }
 
 export async function getRequestById(requestId: string): Promise<any | null> {
   try {
-    const query = buildLeaveRequestQuery(`lr.id = '${requestId}'`)
-    const result = await sql.unsafe(query)
-    return result[0] || null
+    const result = await sql`
+      SELECT 
+        lr.*,
+        u.name, u.jabatan, u.poh, u.status_karyawan,
+        u.no_ktp, u.no_telp, u.email, u.tanggal_lahir, u.jenis_kelamin
+      FROM leave_requests lr
+      LEFT JOIN users u ON lr.nik = u.nik
+      WHERE lr.id = ${requestId}
+    `
+    return Array.isArray(result) && result.length > 0 ? mapDbRowToLeaveRequest(result[0]) : null
   } catch (error) {
-    console.error("[Workflow] Error fetching request by ID:", error)
+    console.error("[v0] Workflow Error fetching request by ID:", error)
     return null
   }
 }
@@ -274,14 +383,22 @@ export async function createLeaveRequest(data: {
   tanggalKeberangkatan?: string
   cutiPeriodikBerikutnya?: string
   catatan?: string
+  lamaOnsite?: number
   submittedBy: string
+  site: string
+  departemen: string
 }): Promise<{ success: boolean; data?: any; error?: string }> {
   try {
+    await initializeMigration()
+
+    console.log(`[v0] Creating leave request with site: ${data.site}, dept: ${data.departemen}`)
+
     const result = await sql`
       INSERT INTO leave_requests (
         nik, jenis_cuti, tanggal_pengajuan, periode_awal, periode_akhir,
         jumlah_hari, berangkat_dari, tujuan, tanggal_keberangkatan,
-        cuti_periodik_berikutnya, catatan, status, submitted_by
+        cuti_periodik_berikutnya, catatan, lama_onsite, status, submitted_by,
+        site, departemen
       ) VALUES (
         ${data.nik},
         ${data.jenisCuti},
@@ -294,15 +411,19 @@ export async function createLeaveRequest(data: {
         ${data.tanggalKeberangkatan || null},
         ${data.cutiPeriodikBerikutnya || null},
         ${data.catatan || null},
+        ${data.lamaOnsite || null},
         'pending_dic',
-        ${data.submittedBy}
+        ${data.submittedBy},
+        ${data.site},
+        ${data.departemen}
       )
       RETURNING *
     `
 
+    console.log(`[v0] Leave request created successfully with ID: ${result[0]?.id}`)
     return { success: true, data: result[0] }
   } catch (error) {
-    console.error("[Workflow] Error creating leave request:", error)
+    console.error("[v0] Workflow Error creating leave request:", error)
     return { success: false, error: String(error) }
   }
 }
@@ -312,6 +433,8 @@ export async function createLeaveRequest(data: {
 export async function updateBookingCode(
   requestId: string,
   bookingCode: string,
+  namaPesawat: string,
+  jamKeberangkatan: string,
   updatedBy: string,
 ): Promise<{ success: boolean; error?: string }> {
   try {
@@ -325,17 +448,22 @@ export async function updateBookingCode(
       return { success: false, error: "Request must be in di_proses status" }
     }
 
-    // Update booking code and status
+    // Update booking code, airline name, departure time and status
     await sql`
       UPDATE leave_requests 
-      SET booking_code = ${bookingCode}, status = 'tiket_issued', updated_at = CURRENT_TIMESTAMP 
+      SET 
+        booking_code = ${bookingCode}, 
+        nama_pesawat = ${namaPesawat || null},
+        jam_keberangkatan = ${jamKeberangkatan || null},
+        status = 'tiket_issued', 
+        updated_at = CURRENT_TIMESTAMP 
       WHERE id = ${requestId}
     `
 
     // Record in history
     await sql`
       INSERT INTO approval_history (leave_request_id, approver_nik, approver_name, approver_role, action, notes)
-      VALUES (${requestId}, ${updatedBy}, 'HR Ticketing', 'hr_ticketing', 'tiket_issued', ${`Booking code: ${bookingCode}`})
+      VALUES (${requestId}, ${updatedBy}, 'HR Ticketing', 'hr_ticketing', 'tiket_issued', ${`Booking code: ${bookingCode}, Airline: ${namaPesawat || "-"}, Departure time: ${jamKeberangkatan || "-"}`})
     `
 
     return { success: true }

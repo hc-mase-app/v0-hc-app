@@ -62,6 +62,10 @@ export interface LeaveRequest {
   bookingCode?: string
   submittedBy?: string // ID of the person who submitted (e.g., HR Site)
   submittedByName?: string // Name of the person who submitted
+  lamaOnsite?: number // Duration onsite in days (HR Site input)
+  namaPesawat?: string // Airline name (HR Ticketing input)
+  jamKeberangkatan?: string // Departure time (HR Ticketing input)
+  bookingCodeIssuedAt?: string // Date when booking code was issued
 }
 
 export interface ApprovalHistory {

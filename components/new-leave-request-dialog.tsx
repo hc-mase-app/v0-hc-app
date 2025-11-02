@@ -38,6 +38,7 @@ export function NewLeaveRequestDialog({ open, onOpenChange, onSuccess }: NewLeav
   const [tanggalCutiPeriodikBerikutnya, setTanggalCutiPeriodikBerikutnya] = useState("")
   const [daysUntilNextLeave, setDaysUntilNextLeave] = useState<number | null>(null)
   const [catatan, setCatatan] = useState("")
+  const [lamaOnsite, setLamaOnsite] = useState("")
   const [error, setError] = useState("")
   const [isSubmitting, setIsSubmitting] = useState(false)
 
@@ -180,18 +181,7 @@ export function NewLeaveRequestDialog({ open, onOpenChange, onSuccess }: NewLeav
         },
         body: JSON.stringify({
           action: "create",
-          userNik: selectedUser.nik,
-          userName: selectedUser.nama,
-          site: selectedUser.site,
-          jabatan: selectedUser.jabatan,
-          departemen: selectedUser.departemen,
-          poh: selectedUser.poh,
-          statusKaryawan: selectedUser.statusKaryawan,
-          noKtp: selectedUser.noKtp,
-          noTelp: selectedUser.noTelp,
-          email: selectedUser.email,
-          tanggalLahir: selectedUser.tanggalLahir,
-          jenisKelamin: selectedUser.jenisKelamin,
+          nik: selectedUser.nik,
           jenisCuti: jenisPengajuanCuti,
           tanggalPengajuan,
           periodeAwal: tanggalMulai,
@@ -202,7 +192,10 @@ export function NewLeaveRequestDialog({ open, onOpenChange, onSuccess }: NewLeav
           tanggalKeberangkatan,
           cutiPeriodikBerikutnya: tanggalCutiPeriodikBerikutnya || null,
           catatan: catatan || null,
+          lamaOnsite: lamaOnsite ? Number.parseInt(lamaOnsite) : null,
           submittedBy: user.nik,
+          site: selectedUser.site,
+          departemen: selectedUser.departemen,
         }),
       })
 
@@ -210,6 +203,14 @@ export function NewLeaveRequestDialog({ open, onOpenChange, onSuccess }: NewLeav
         const errorData = await response.json()
         throw new Error(errorData.error || "Gagal membuat pengajuan cuti")
       }
+
+      const result = await response.json()
+
+      if (!result.success) {
+        throw new Error(result.error || "Gagal membuat pengajuan cuti")
+      }
+
+      console.log("[v0] Leave request created successfully:", result.data)
 
       // Reset form
       setNik("")
@@ -224,9 +225,11 @@ export function NewLeaveRequestDialog({ open, onOpenChange, onSuccess }: NewLeav
       setTanggalKeberangkatan("")
       setTanggalCutiPeriodikBerikutnya("")
       setCatatan("")
+      setLamaOnsite("")
 
       onSuccess()
     } catch (error) {
+      console.error("[v0] Error creating leave request:", error)
       setError(error instanceof Error ? error.message : "Terjadi kesalahan")
     } finally {
       setIsSubmitting(false)
@@ -439,7 +442,20 @@ export function NewLeaveRequestDialog({ open, onOpenChange, onSuccess }: NewLeav
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="catatan">Catatan (Bila Pengajuan tidak sesuai Roster atau tidak sesuai POH)</Label>
+            <Label htmlFor="lamaOnsite">Lama Onsite (dalam hari)</Label>
+            <Input
+              id="lamaOnsite"
+              type="number"
+              min="0"
+              placeholder="Masukkan lama onsite dalam hari"
+              value={lamaOnsite}
+              onChange={(e) => setLamaOnsite(e.target.value)}
+            />
+            <p className="text-xs text-slate-500">Opsional: Isi jika karyawan akan onsite</p>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="catatan">Catatan Khusus (Bila Pengajuan tidak sesuai Roster atau tidak sesuai POH)</Label>
             <Textarea
               id="catatan"
               placeholder="Catatan tambahan jika ada"

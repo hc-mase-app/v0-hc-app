@@ -1,7 +1,6 @@
 "use client"
 
 import type React from "react"
-
 import { Button } from "@/components/ui/button"
 import { ArrowLeft, X } from "lucide-react"
 import { useRouter } from "next/navigation"
@@ -146,177 +145,345 @@ export default function LeadershipActivityPage() {
     if (!ctx) return
 
     ctx.clearRect(0, 0, canvas.width, canvas.height)
-    setSignatures((prev) => ({
-      ...prev,
-      [key]: { ...prev[key], data: null },
-    }))
-  }
-
-  const saveSignature = (key: keyof typeof canvasRefs) => {
-    const canvas = canvasRefs[key].current
-    if (!canvas) return
-
-    const dataUrl = canvas.toDataURL()
-    setSignatures((prev) => ({
-      ...prev,
-      [key]: { ...prev[key], data: dataUrl },
-    }))
-    alert(`Tanda tangan ${key} disimpan!`)
-  }
-
-  // Photo upload handler
-  const handlePhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
-    if (!file) return
-
-    const validTypes = ["image/jpeg", "image/jpg", "image/png", "image/gif"]
-    if (!validTypes.includes(file.type)) {
-      setPhotoError("Format file tidak didukung. Harap pilih file gambar (JPEG, PNG, atau GIF).")
-      return
-    }
-
-    const maxSize = 5 * 1024 * 1024
-    if (file.size > maxSize) {
-      setPhotoError("Ukuran file terlalu besar. Maksimal 5MB.")
-      return
-    }
-
-    setPhotoError("")
-    const reader = new FileReader()
-    reader.onload = (e) => {
-      setPhotoData(e.target?.result as string)
-    }
-    reader.readAsDataURL(file)
   }
 
   // Export to print/PDF
-  const handleExport = () => {
-    const printContent = createPrintContent()
-    const printWindow = window.open("", "_blank")
-    if (!printWindow) {
-      alert("Tidak dapat membuka jendela print. Pastikan popup tidak diblokir.")
+  const handleExport = async () => {
+    if (!selectedCompany) {
+      alert("Silakan pilih perusahaan terlebih dahulu")
       return
     }
 
-    printWindow.document.write(printContent)
-    printWindow.document.close()
+    const capturedSignatures: Record<string, string | null> = {}
 
-    setTimeout(() => {
-      printWindow.print()
-    }, 500)
-  }
+    Object.entries(canvasRefs).forEach(([key, ref]) => {
+      const canvas = ref.current
+      if (!canvas) {
+        capturedSignatures[key] = null
+        return
+      }
 
-  const createPrintContent = () => {
-    const logoSrc = selectedCompany ? companyLogos[selectedCompany as keyof typeof companyLogos] : ""
+      const ctx = canvas.getContext("2d")
+      if (!ctx) {
+        capturedSignatures[key] = null
+        return
+      }
 
-    return `
-<!DOCTYPE html>
-<html lang="id">
-<head>
-    <meta charset="UTF-8">
-    <title>Leadership Activity - ${formData.nama || "Karyawan"}</title>
-    <style>
-        @media print { @page { margin: 15mm; } body { margin: 0; font-size: 12px; } }
-        body { font-family: Arial, sans-serif; line-height: 1.4; margin: 20px; color: #000; }
-        .header { display: flex; align-items: center; margin-bottom: 20px; border-bottom: 2px solid #3498db; padding-bottom: 15px; }
-        .logo { margin-right: 20px; max-width: 80px; max-height: 80px; }
-        .title { text-align: center; font-size: 18px; font-weight: bold; color: #2c3e50; flex: 1; }
-        .section { margin-bottom: 15px; }
-        .section-title { background: #e0e0e0; padding: 8px; font-weight: bold; border: 1px solid #000; }
-        .section-content { border: 1px solid #000; padding: 8px; border-top: none; min-height: 60px; }
-        .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1px; background: #000; }
-        .grid-item { background: white; padding: 8px; border: 1px solid #000; }
-        .signatures { display: flex; justify-content: space-between; margin-top: 30px; }
-        .signature-box { text-align: center; width: 23%; }
-        .signature-img { max-width: 150px; max-height: 60px; margin: 10px 0; }
-        .photo-section { text-align: center; margin-top: 30px; page-break-inside: avoid; }
-        .photo-img { max-width: 500px; max-height: 400px; border: 1px solid #ddd; }
-    </style>
-</head>
-<body>
-    <div class="header">
-        ${logoSrc ? `<img src="${logoSrc}" class="logo" alt="Logo">` : ""}
-        <div class="title">FORMULIR LEADERSHIP ACTIVITY</div>
-    </div>
-    
-    <div class="section">
-        <div class="section-title">ACTIVITY</div>
-        <div class="section-content">
-            ${activities.length > 0 ? activities.map((a) => `☑ ${a}`).join(" ") : "□ Coaching □ Directing □ Mentoring □ Motivating/Counseling"}
-        </div>
-    </div>
-    
-    <div class="section">
-        <div class="section-title">DATA KARYAWAN</div>
-        <div class="grid">
-            <div class="grid-item"><strong>NIK:</strong> ${formData.nik}</div>
-            <div class="grid-item"><strong>Departemen:</strong> ${formData.departemen}</div>
-            <div class="grid-item"><strong>Nama:</strong> ${formData.nama}</div>
-            <div class="grid-item"><strong>Lokasi Kerja:</strong> ${formData.lokasi}</div>
-            <div class="grid-item"><strong>Jabatan:</strong> ${formData.jabatan}</div>
-            <div class="grid-item"><strong>Tanggal Masuk:</strong> ${formData.tanggal_masuk}</div>
-        </div>
-    </div>
-    
-    <div class="section">
-        <div class="section-title">MASALAH</div>
-        <div class="section-content">${formData.masalah}</div>
-    </div>
-    
-    <div class="section">
-        <div class="section-title">TINDAK LANJUT / SOLUSI</div>
-        <div class="section-content">${formData.tindak_lanjut}</div>
-    </div>
-    
-    <div class="section">
-        <div class="section-title">KOMITMEN</div>
-        <div class="section-content">${formData.komitmen}</div>
-    </div>
-    
-    <div class="section">
-        <div class="section-title">CATATAN</div>
-        <div class="section-content">${formData.catatan}</div>
-    </div>
-    
-    <div class="signatures">
-        ${Object.entries(signatures)
-          .map(([key, sig]) => {
-            const titles = {
-              atasan: { title: "Dibuat oleh,", subtitle: "Atasan Langsung" },
-              karyawan: { title: "Diterima oleh,", subtitle: "Karyawan" },
-              pjo: { title: "Diketahui oleh,", subtitle: "PJO / Mgr. / GM / Dir." },
-              hcga: { title: "HCGA", subtitle: "Dic / Pic" },
+      // Check if canvas has content
+      const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height)
+      const hasContent = imageData.data.some((channel) => channel !== 0)
+
+      if (hasContent) {
+        capturedSignatures[key] = canvas.toDataURL("image/png")
+        console.log("[v0] Captured signature for", key, "Data URL length:", capturedSignatures[key]?.length)
+      } else {
+        capturedSignatures[key] = null
+        console.log("[v0] No signature content for", key)
+      }
+    })
+
+    console.log("[v0] Exporting PDF with captured signatures:", {
+      atasan: capturedSignatures.atasan ? "Has data" : "No data",
+      karyawan: capturedSignatures.karyawan ? "Has data" : "No data",
+      pjo: capturedSignatures.pjo ? "Has data" : "No data",
+      hcga: capturedSignatures.hcga ? "Has data" : "No data",
+    })
+
+    try {
+      const { jsPDF } = await import("jspdf")
+      const doc = new jsPDF({
+        orientation: "portrait",
+        unit: "mm",
+        format: "a4",
+      })
+
+      const pageWidth = doc.internal.pageSize.getWidth()
+      const pageHeight = doc.internal.pageSize.getHeight()
+      const margin = 15
+      const contentWidth = pageWidth - margin * 2
+      let yPos = margin
+
+      const loadImageAsDataURL = (src: string): Promise<string> => {
+        return new Promise((resolve, reject) => {
+          const img = new window.Image()
+          img.crossOrigin = "anonymous"
+          img.onload = () => {
+            const canvas = document.createElement("canvas")
+            canvas.width = img.width
+            canvas.height = img.height
+            const ctx = canvas.getContext("2d")
+            if (!ctx) {
+              reject(new Error("Failed to get canvas context"))
+              return
             }
-            return `
-            <div class="signature-box">
-                <p><strong>${titles[key as keyof typeof titles].title}</strong></p>
-                <p>${titles[key as keyof typeof titles].subtitle}</p>
-                ${sig.data ? `<img src="${sig.data}" class="signature-img" alt="Signature">` : '<div style="height: 60px;"></div>'}
-                <p style="border-top: 1px solid #000; padding-top: 5px;">${sig.nama}</p>
-                <p>${sig.tanggal}</p>
-            </div>
-          `
+            ctx.drawImage(img, 0, 0)
+            resolve(canvas.toDataURL("image/png"))
+          }
+          img.onerror = () => reject(new Error(`Failed to load image: ${src}`))
+          img.src = src
+        })
+      }
+
+      // Logo
+      const logoSrc = companyLogos[selectedCompany as keyof typeof companyLogos]
+      if (logoSrc) {
+        try {
+          const logoDataURL = await loadImageAsDataURL(logoSrc)
+          doc.addImage(logoDataURL, "PNG", margin, yPos, 25, 25)
+          console.log("[v0] Logo added successfully")
+        } catch (e) {
+          console.error("[v0] Error adding logo:", e)
+        }
+      }
+
+      // Header Title
+      doc.setFontSize(16)
+      doc.setFont("helvetica", "bold")
+      doc.text("FORMULIR LEADERSHIP ACTIVITY", pageWidth / 2, yPos + 12, { align: "center" })
+      yPos += 30
+
+      // Activity Section
+      doc.setFontSize(10)
+      doc.setFont("helvetica", "bold")
+      doc.setFillColor(220, 220, 220)
+      doc.rect(margin, yPos, contentWidth, 7, "F")
+      doc.text("ACTIVITY", margin + 2, yPos + 5)
+      yPos += 7
+
+      doc.setFont("helvetica", "normal")
+      doc.setFontSize(9)
+      const activityText = activities.length > 0 ? activities.join(", ") : "-"
+      doc.rect(margin, yPos, contentWidth, 10)
+      doc.text(activityText, margin + 2, yPos + 6)
+      yPos += 12
+
+      // Employee Data Section
+      doc.setFontSize(10)
+      doc.setFont("helvetica", "bold")
+      doc.setFillColor(220, 220, 220)
+      doc.rect(margin, yPos, contentWidth, 7, "F")
+      doc.text("Data Karyawan", margin + 2, yPos + 5)
+      yPos += 7
+
+      // Employee data grid
+      const colWidth = contentWidth / 2
+      const rowHeight = 8
+      const employeeData = [
+        ["NIK", formData.nik, "Departemen", formData.departemen],
+        ["Nama", formData.nama, "Lokasi Kerja", formData.lokasi],
+        ["Jabatan", formData.jabatan, "Tanggal Masuk", formData.tanggal_masuk],
+      ]
+
+      doc.setFont("helvetica", "normal")
+      doc.setFontSize(9)
+
+      employeeData.forEach((row) => {
+        // Left column
+        doc.rect(margin, yPos, colWidth, rowHeight)
+        doc.setFont("helvetica", "bold")
+        doc.text(row[0], margin + 2, yPos + 5)
+        doc.setFont("helvetica", "normal")
+        doc.text(row[1] || "-", margin + 30, yPos + 5)
+
+        // Right column
+        doc.rect(margin + colWidth, yPos, colWidth, rowHeight)
+        doc.setFont("helvetica", "bold")
+        doc.text(row[2], margin + colWidth + 2, yPos + 5)
+        doc.setFont("helvetica", "normal")
+        doc.text(row[3] || "-", margin + colWidth + 30, yPos + 5)
+
+        yPos += rowHeight
+      })
+      yPos += 3
+
+      // Problem Section
+      doc.setFontSize(10)
+      doc.setFont("helvetica", "bold")
+      doc.setFillColor(220, 220, 220)
+      doc.rect(margin, yPos, contentWidth, 7, "F")
+      doc.text("MASALAH", margin + 2, yPos + 5)
+      yPos += 7
+
+      doc.setFont("helvetica", "normal")
+      const masalahLines = doc.splitTextToSize(formData.masalah || "-", contentWidth - 4)
+      const masalahHeight = Math.max(15, masalahLines.length * 5 + 4)
+      doc.rect(margin, yPos, contentWidth, masalahHeight)
+      doc.text(masalahLines, margin + 2, yPos + 5)
+      yPos += masalahHeight + 3
+
+      // Follow-up Section
+      doc.setFont("helvetica", "bold")
+      doc.setFillColor(220, 220, 220)
+      doc.rect(margin, yPos, contentWidth, 7, "F")
+      doc.text("TINDAK LANJUT / SOLUSI", margin + 2, yPos + 5)
+      yPos += 7
+
+      doc.setFont("helvetica", "normal")
+      const tindakLanjutLines = doc.splitTextToSize(formData.tindak_lanjut || "-", contentWidth - 4)
+      const tindakLanjutHeight = Math.max(15, tindakLanjutLines.length * 5 + 4)
+      doc.rect(margin, yPos, contentWidth, tindakLanjutHeight)
+      doc.text(tindakLanjutLines, margin + 2, yPos + 5)
+      yPos += tindakLanjutHeight + 3
+
+      // Commitment Section
+      doc.setFont("helvetica", "bold")
+      doc.setFillColor(220, 220, 220)
+      doc.rect(margin, yPos, contentWidth, 7, "F")
+      doc.text("KOMITMEN", margin + 2, yPos + 5)
+      yPos += 7
+
+      doc.setFont("helvetica", "normal")
+      const komitmenLines = doc.splitTextToSize(formData.komitmen || "-", contentWidth - 4)
+      const komitmenHeight = Math.max(15, komitmenLines.length * 5 + 4)
+      doc.rect(margin, yPos, contentWidth, komitmenHeight)
+      doc.text(komitmenLines, margin + 2, yPos + 5)
+      yPos += komitmenHeight + 3
+
+      // Notes
+      doc.setFont("helvetica", "normal")
+      doc.setFontSize(9)
+      doc.text(`Catatan: ${formData.catatan || "-"}`, margin, yPos)
+      yPos += 8
+
+      // Signature Section
+      const sigWidth = contentWidth / 4
+      const sigHeight = 35
+
+      const signatureData = [
+        { key: "atasan", title: "Dibuat oleh,", subtitle: "Atasan Langsung" },
+        { key: "karyawan", title: "Diterima oleh,", subtitle: "Karyawan" },
+        { key: "pjo", title: "Diketahui oleh,", subtitle: "PJO / Mgr. / GM / Dir." },
+        { key: "hcga", title: "HCGA", subtitle: "Dic / Pic" },
+      ]
+
+      doc.setFontSize(8)
+      signatureData.forEach((sig, idx) => {
+        const xPos = margin + idx * sigWidth
+        const sigInfo = signatures[sig.key as keyof typeof signatures]
+        const signatureDataUrl = capturedSignatures[sig.key]
+
+        // Title
+        doc.setFont("helvetica", "bold")
+        doc.text(sig.title, xPos + sigWidth / 2, yPos, { align: "center" })
+        doc.setFont("helvetica", "normal")
+        doc.text(sig.subtitle, xPos + sigWidth / 2, yPos + 4, { align: "center" })
+
+        if (signatureDataUrl) {
+          console.log("[v0] Adding signature", sig.key, "to PDF")
+          try {
+            doc.addImage(signatureDataUrl, "PNG", xPos + 5, yPos + 6, sigWidth - 10, 15)
+            console.log("[v0] Signature", sig.key, "added successfully")
+          } catch (e) {
+            console.error(`[v0] Error adding signature ${sig.key}:`, e)
+          }
+        } else {
+          console.log("[v0] No signature data for", sig.key)
+        }
+
+        // Name and date
+        doc.setFont("helvetica", "normal")
+        doc.setFontSize(7)
+        doc.text(sigInfo.nama || "-", xPos + sigWidth / 2, yPos + 25, { align: "center" })
+        doc.text(sigInfo.tanggal || "-", xPos + sigWidth / 2, yPos + 29, { align: "center" })
+
+        // Separator line
+        if (idx < signatureData.length - 1) {
+          doc.setDrawColor(200, 200, 200)
+          doc.line(xPos + sigWidth, yPos, xPos + sigWidth, yPos + sigHeight)
+        }
+      })
+
+      // Photo page
+      if (photoData) {
+        doc.addPage()
+        yPos = margin
+
+        doc.setFontSize(14)
+        doc.setFont("helvetica", "bold")
+        doc.text("BUKTI PERTEMUAN (FOTO)", pageWidth / 2, yPos, { align: "center" })
+        yPos += 10
+
+        try {
+          const img = new window.Image()
+          img.src = photoData
+          await new Promise((resolve, reject) => {
+            img.onload = resolve
+            img.onerror = reject
           })
-          .join("")}
-    </div>
-    
-    ${
-      photoData
-        ? `
-    <div class="photo-section">
-        <h2>BUKTI PERTEMUAN (FOTO)</h2>
-        <img src="${photoData}" class="photo-img" alt="Bukti Foto">
-    </div>
-    `
-        : ""
+
+          // Calculate dimensions maintaining aspect ratio
+          const maxWidth = contentWidth
+          const maxHeight = pageHeight - yPos - margin
+          const imgAspectRatio = img.width / img.height
+          const maxAspectRatio = maxWidth / maxHeight
+
+          let finalWidth = maxWidth
+          let finalHeight = maxHeight
+
+          if (imgAspectRatio > maxAspectRatio) {
+            // Image is wider - fit to width
+            finalWidth = maxWidth
+            finalHeight = maxWidth / imgAspectRatio
+          } else {
+            // Image is taller - fit to height
+            finalHeight = maxHeight
+            finalWidth = maxHeight * imgAspectRatio
+          }
+
+          // Center the image horizontally
+          const xOffset = margin + (maxWidth - finalWidth) / 2
+
+          console.log("[v0] Adding photo with dimensions:", finalWidth, "x", finalHeight)
+          doc.addImage(photoData, "JPEG", xOffset, yPos, finalWidth, finalHeight)
+          console.log("[v0] Photo added successfully")
+        } catch (e) {
+          console.error("[v0] Error adding photo:", e)
+          doc.text("Error: Tidak dapat menambahkan foto", pageWidth / 2, yPos + 20, { align: "center" })
+        }
+      }
+
+      // Save PDF
+      const sanitize = (str: string) => str.replace(/[^a-zA-Z0-9]/g, "_").replace(/_+/g, "_")
+      const filename = `${sanitize(signatures.atasan.nama || "Atasan")}_${sanitize(activities.join("-") || "Activity")}_${sanitize(formData.nama || "Nama")}_${sanitize(formData.jabatan || "Jabatan")}_${sanitize(formData.departemen || "Departemen")}.pdf`
+
+      doc.save(filename)
+      console.log("[v0] PDF saved successfully")
+    } catch (error) {
+      console.error("[v0] Error exporting PDF:", error)
+      alert("Gagal export ke PDF. Silakan coba lagi.")
     }
-</body>
-</html>
-    `
   }
 
+  // Activity change handler
   const handleActivityChange = (activity: string) => {
     setActivities((prev) => (prev.includes(activity) ? prev.filter((a) => a !== activity) : [...prev, activity]))
+  }
+
+  const handlePhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) {
+      setPhotoError("Tidak ada file yang dipilih")
+      setPhotoData(null)
+      return
+    }
+
+    if (!file.type.startsWith("image/")) {
+      setPhotoError("File yang dipilih bukan gambar")
+      setPhotoData(null)
+      return
+    }
+
+    const reader = new FileReader()
+    reader.onload = (event) => {
+      const dataUrl = event.target?.result as string
+      setPhotoData(dataUrl)
+      setPhotoError("")
+    }
+    reader.onerror = () => {
+      setPhotoError("Gagal membaca file")
+      setPhotoData(null)
+    }
+    reader.readAsDataURL(file)
   }
 
   return (
@@ -504,23 +671,15 @@ export default function LeadershipActivityPage() {
                 onTouchEnd={() => stopDrawing(key as keyof typeof canvasRefs)}
               />
 
-              <div className="flex gap-2 mb-2">
+              <div className="mb-2">
                 <Button
                   type="button"
                   size="sm"
                   variant="outline"
                   onClick={() => clearSignature(key as keyof typeof canvasRefs)}
-                  className="flex-1 border-[#D4AF37] text-[#D4AF37] hover:bg-[#D4AF37] hover:text-black"
+                  className="w-full border-[#D4AF37] text-[#D4AF37] hover:bg-[#D4AF37] hover:text-black"
                 >
                   Hapus
-                </Button>
-                <Button
-                  type="button"
-                  size="sm"
-                  onClick={() => saveSignature(key as keyof typeof canvasRefs)}
-                  className="flex-1 bg-[#D4AF37] text-black hover:bg-[#c49d2f]"
-                >
-                  Simpan
                 </Button>
               </div>
 

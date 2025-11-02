@@ -36,16 +36,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         body: JSON.stringify({ nik, password }),
       })
 
-      console.log("[v0] Login response status:", response.status)
-
       if (!response.ok) {
-        console.log("[v0] Login failed with status:", response.status)
         return false
       }
 
       const user = await response.json()
-      console.log("[v0] Login successful, user:", user.nik)
-
       setUser(user)
       setIsAuthenticated(true)
       localStorage.setItem("currentUser", JSON.stringify(user))
