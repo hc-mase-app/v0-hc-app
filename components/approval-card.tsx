@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/badge"
 import { Textarea } from "@/components/ui/textarea"
 import { Label } from "@/components/ui/label"
 import type { LeaveRequest } from "@/lib/types"
-import { formatDate, getStatusLabel, getStatusColor } from "@/lib/utils"
+import { formatDate, formatMonthYear, getStatusLabel, getStatusColor } from "@/lib/utils"
 import { CheckCircle, XCircle, Eye } from "lucide-react"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 
@@ -146,21 +146,21 @@ export function ApprovalCard({
             )}
             <div>
               <p className="text-xs text-slate-500">Periode</p>
-              <p className="font-medium text-slate-900">{formatDate(request.tanggalKeberangkatan)}</p>
+              <p className="font-medium text-slate-900">
+                {request.tanggalKeberangkatan ? formatMonthYear(request.tanggalKeberangkatan) : "-"}
+              </p>
             </div>
           </div>
 
-          {(request.tanggalMulai || request.tanggalSelesai) && (
+          {(request.periodeAwal || request.periodeAkhir || request.tanggalMulai || request.tanggalSelesai) && (
             <div className="pt-2 border-t border-slate-100">
               <p className="text-xs text-slate-500 mb-1">Periode Cuti</p>
               <p className="font-medium text-slate-900">
-                {request.tanggalMulai && request.tanggalSelesai
-                  ? `${formatDate(request.tanggalMulai)} - ${formatDate(request.tanggalSelesai)}`
-                  : request.tanggalMulai
-                    ? formatDate(request.tanggalMulai)
-                    : request.tanggalSelesai
-                      ? formatDate(request.tanggalSelesai)
-                      : "-"}
+                {request.periodeAwal && request.periodeAkhir
+                  ? `${formatDate(request.periodeAwal)} - ${formatDate(request.periodeAkhir)}`
+                  : request.tanggalMulai && request.tanggalSelesai
+                    ? `${formatDate(request.tanggalMulai)} - ${formatDate(request.tanggalSelesai)}`
+                    : "-"}
               </p>
             </div>
           )}

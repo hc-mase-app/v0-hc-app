@@ -176,7 +176,7 @@ export default function AdminDashboard() {
                 </div>
                 <Button variant="outline" onClick={() => setIsImportOpen(true)}>
                   <Upload className="h-4 w-4 mr-2" />
-                  Import CSV
+                  Import CSV/Excel
                 </Button>
                 <Button onClick={() => setIsNewUserOpen(true)}>
                   <UserPlus className="h-4 w-4 mr-2" />

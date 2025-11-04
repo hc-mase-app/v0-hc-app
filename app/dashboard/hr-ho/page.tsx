@@ -32,8 +32,11 @@ export default function HRHODashboard() {
 
       const [pending, all] = await Promise.all([pendingRes.json(), allRes.json()])
 
-      setPendingRequests(Array.isArray(pending) ? pending : [])
-      setAllRequests(Array.isArray(all) ? all : [])
+      const pendingData = Array.isArray(pending) ? pending : pending?.data || []
+      const allData = Array.isArray(all) ? all : all?.data || []
+
+      setPendingRequests(pendingData)
+      setAllRequests(allData)
     } catch (error) {
       console.error("[HR HO] Error loading data:", error)
     } finally {

@@ -56,13 +56,15 @@ export default function HRTicketingDashboard() {
     try {
       const pendingRes = await fetch("/api/workflow?action=pending&role=hr_ticketing&site=all")
       const pending = await pendingRes.json()
-      const enhancedPending = await enrichRequestsWithBookingDate(Array.isArray(pending) ? pending : [])
+      const pendingData = Array.isArray(pending) ? pending : pending?.data || []
+      const enhancedPending = await enrichRequestsWithBookingDate(pendingData)
       setpendingRequests(enhancedPending)
       setFilteredRequests(enhancedPending)
 
       const allRes = await fetch("/api/workflow?action=all&role=hr_ticketing&site=all")
       const all = await allRes.json()
-      const enhancedAll = await enrichRequestsWithBookingDate(Array.isArray(all) ? all : [])
+      const allData = Array.isArray(all) ? all : all?.data || []
+      const enhancedAll = await enrichRequestsWithBookingDate(allData)
       setAllRequests(enhancedAll)
     } catch (error) {
       console.error("Error loading data:", error)

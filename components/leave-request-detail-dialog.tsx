@@ -149,7 +149,11 @@ export function LeaveRequestDetailDialog({ request, open, onOpenChange }: LeaveR
                 <div>
                   <p className="text-xs text-slate-500">Periode Cuti</p>
                   <p className="font-medium">
-                    {formatDate(request.tanggalMulai)} - {formatDate(request.tanggalSelesai)}
+                    {request.periodeAwal && request.periodeAkhir
+                      ? `${formatDate(request.periodeAwal)} - ${formatDate(request.periodeAkhir)}`
+                      : request.tanggalMulai && request.tanggalSelesai
+                        ? `${formatDate(request.tanggalMulai)} - ${formatDate(request.tanggalSelesai)}`
+                        : "-"}
                   </p>
                   <p className="text-sm text-slate-600">{request.jumlahHari} hari</p>
                 </div>

@@ -9,6 +9,7 @@ import { Label } from "@/components/ui/label"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import type { User, UserRole } from "@/lib/types"
 import { AlertCircle, CheckCircle2, Upload } from "lucide-react"
+import * as XLSX from "xlsx"
 
 interface CSVImportDialogProps {
   open: boolean
@@ -70,6 +71,61 @@ function parseCSVLine(line: string): string[] {
   return result
 }
 
+const parseXLSX = async (file: File): Promise<ParsedUser[]> => {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader()
+
+    reader.onload = (e) => {
+      try {
+        const data = e.target?.result
+        const workbook = XLSX.read(data, { type: "binary" })
+        const sheetName = workbook.SheetNames[0]
+        const worksheet = workbook.Sheets[sheetName]
+        const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1 }) as string[][]
+
+        if (jsonData.length < 2) {
+          reject(new Error("File harus memiliki header dan minimal 1 baris data"))
+          return
+        }
+
+        const headers = jsonData[0].map((h: string) => h.toLowerCase().trim())
+        const parsedUsers: ParsedUser[] = []
+
+        for (let i = 1; i < jsonData.length; i++) {
+          const row = jsonData[i]
+          if (!row || row.length === 0) continue
+
+          const user: ParsedUser = {
+            nik: String(row[headers.indexOf("nik")] || ""),
+            nama: String(row[headers.indexOf("nama")] || ""),
+            emailPrefix: String(row[headers.indexOf("email_prefix")] || ""),
+            password: String(row[headers.indexOf("password")] || ""),
+            role: String(row[headers.indexOf("role")] || "") as UserRole,
+            site: String(row[headers.indexOf("site")] || ""),
+            jabatan: String(row[headers.indexOf("jabatan")] || ""),
+            departemen: String(row[headers.indexOf("departemen")] || ""),
+            poh: String(row[headers.indexOf("poh")] || ""),
+            statusKaryawan: String(row[headers.indexOf("status_karyawan")] || "") as "Kontrak" | "Tetap",
+            noKtp: String(row[headers.indexOf("no_ktp")] || ""),
+            noTelp: String(row[headers.indexOf("no_telp")] || ""),
+            tanggalLahir: String(row[headers.indexOf("tanggal_lahir")] || "1970-01-01"),
+            jenisKelamin: String(row[headers.indexOf("jenis_kelamin")] || "Laki-laki"),
+          }
+
+          parsedUsers.push(user)
+        }
+
+        resolve(parsedUsers)
+      } catch (error) {
+        reject(error)
+      }
+    }
+
+    reader.onerror = () => reject(new Error("Gagal membaca file"))
+    reader.readAsBinaryString(file)
+  })
+}
+
 export function CSVImportDialog({ open, onOpenChange, onSuccess }: CSVImportDialogProps) {
   const [file, setFile] = useState<File | null>(null)
   const [preview, setPreview] = useState<ParsedUser[]>([])
@@ -82,8 +138,11 @@ export function CSVImportDialog({ open, onOpenChange, onSuccess }: CSVImportDial
     const selectedFile = e.target.files?.[0]
     if (!selectedFile) return
 
-    if (!selectedFile.name.endsWith(".csv")) {
-      setErrors(["File harus berformat CSV"])
+    const isCSV = selectedFile.name.endsWith(".csv")
+    const isXLSX = selectedFile.name.endsWith(".xlsx") || selectedFile.name.endsWith(".xls")
+
+    if (!isCSV && !isXLSX) {
+      setErrors(["File harus berformat CSV atau XLSX"])
       return
     }
 
@@ -91,15 +150,45 @@ export function CSVImportDialog({ open, onOpenChange, onSuccess }: CSVImportDial
     setErrors([])
 
     try {
-      const text = await selectedFile.text()
-      const lines = text.split("\n").filter((line) => line.trim())
+      let parsedUsers: ParsedUser[] = []
 
-      if (lines.length < 2) {
-        setErrors(["File CSV harus memiliki header dan minimal 1 baris data"])
-        return
+      if (isXLSX) {
+        parsedUsers = await parseXLSX(selectedFile)
+      } else {
+        const text = await selectedFile.text()
+        const lines = text.split("\n").filter((line) => line.trim())
+
+        if (lines.length < 2) {
+          setErrors(["File CSV harus memiliki header dan minimal 1 baris data"])
+          return
+        }
+
+        const headers = parseCSVLine(lines[0]).map((h) => h.toLowerCase())
+
+        for (let i = 1; i < lines.length; i++) {
+          const values = parseCSVLine(lines[i])
+
+          const user: ParsedUser = {
+            nik: values[headers.indexOf("nik")] || "",
+            nama: values[headers.indexOf("nama")] || "",
+            emailPrefix: values[headers.indexOf("email_prefix")] || "",
+            password: values[headers.indexOf("password")] || "",
+            role: (values[headers.indexOf("role")] || "") as UserRole,
+            site: values[headers.indexOf("site")] || "",
+            jabatan: values[headers.indexOf("jabatan")] || "",
+            departemen: values[headers.indexOf("departemen")] || "",
+            poh: values[headers.indexOf("poh")] || "",
+            statusKaryawan: (values[headers.indexOf("status_karyawan")] || "") as "Kontrak" | "Tetap",
+            noKtp: values[headers.indexOf("no_ktp")] || "",
+            noTelp: values[headers.indexOf("no_telp")] || "",
+            tanggalLahir: values[headers.indexOf("tanggal_lahir")] || "1970-01-01",
+            jenisKelamin: values[headers.indexOf("jenis_kelamin")] || "Laki-laki",
+          }
+
+          parsedUsers.push(user)
+        }
       }
 
-      const headers = parseCSVLine(lines[0]).map((h) => h.toLowerCase())
       const requiredHeaders = [
         "nik",
         "nama",
@@ -117,55 +206,17 @@ export function CSVImportDialog({ open, onOpenChange, onSuccess }: CSVImportDial
         "jenis_kelamin",
       ]
 
-      const missingHeaders = requiredHeaders.filter((h) => !headers.includes(h))
-      if (missingHeaders.length > 0) {
-        setErrors([`Header yang hilang: ${missingHeaders.join(", ")}`])
-        return
-      }
-
-      const parsedUsers: ParsedUser[] = []
-      const parseErrors: string[] = []
-
       const existingUsersResponse = await fetch("/api/users")
       const existingUsers = existingUsersResponse.ok ? await existingUsersResponse.json() : []
 
-      for (let i = 1; i < lines.length; i++) {
-        const values = parseCSVLine(lines[i])
-        const row = i + 1
+      const validatedUsers: ParsedUser[] = []
+      const parseErrors: string[] = []
+
+      for (let i = 0; i < parsedUsers.length; i++) {
+        const user = parsedUsers[i]
+        const row = i + 2
 
         try {
-          const nikIndex = headers.indexOf("nik")
-          const namaIndex = headers.indexOf("nama")
-          const emailPrefixIndex = headers.indexOf("email_prefix")
-          const passwordIndex = headers.indexOf("password")
-          const roleIndex = headers.indexOf("role")
-          const siteIndex = headers.indexOf("site")
-          const jabatanIndex = headers.indexOf("jabatan")
-          const departemenIndex = headers.indexOf("departemen")
-          const pohIndex = headers.indexOf("poh")
-          const statusKaryawanIndex = headers.indexOf("status_karyawan")
-          const noKtpIndex = headers.indexOf("no_ktp")
-          const noTelpIndex = headers.indexOf("no_telp")
-          const tanggalLahirIndex = headers.indexOf("tanggal_lahir")
-          const jenisKelaminIndex = headers.indexOf("jenis_kelamin")
-
-          const user: ParsedUser = {
-            nik: values[nikIndex] || "",
-            nama: values[namaIndex] || "",
-            emailPrefix: values[emailPrefixIndex] || "",
-            password: values[passwordIndex] || "",
-            role: (values[roleIndex] || "") as UserRole,
-            site: values[siteIndex] || "",
-            jabatan: values[jabatanIndex] || "",
-            departemen: values[departemenIndex] || "",
-            poh: values[pohIndex] || "",
-            statusKaryawan: (values[statusKaryawanIndex] || "") as "Kontrak" | "Tetap",
-            noKtp: values[noKtpIndex] || "",
-            noTelp: values[noTelpIndex] || "",
-            tanggalLahir: values[tanggalLahirIndex] || "1970-01-01",
-            jenisKelamin: values[jenisKelaminIndex] || "Laki-laki",
-          }
-
           if (!user.nik) throw new Error("NIK tidak boleh kosong")
           if (!user.nama) throw new Error("Nama tidak boleh kosong")
           if (!user.emailPrefix) throw new Error("Email prefix tidak boleh kosong")
@@ -186,7 +237,7 @@ export function CSVImportDialog({ open, onOpenChange, onSuccess }: CSVImportDial
             throw new Error(`NIK sudah terdaftar: ${user.nik}`)
           }
 
-          parsedUsers.push(user)
+          validatedUsers.push(user)
         } catch (error) {
           parseErrors.push(`Baris ${row}: ${error instanceof Error ? error.message : "Error tidak diketahui"}`)
         }
@@ -197,7 +248,7 @@ export function CSVImportDialog({ open, onOpenChange, onSuccess }: CSVImportDial
         return
       }
 
-      setPreview(parsedUsers)
+      setPreview(validatedUsers)
       setStep("preview")
     } catch (error) {
       setErrors([error instanceof Error ? error.message : "Gagal membaca file"])
@@ -272,8 +323,8 @@ export function CSVImportDialog({ open, onOpenChange, onSuccess }: CSVImportDial
     <Dialog open={open} onOpenChange={handleClose}>
       <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Import Data Karyawan dari CSV</DialogTitle>
-          <DialogDescription>Upload file CSV untuk menambahkan data karyawan secara massal</DialogDescription>
+          <DialogTitle>Import Data Karyawan dari CSV/Excel</DialogTitle>
+          <DialogDescription>Upload file CSV atau XLSX untuk menambahkan data karyawan secara massal</DialogDescription>
         </DialogHeader>
 
         {step === "upload" && (
@@ -281,10 +332,16 @@ export function CSVImportDialog({ open, onOpenChange, onSuccess }: CSVImportDial
             <div className="border-2 border-dashed border-slate-300 rounded-lg p-8 text-center">
               <Upload className="h-12 w-12 text-slate-400 mx-auto mb-4" />
               <Label htmlFor="csv-file" className="cursor-pointer">
-                <div className="text-lg font-medium text-slate-700 mb-2">Pilih file CSV</div>
+                <div className="text-lg font-medium text-slate-700 mb-2">Pilih file CSV atau Excel</div>
                 <div className="text-sm text-slate-500">atau drag and drop file di sini</div>
               </Label>
-              <Input id="csv-file" type="file" accept=".csv" onChange={handleFileChange} className="hidden" />
+              <Input
+                id="csv-file"
+                type="file"
+                accept=".csv,.xlsx,.xls"
+                onChange={handleFileChange}
+                className="hidden"
+              />
             </div>
 
             {errors.length > 0 && (
@@ -304,14 +361,28 @@ export function CSVImportDialog({ open, onOpenChange, onSuccess }: CSVImportDial
             )}
 
             <div className="bg-slate-50 p-4 rounded-lg">
-              <h4 className="font-medium text-sm mb-3">Format CSV yang diharapkan:</h4>
-              <div className="text-xs text-slate-600 font-mono overflow-x-auto">
-                <div>
-                  nik,nama,email_prefix,password,role,site,jabatan,departemen,poh,status_karyawan,no_ktp,no_telp,tanggal_lahir,jenis_kelamin
+              <h4 className="font-medium text-sm mb-3">Format yang diharapkan (CSV atau Excel):</h4>
+              <div className="text-xs text-slate-600 space-y-2">
+                <div className="font-mono overflow-x-auto">
+                  <div className="font-semibold mb-1">Header (baris pertama):</div>
+                  <div>
+                    nik,nama,email_prefix,password,role,site,jabatan,departemen,poh,status_karyawan,no_ktp,no_telp,tanggal_lahir,jenis_kelamin
+                  </div>
                 </div>
-                <div className="mt-2 text-slate-500">
-                  HR002,Dina Kusuma,dina,pass123,hr_site,Head
-                  Office,GL,HCGA,POH007,Tetap,3201234567890129,081234567896,1990-05-15,Perempuan
+                <div className="font-mono overflow-x-auto">
+                  <div className="font-semibold mb-1 mt-3">Contoh data:</div>
+                  <div className="text-slate-500">
+                    HR002,Dina Kusuma,dina,pass123,hr_site,Head
+                    Office,GL,HCGA,POH007,Tetap,3201234567890129,081234567896,1990-05-15,Perempuan
+                  </div>
+                </div>
+                <div className="mt-3 p-2 bg-blue-50 border border-blue-200 rounded">
+                  <p className="text-blue-800 font-medium">💡 Tips:</p>
+                  <ul className="list-disc list-inside mt-1 text-blue-700">
+                    <li>Untuk Excel: Pastikan data ada di sheet pertama</li>
+                    <li>Header harus persis sama dengan format di atas</li>
+                    <li>Role valid: user, hr_site, dic, pjo_site, hr_ho, hr_ticketing, super_admin</li>
+                  </ul>
                 </div>
               </div>
             </div>

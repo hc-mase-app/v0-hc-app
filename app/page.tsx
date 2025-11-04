@@ -32,7 +32,6 @@ export default function Home() {
       href: "/login",
       requiresLogin: true,
     },
-    // </CHANGE>
     {
       title: "Pengajuan Cuti",
       icon: CalendarCheck,
@@ -80,7 +79,7 @@ export default function Home() {
 
       {/* Footer */}
       <footer className="py-6 text-center">
-        <p className="text-[#666666] text-sm">© 2025 PT. Sarana Sukses Sejahtera - PT Gunungmas Sukses Makmur | YAN</p>
+        <p className="text-[#666666] text-sm">© 2025 Yan Firdaus | HCD | HCGA | PT SSS - PT GSM</p>
       </footer>
     </div>
   )

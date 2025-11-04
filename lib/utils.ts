@@ -35,6 +35,17 @@ export function formatDateTime(dateString: string): string {
   })
 }
 
+export function formatMonthYear(dateString: string): string {
+  if (!dateString) return "-"
+  const date = new Date(dateString)
+  // Check if date is valid
+  if (isNaN(date.getTime())) return "-"
+  return date.toLocaleDateString("id-ID", {
+    year: "numeric",
+    month: "long",
+  })
+}
+
 export function calculateDaysBetween(startDate: string, endDate: string): number {
   const start = new Date(startDate)
   const end = new Date(endDate)
