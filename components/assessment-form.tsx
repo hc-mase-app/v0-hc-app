@@ -9,9 +9,11 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Textarea } from "@/components/ui/textarea"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Label } from "@/components/ui/label"
-import { AlertCircle, Save, Download, Trash2 } from "lucide-react"
+import { AlertCircle, Save, Download, Send } from "lucide-react"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import jsPDF from "jspdf"
+import { useAuth } from "@/lib/auth-context"
+import { useRouter } from "next/navigation"
 
 const DEPARTMENTS = ["Operation", "Produksi", "Plant", "SCM", "HCGA", "HSE", "Finance", "Accounting"]
 const SITES = ["Head Office", "BSF", "WBN", "HSM", "MHM", "PSN", "BEKB", "ABN", "KE", "TCMM", "TCM", "IM", "TMU"]
@@ -51,6 +53,10 @@ interface SignatureData {
 }
 
 export default function AssessmentForm() {
+  const { user } = useAuth()
+  const router = useRouter()
+  const [isSubmitting, setIsSubmitting] = useState(false)
+
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const [isDrawing, setIsDrawing] = useState(false)
   const [currentSignatureTarget, setCurrentSignatureTarget] = useState<string | null>(null)
@@ -184,30 +190,73 @@ export default function AssessmentForm() {
     const SCALE_FACTOR = 10.0 / MAX_SCORE
     let scaledScore = subTotal * SCALE_FACTOR
 
-    // Calculate penalties based on number of Alpa and SP
     let penaltyPercentage = 0
+    const isKontrak = formData.status_karyawan === "Kontrak"
+    const isProbation = formData.status_karyawan === "Probation"
 
-    // Alpa penalties
-    if (formData.jumlah_alpa === 1) {
-      penaltyPercentage += 10 // -10%
-    } else if (formData.jumlah_alpa >= 2) {
-      penaltyPercentage += 20 // -20%
+    // Sakit penalties for Kontrak
+    if (isKontrak && formData.jumlah_sakit > 0) {
+      // Each sick day = -3%
+      penaltyPercentage += formData.jumlah_sakit * 3
     }
 
-    // SP penalties
-    if (formData.jumlah_sp1 >= 1) {
-      penaltyPercentage += 10 // -10%
+    // Sakit penalties for Probation
+    if (isProbation && formData.jumlah_sakit > 0) {
+      // Each sick day = -5%
+      penaltyPercentage += formData.jumlah_sakit * 5
     }
-    if (formData.jumlah_sp2 >= 1) {
-      penaltyPercentage += 20 // -20%
+
+    // Alpa penalties based on status
+    if (isKontrak) {
+      // Kontrak: 1x=-10%, 2x=-20%, 3x=-30%, 4x=-40%, 5x+=-50%
+      if (formData.jumlah_alpa === 1) {
+        penaltyPercentage += 10
+      } else if (formData.jumlah_alpa === 2) {
+        penaltyPercentage += 20
+      } else if (formData.jumlah_alpa === 3) {
+        penaltyPercentage += 30
+      } else if (formData.jumlah_alpa === 4) {
+        penaltyPercentage += 40
+      } else if (formData.jumlah_alpa >= 5) {
+        penaltyPercentage += 50
+      }
+    } else if (isProbation) {
+      // Probation: 1x=-20%, 2x+=-30%
+      if (formData.jumlah_alpa === 1) {
+        penaltyPercentage += 20
+      } else if (formData.jumlah_alpa >= 2) {
+        penaltyPercentage += 30
+      }
     }
-    if (formData.jumlah_sp3 >= 1) {
-      penaltyPercentage += 50 // -50%
+
+    // SP penalties based on status
+    if (isKontrak) {
+      // Kontrak: SP1=-10%, SP2=-20% (total), SP3=-30% (total)
+      if (formData.jumlah_sp1 >= 1) {
+        penaltyPercentage += 10
+      }
+      if (formData.jumlah_sp2 >= 1) {
+        penaltyPercentage += 10 // Additional 10% (total becomes 20%)
+      }
+      if (formData.jumlah_sp3 >= 1) {
+        penaltyPercentage += 10 // Additional 10% (total becomes 30%)
+      }
+    } else if (isProbation) {
+      // Probation: SP1=-20%, SP2=-30% (total), SP3=-70% (total)
+      if (formData.jumlah_sp1 >= 1) {
+        penaltyPercentage += 20
+      }
+      if (formData.jumlah_sp2 >= 1) {
+        penaltyPercentage += 10 // Additional 10% (total becomes 30%)
+      }
+      if (formData.jumlah_sp3 >= 1) {
+        penaltyPercentage += 40 // Additional 40% (total becomes 70%)
+      }
     }
 
     // Apply penalty to scaled score
     const penaltyAmount = (scaledScore * penaltyPercentage) / 100
-    scaledScore = Math.max(0, scaledScore - penaltyAmount) // Ensure score doesn't go below 0
+    scaledScore = Math.max(0, scaledScore - penaltyAmount)
 
     return scaledScore
   }
@@ -218,11 +267,42 @@ export default function AssessmentForm() {
 
   const calculatePenalties = () => {
     const penalties = []
-    if (formData.jumlah_alpa === 1) penalties.push("Alpa 1x: -10%")
-    if (formData.jumlah_alpa >= 2) penalties.push("Alpa 2x+: -20%")
-    if (formData.jumlah_sp1 >= 1) penalties.push("SP1: -10%")
-    if (formData.jumlah_sp2 >= 1) penalties.push("SP2: -20%")
-    if (formData.jumlah_sp3 >= 1) penalties.push("SP3: -50%")
+    const isKontrak = formData.status_karyawan === "Kontrak"
+    const isProbation = formData.status_karyawan === "Probation"
+
+    if (isKontrak) {
+      // Sakit penalties for Kontrak
+      if (formData.jumlah_sakit > 0) {
+        const sakitPenalty = formData.jumlah_sakit * 3
+        penalties.push(`Sakit ${formData.jumlah_sakit}x: -${sakitPenalty}%`)
+      }
+
+      // Kontrak penalties
+      if (formData.jumlah_alpa === 1) penalties.push("Alpa 1x: -10%")
+      if (formData.jumlah_alpa === 2) penalties.push("Alpa 2x: -20%")
+      if (formData.jumlah_alpa === 3) penalties.push("Alpa 3x: -30%")
+      if (formData.jumlah_alpa === 4) penalties.push("Alpa 4x: -40%")
+      if (formData.jumlah_alpa >= 5) penalties.push(`Alpa ${formData.jumlah_alpa}x: -50%`)
+
+      if (formData.jumlah_sp1 >= 1) penalties.push("SP1: -10%")
+      if (formData.jumlah_sp2 >= 1) penalties.push("SP2: -20% (total)")
+      if (formData.jumlah_sp3 >= 1) penalties.push("SP3: -30% (total)")
+    } else if (isProbation) {
+      // Sakit penalties for Probation
+      if (formData.jumlah_sakit > 0) {
+        const sakitPenalty = formData.jumlah_sakit * 5
+        penalties.push(`Sakit ${formData.jumlah_sakit}x: -${sakitPenalty}%`)
+      }
+
+      // Probation penalties
+      if (formData.jumlah_alpa === 1) penalties.push("Alpa 1x: -20%")
+      if (formData.jumlah_alpa >= 2) penalties.push(`Alpa ${formData.jumlah_alpa}x: -30%`)
+
+      if (formData.jumlah_sp1 >= 1) penalties.push("SP1: -20%")
+      if (formData.jumlah_sp2 >= 1) penalties.push("SP2: -30% (total)")
+      if (formData.jumlah_sp3 >= 1) penalties.push("SP3: -70% (total)")
+    }
+
     return penalties
   }
 
@@ -478,94 +558,206 @@ export default function AssessmentForm() {
     alert("Draft tersimpan!")
   }
 
+  const handleSubmitAssessment = async () => {
+    if (!user) {
+      alert("Anda harus login terlebih dahulu")
+      return
+    }
+
+    if (!formData.nik || !formData.nama) {
+      alert("Mohon lengkapi data karyawan terlebih dahulu")
+      return
+    }
+
+    if (!formData.periode_penilaian) {
+      alert("Mohon isi periode penilaian")
+      return
+    }
+
+    // Validate that at least some scores are filled
+    const hasKepribadianScores = formData.kepribadian.some((item) => item.score > 0)
+    const hasPrestasiScores = formData.prestasi.some((item) => item.score > 0)
+
+    if (!hasKepribadianScores || !hasPrestasiScores) {
+      alert("Mohon isi minimal satu score untuk Kepribadian dan Prestasi")
+      return
+    }
+
+    setIsSubmitting(true)
+
+    try {
+      const assessmentData = {
+        employeeNik: formData.nik,
+        employeeName: formData.nama,
+        employeeJabatan: formData.jabatan,
+        employeeDepartemen: formData.departemen,
+        employeeSite: formData.site,
+        employeeTanggalMasuk: formData.tgl_masuk,
+        employeeStatus: formData.status_karyawan,
+        assessmentPeriod: formData.periode_penilaian,
+        kepribadian: formData.kepribadian.map((item) => ({
+          id: item.id,
+          name: item.name,
+          weight: item.weight,
+          score: item.score,
+          calculatedScore: item.score * item.weight,
+        })),
+        prestasi: formData.prestasi.map((item) => ({
+          id: item.id,
+          name: item.name,
+          weight: item.weight,
+          score: item.score,
+          calculatedScore: item.score * item.weight,
+        })),
+        kehadiran: {
+          sakit: formData.jumlah_sakit,
+          izin: formData.jumlah_izin,
+          alpa: formData.jumlah_alpa,
+          score: nilaiC,
+        },
+        indisipliner: {
+          teguran: 0,
+          sp1: formData.jumlah_sp1,
+          sp2: formData.jumlah_sp2,
+          sp3: formData.jumlah_sp3,
+          score: nilaiD,
+        },
+        totalScore: totalScore,
+        grade: gradeInfo.grade,
+        penalties: {
+          sakit: formData.jumlah_sakit,
+          alpa: formData.jumlah_alpa,
+          sp1: formData.jumlah_sp1,
+          sp2: formData.jumlah_sp2,
+          sp3: formData.jumlah_sp3,
+        },
+        strengths: formData.kelebihan,
+        weaknesses: formData.kekurangan,
+        recommendations: [
+          {
+            type: "perpanjangan_kontrak",
+            selected: formData.rekomendasi.perpanjangan_kontrak,
+            months: formData.rekomendasi.perpanjangan_bulan,
+          },
+          {
+            type: "pengangkatan_tetap",
+            selected: formData.rekomendasi.pengangkatan_tetap,
+          },
+          {
+            type: "promosi",
+            selected: formData.rekomendasi.promosi,
+          },
+          {
+            type: "perubahan_gaji",
+            selected: formData.rekomendasi.perubahan_gaji,
+          },
+          {
+            type: "end_kontrak",
+            selected: formData.rekomendasi.end_kontrak,
+          },
+        ],
+        status: "pending_pjo",
+        createdByNik: user.nik,
+        createdByName: user.nama,
+        createdByRole: user.role,
+      }
+
+      const response = await fetch("/api/assessments", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(assessmentData),
+      })
+
+      if (!response.ok) {
+        throw new Error("Gagal menyimpan assessment")
+      }
+
+      const result = await response.json()
+      alert("Assessment berhasil disubmit untuk approval PJO!")
+
+      // Redirect to DIC dashboard
+      router.push("/dashboard/dic")
+    } catch (error) {
+      console.error("[v0] Error submitting assessment:", error)
+      alert("Gagal menyimpan assessment. Silakan coba lagi.")
+    } finally {
+      setIsSubmitting(false)
+    }
+  }
+
   return (
-    <div className="space-y-6 bg-white rounded-lg p-6">
+    <div className="space-y-4 md:space-y-6 bg-white rounded-lg p-4 md:p-6">
       {/* Data Karyawan Section */}
       <Card>
-        <CardHeader>
-          <CardTitle>1. DATA KARYAWAN</CardTitle>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-base md:text-lg">1. DATA KARYAWAN</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-4 gap-4">
+          <div className="space-y-3 md:space-y-4">
             <div>
-              <Label htmlFor="nik">NIK Karyawan</Label>
+              <Label htmlFor="nik" className="text-sm">
+                NIK Karyawan
+              </Label>
               <Input
                 id="nik"
                 value={formData.nik}
                 onChange={(e) => handleNikChange(e.target.value)}
-                placeholder="Masukkan NIK atau cari..."
+                placeholder="Masukkan NIK (10 digit)"
                 disabled={isSearchingEmployee}
+                className="text-sm"
               />
-              {isSearchingEmployee && <p className="text-xs text-gray-500 mt-1">Mencari data karyawan...</p>}
-            </div>
-            <div>
-              <Label htmlFor="nama">Nama</Label>
-              <Input
-                id="nama"
-                value={formData.nama}
-                onChange={(e) => handleNamaChange(e.target.value)}
-                placeholder="Masukkan Nama atau cari..."
-                disabled={isSearchingEmployee}
-              />
-            </div>
-            <div>
-              <Label htmlFor="jabatan">Jabatan</Label>
-              <Input
-                id="jabatan"
-                value={formData.jabatan}
-                onChange={(e) => setFormData({ ...formData, jabatan: e.target.value })}
-                placeholder="Otomatis terisi"
-                readOnly
-              />
-            </div>
-            <div>
-              <Label htmlFor="tgl_masuk">Tanggal Masuk Kerja</Label>
-              <Input
-                id="tgl_masuk"
-                type="date"
-                value={formData.tgl_masuk}
-                onChange={(e) => setFormData({ ...formData, tgl_masuk: e.target.value })}
-                readOnly
-              />
+              {isSearchingEmployee && <p className="text-xs text-blue-500 mt-1">Mencari data karyawan...</p>}
             </div>
 
+            {formData.nama && (
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 md:gap-4 p-3 md:p-4 bg-slate-50 rounded-lg border-2 border-primary/20">
+                <div className="space-y-1.5 md:space-y-2">
+                  <Label className="text-xs text-slate-600">Nama</Label>
+                  <p className="text-sm font-medium">{formData.nama}</p>
+                </div>
+                <div className="space-y-1.5 md:space-y-2">
+                  <Label className="text-xs text-slate-600">Jabatan</Label>
+                  <p className="text-sm font-medium">{formData.jabatan}</p>
+                </div>
+                <div className="space-y-1.5 md:space-y-2">
+                  <Label className="text-xs text-slate-600">Departemen</Label>
+                  <p className="text-sm font-medium">{formData.departemen}</p>
+                </div>
+                <div className="space-y-1.5 md:space-y-2">
+                  <Label className="text-xs text-slate-600">Site / Lokasi Kerja</Label>
+                  <p className="text-sm font-medium">{formData.site}</p>
+                </div>
+                <div className="space-y-1.5 md:space-y-2">
+                  <Label className="text-xs text-slate-600">Status Karyawan</Label>
+                  <p className="text-sm font-medium">{formData.status_karyawan}</p>
+                </div>
+                <div className="space-y-1.5 md:space-y-2">
+                  <Label className="text-xs text-slate-600">Tanggal Masuk</Label>
+                  <p className="text-sm font-medium">
+                    {formData.tgl_masuk
+                      ? new Date(formData.tgl_masuk).toLocaleDateString("id-ID", {
+                          day: "numeric",
+                          month: "long",
+                          year: "numeric",
+                        })
+                      : "-"}
+                  </p>
+                </div>
+              </div>
+            )}
+
             <div>
-              <Label htmlFor="departemen">Departemen</Label>
-              <Input
-                id="departemen"
-                value={formData.departemen}
-                onChange={(e) => setFormData({ ...formData, departemen: e.target.value })}
-                placeholder="Otomatis terisi"
-                readOnly
-              />
-            </div>
-            <div>
-              <Label htmlFor="site">Site</Label>
-              <Input
-                id="site"
-                value={formData.site}
-                onChange={(e) => setFormData({ ...formData, site: e.target.value })}
-                placeholder="Otomatis terisi"
-                readOnly
-              />
-            </div>
-            <div>
-              <Label htmlFor="status">Status Karyawan</Label>
-              <Input
-                id="status"
-                value={formData.status_karyawan}
-                onChange={(e) => setFormData({ ...formData, status_karyawan: e.target.value })}
-                placeholder="Otomatis terisi"
-                readOnly
-              />
-            </div>
-            <div>
-              <Label htmlFor="periode">Periode Penilaian</Label>
+              <Label htmlFor="periode" className="text-sm">
+                Periode Penilaian
+              </Label>
               <Input
                 id="periode"
                 value={formData.periode_penilaian}
                 onChange={(e) => setFormData({ ...formData, periode_penilaian: e.target.value })}
                 placeholder="Contoh: 01/01/2024 - 30/06/2024"
+                className="text-sm"
               />
             </div>
           </div>
@@ -574,18 +766,18 @@ export default function AssessmentForm() {
 
       {/* Penilaian Section */}
       <Card>
-        <CardHeader>
-          <CardTitle>2. INFORMASI SYSTEM PENILAIAN</CardTitle>
-          <CardDescription>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-base md:text-lg">2. INFORMASI SYSTEM PENILAIAN</CardTitle>
+          <CardDescription className="text-xs md:text-sm">
             Keterangan Penilaian A & B: Score 1 - 10 (1 = Jelek sekali, 10 = Bagus sekali)
           </CardDescription>
         </CardHeader>
-        <CardContent className="space-y-6">
+        <CardContent className="space-y-4 md:space-y-6">
           {/* Kepribadian */}
           <div>
-            <h3 className="font-bold mb-3">A. Kepribadian (Bobot Item: 0.075)</h3>
-            <div className="overflow-x-auto">
-              <table className="w-full border-collapse text-sm">
+            <h3 className="font-bold mb-3 text-sm md:text-base">A. Kepribadian (Bobot Item: 0.075)</h3>
+            <div className="overflow-x-auto -mx-4 px-4 md:mx-0 md:px-0">
+              <table className="w-full border-collapse text-xs md:text-sm min-w-[600px]">
                 <thead>
                   <tr className="bg-gray-200">
                     <th className="border p-2 text-left">No.</th>
@@ -606,10 +798,26 @@ export default function AssessmentForm() {
                           type="number"
                           min="1"
                           max="10"
-                          value={item.score}
+                          value={item.score === 0 ? "" : item.score}
                           onChange={(e) => {
+                            const inputValue = e.target.value
+                            let score = 0
+
+                            if (inputValue === "" || inputValue === null) {
+                              score = 0
+                            } else {
+                              const numValue = Number.parseInt(inputValue)
+                              if (numValue > 10) {
+                                score = 10
+                              } else if (numValue < 1) {
+                                score = 1
+                              } else {
+                                score = numValue
+                              }
+                            }
+
                             const newKepribadian = [...formData.kepribadian]
-                            newKepribadian[idx] = { ...item, score: Number.parseInt(e.target.value) || 0 }
+                            newKepribadian[idx] = { ...item, score }
                             setFormData({ ...formData, kepribadian: newKepribadian })
                           }}
                           className="w-16 text-center"
@@ -625,9 +833,9 @@ export default function AssessmentForm() {
 
           {/* Prestasi */}
           <div>
-            <h3 className="font-bold mb-3">B. Prestasi & Hasil Kerja (Bobot Item: 0.03)</h3>
-            <div className="overflow-x-auto">
-              <table className="w-full border-collapse text-sm">
+            <h3 className="font-bold mb-3 text-sm md:text-base">B. Prestasi & Hasil Kerja (Bobot Item: 0.03)</h3>
+            <div className="overflow-x-auto -mx-4 px-4 md:mx-0 md:px-0">
+              <table className="w-full border-collapse text-xs md:text-sm min-w-[600px]">
                 <thead>
                   <tr className="bg-gray-200">
                     <th className="border p-2 text-left">No.</th>
@@ -648,10 +856,26 @@ export default function AssessmentForm() {
                           type="number"
                           min="1"
                           max="10"
-                          value={item.score}
+                          value={item.score === 0 ? "" : item.score}
                           onChange={(e) => {
+                            const inputValue = e.target.value
+                            let score = 0
+
+                            if (inputValue === "" || inputValue === null) {
+                              score = 0
+                            } else {
+                              const numValue = Number.parseInt(inputValue)
+                              if (numValue > 10) {
+                                score = 10
+                              } else if (numValue < 1) {
+                                score = 1
+                              } else {
+                                score = numValue
+                              }
+                            }
+
                             const newPrestasi = [...formData.prestasi]
-                            newPrestasi[idx] = { ...item, score: Number.parseInt(e.target.value) || 0 }
+                            newPrestasi[idx] = { ...item, score }
                             setFormData({ ...formData, prestasi: newPrestasi })
                           }}
                           className="w-16 text-center"
@@ -680,39 +904,42 @@ export default function AssessmentForm() {
 
           {/* Kehadiran */}
           <div>
-            <h3 className="font-bold mb-3">C. Kehadiran (Sakit, Izin, Alpa - ATR)</h3>
-            <div className="grid grid-cols-3 gap-4 mb-3">
+            <h3 className="font-bold mb-3 text-sm md:text-base">C. Kehadiran (Sakit, Izin, Alpa - ATR)</h3>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 md:gap-4 mb-3">
               <div>
-                <Label>Sakit (hari)</Label>
+                <Label className="text-sm">Sakit (hari)</Label>
                 <Input
                   type="number"
                   min="0"
                   value={formData.jumlah_sakit}
                   onChange={(e) => setFormData({ ...formData, jumlah_sakit: Number.parseInt(e.target.value) || 0 })}
+                  className="text-sm"
                 />
               </div>
               <div>
-                <Label>Izin (hari)</Label>
+                <Label className="text-sm">Izin (hari)</Label>
                 <Input
                   type="number"
                   min="0"
                   value={formData.jumlah_izin}
                   onChange={(e) => setFormData({ ...formData, jumlah_izin: Number.parseInt(e.target.value) || 0 })}
+                  className="text-sm"
                 />
               </div>
               <div>
-                <Label>Alpa (hari)</Label>
+                <Label className="text-sm">Alpa (hari)</Label>
                 <Input
                   type="number"
                   min="0"
                   value={formData.jumlah_alpa}
                   onChange={(e) => setFormData({ ...formData, jumlah_alpa: Number.parseInt(e.target.value) || 0 })}
+                  className="text-sm"
                 />
               </div>
             </div>
             <Alert>
               <AlertCircle className="h-4 w-4" />
-              <AlertDescription>
+              <AlertDescription className="text-xs md:text-sm">
                 Nilai Kehadiran (F): {nilaiC.toFixed(2)} (Total Hari:{" "}
                 {formData.jumlah_sakit + formData.jumlah_izin + formData.jumlah_alpa})
               </AlertDescription>
@@ -721,39 +948,42 @@ export default function AssessmentForm() {
 
           {/* Indisipliner */}
           <div>
-            <h3 className="font-bold mb-3">D. Indisipliner (SP)</h3>
-            <div className="grid grid-cols-4 gap-4 mb-3">
+            <h3 className="font-bold mb-3 text-sm md:text-base">D. Indisipliner (SP)</h3>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 md:gap-4 mb-3">
               <div>
-                <Label>SP 1</Label>
+                <Label className="text-sm">SP 1</Label>
                 <Input
                   type="number"
                   min="0"
                   value={formData.jumlah_sp1}
                   onChange={(e) => setFormData({ ...formData, jumlah_sp1: Number.parseInt(e.target.value) || 0 })}
+                  className="text-sm"
                 />
               </div>
               <div>
-                <Label>SP 2</Label>
+                <Label className="text-sm">SP 2</Label>
                 <Input
                   type="number"
                   min="0"
                   value={formData.jumlah_sp2}
                   onChange={(e) => setFormData({ ...formData, jumlah_sp2: Number.parseInt(e.target.value) || 0 })}
+                  className="text-sm"
                 />
               </div>
               <div>
-                <Label>SP 3</Label>
+                <Label className="text-sm">SP 3</Label>
                 <Input
                   type="number"
                   min="0"
                   value={formData.jumlah_sp3}
                   onChange={(e) => setFormData({ ...formData, jumlah_sp3: Number.parseInt(e.target.value) || 0 })}
+                  className="text-sm"
                 />
               </div>
             </div>
             <Alert>
               <AlertCircle className="h-4 w-4" />
-              <AlertDescription>
+              <AlertDescription className="text-xs md:text-sm">
                 Nilai Indisipliner (F): {nilaiD.toFixed(2)} (Total SP:{" "}
                 {formData.jumlah_sp1 + formData.jumlah_sp2 + formData.jumlah_sp3})
               </AlertDescription>
@@ -763,13 +993,13 @@ export default function AssessmentForm() {
           {/* Penalties Display Section */}
           {penalties.length > 0 && (
             <Card className="border-yellow-500 bg-yellow-50">
-              <CardHeader>
-                <CardTitle className="text-yellow-800">Penalti yang Diterapkan</CardTitle>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-yellow-800 text-sm md:text-base">Penalti yang Diterapkan</CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="space-y-2">
                   {penalties.map((penalty, idx) => (
-                    <p key={idx} className="text-yellow-800 font-semibold">
+                    <p key={idx} className="text-yellow-800 font-semibold text-xs md:text-sm">
                       • {penalty}
                     </p>
                   ))}
@@ -782,26 +1012,32 @@ export default function AssessmentForm() {
 
       {/* Kelebihan & Kekurangan */}
       <Card>
-        <CardHeader>
-          <CardTitle>Kelebihan dan Kekurangan</CardTitle>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-base md:text-lg">Kelebihan dan Kekurangan</CardTitle>
         </CardHeader>
-        <CardContent className="space-y-4">
+        <CardContent className="space-y-3 md:space-y-4">
           <div>
-            <Label htmlFor="kelebihan">Kelebihan Karyawan</Label>
+            <Label htmlFor="kelebihan" className="text-sm">
+              Kelebihan Karyawan
+            </Label>
             <Textarea
               id="kelebihan"
               value={formData.kelebihan}
               onChange={(e) => setFormData({ ...formData, kelebihan: e.target.value })}
               rows={3}
+              className="text-sm"
             />
           </div>
           <div>
-            <Label htmlFor="kekurangan">Kekurangan Karyawan</Label>
+            <Label htmlFor="kekurangan" className="text-sm">
+              Kekurangan Karyawan
+            </Label>
             <Textarea
               id="kekurangan"
               value={formData.kekurangan}
               onChange={(e) => setFormData({ ...formData, kekurangan: e.target.value })}
               rows={3}
+              className="text-sm"
             />
           </div>
         </CardContent>
@@ -809,15 +1045,15 @@ export default function AssessmentForm() {
 
       {/* Score Akhir */}
       <Card className={`${gradeInfo.color} text-white`}>
-        <CardContent className="pt-6">
-          <div className="flex justify-between items-center">
+        <CardContent className="pt-4 md:pt-6">
+          <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3">
             <div>
-              <p className="text-sm opacity-90">SCORE AKHIR (Skala 10.00)</p>
-              <p className="text-4xl font-bold">{totalScore.toFixed(2)}</p>
+              <p className="text-xs md:text-sm opacity-90">SCORE AKHIR (Skala 10.00)</p>
+              <p className="text-3xl md:text-4xl font-bold">{totalScore.toFixed(2)}</p>
             </div>
-            <div className="text-right">
-              <p className="text-sm opacity-90">NILAI</p>
-              <p className="text-3xl font-bold">{gradeInfo.grade}</p>
+            <div className="text-left sm:text-right">
+              <p className="text-xs md:text-sm opacity-90">NILAI</p>
+              <p className="text-2xl md:text-3xl font-bold">{gradeInfo.grade}</p>
             </div>
           </div>
         </CardContent>
@@ -825,11 +1061,11 @@ export default function AssessmentForm() {
 
       {/* Rekomendasi */}
       <Card>
-        <CardHeader>
-          <CardTitle>3. HASIL REKOMENDASI</CardTitle>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-base md:text-lg">3. HASIL REKOMENDASI</CardTitle>
         </CardHeader>
         <CardContent className="space-y-3">
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
             <Checkbox
               id="perpanjangan"
               checked={formData.rekomendasi.perpanjangan_kontrak}
@@ -840,7 +1076,7 @@ export default function AssessmentForm() {
                 })
               }
             />
-            <Label htmlFor="perpanjangan" className="flex-1">
+            <Label htmlFor="perpanjangan" className="flex-1 text-sm">
               Perpanjangan Kontrak (di angka:
             </Label>
             <Input
@@ -853,9 +1089,9 @@ export default function AssessmentForm() {
                   rekomendasi: { ...formData.rekomendasi, perpanjangan_bulan: Number.parseInt(e.target.value) || 12 },
                 })
               }
-              className="w-20"
+              className="w-16 md:w-20 text-sm"
             />
-            <span>Bulan)</span>
+            <span className="text-sm">Bulan)</span>
           </div>
           <div className="flex items-center gap-2">
             <Checkbox
@@ -868,7 +1104,9 @@ export default function AssessmentForm() {
                 })
               }
             />
-            <Label htmlFor="pengangkatan">Pengangkatan Karyawan Tetap</Label>
+            <Label htmlFor="pengangkatan" className="text-sm">
+              Pengangkatan Karyawan Tetap
+            </Label>
           </div>
           <div className="flex items-center gap-2">
             <Checkbox
@@ -881,7 +1119,9 @@ export default function AssessmentForm() {
                 })
               }
             />
-            <Label htmlFor="promosi">Promosi Jabatan</Label>
+            <Label htmlFor="promosi" className="text-sm">
+              Promosi Jabatan
+            </Label>
           </div>
           <div className="flex items-center gap-2">
             <Checkbox
@@ -894,7 +1134,9 @@ export default function AssessmentForm() {
                 })
               }
             />
-            <Label htmlFor="gaji">Perubahan Gaji</Label>
+            <Label htmlFor="gaji" className="text-sm">
+              Perubahan Gaji
+            </Label>
           </div>
           <div className="flex items-center gap-2">
             <Checkbox
@@ -907,125 +1149,32 @@ export default function AssessmentForm() {
                 })
               }
             />
-            <Label htmlFor="end">End Kontrak</Label>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Validasi Section */}
-      <Card>
-        <CardHeader>
-          <CardTitle>4. HALAMAN VALIDASI</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-4 gap-4">
-            {[
-              { key: "user_site", label: "Dibuat Oleh (User Site)" },
-              { key: "hr_site", label: "Diketahui (HR Site)" },
-              { key: "pjo_site", label: "Disetujui (PJO Site)" },
-              { key: "hr_ho", label: "Diterima (HR HO)" },
-            ].map((sig) => (
-              <div key={sig.key} className="border rounded-lg p-4">
-                <p className="font-bold text-sm mb-2">{sig.label}</p>
-                <div
-                  className="border-2 border-dashed rounded p-2 mb-2 h-24 flex items-center justify-center bg-gray-50 cursor-pointer"
-                  onClick={() => openSignatureModal(sig.key)}
-                >
-                  {formData.signatures[sig.key as keyof typeof formData.signatures].data ? (
-                    <img
-                      src={formData.signatures[sig.key as keyof typeof formData.signatures].data || "/placeholder.svg"}
-                      alt="Signature"
-                      className="max-h-full max-w-full"
-                    />
-                  ) : (
-                    <span className="text-gray-400 text-xs text-center">Klik untuk TTD</span>
-                  )}
-                </div>
-                <Input
-                  placeholder="Nama Lengkap"
-                  value={formData.signatures[sig.key as keyof typeof formData.signatures].name}
-                  onChange={(e) =>
-                    setFormData({
-                      ...formData,
-                      signatures: {
-                        ...formData.signatures,
-                        [sig.key]: {
-                          ...formData.signatures[sig.key as keyof typeof formData.signatures],
-                          name: e.target.value,
-                        },
-                      },
-                    })
-                  }
-                  className="mb-2 text-xs"
-                />
-                <Input
-                  placeholder="Jabatan"
-                  value={formData.signatures[sig.key as keyof typeof formData.signatures].jabatan}
-                  onChange={(e) =>
-                    setFormData({
-                      ...formData,
-                      signatures: {
-                        ...formData.signatures,
-                        [sig.key]: {
-                          ...formData.signatures[sig.key as keyof typeof formData.signatures],
-                          jabatan: e.target.value,
-                        },
-                      },
-                    })
-                  }
-                  className="text-xs"
-                />
-              </div>
-            ))}
+            <Label htmlFor="end" className="text-sm">
+              End Kontrak
+            </Label>
           </div>
         </CardContent>
       </Card>
 
       {/* Action Buttons */}
-      <div className="flex gap-4">
-        <Button onClick={handleSaveDraft} variant="outline" className="flex-1 bg-transparent">
+      <div className="flex flex-col sm:flex-row gap-3 md:gap-4">
+        <Button onClick={handleSaveDraft} variant="outline" className="flex-1 bg-transparent text-sm md:text-base">
           <Save className="h-4 w-4 mr-2" />
           Simpan Draft
         </Button>
-        <Button onClick={handleExportPDF} className="flex-1 bg-green-600 hover:bg-green-700">
+        <Button onClick={handleExportPDF} variant="outline" className="flex-1 bg-transparent text-sm md:text-base">
           <Download className="h-4 w-4 mr-2" />
           Cetak / Ekspor ke PDF
         </Button>
+        <Button
+          onClick={handleSubmitAssessment}
+          className="flex-1 bg-blue-600 hover:bg-blue-700 text-sm md:text-base"
+          disabled={isSubmitting}
+        >
+          <Send className="h-4 w-4 mr-2" />
+          {isSubmitting ? "Mengirim..." : "Submit untuk Approval"}
+        </Button>
       </div>
-
-      {/* Signature Modal */}
-      {showSignatureModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <Card className="w-full max-w-2xl">
-            <CardHeader>
-              <CardTitle>Gambarkan Tanda Tangan Anda</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <canvas
-                ref={canvasRef}
-                onMouseDown={startDrawing}
-                onMouseMove={draw}
-                onMouseUp={stopDrawing}
-                onMouseLeave={stopDrawing}
-                className="w-full border-2 border-gray-300 rounded cursor-crosshair bg-white"
-                height={200}
-              />
-              <div className="flex gap-2 justify-end">
-                <Button onClick={clearSignature} variant="outline">
-                  <Trash2 className="h-4 w-4 mr-2" />
-                  Hapus TTD
-                </Button>
-                <Button onClick={saveSignature} className="bg-blue-600 hover:bg-blue-700">
-                  Simpan TTD
-                </Button>
-                <Button onClick={() => setShowSignatureModal(false)} variant="outline">
-                  Tutup
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-      )}
     </div>
   )
 }

@@ -29,9 +29,10 @@ export default function Home() {
     {
       title: "Assessment Karyawan",
       icon: UserCheck,
-      href: "/assessment-karyawan",
-      requiresLogin: false,
+      href: "/login",
+      requiresLogin: true,
     },
+    // </CHANGE>
     {
       title: "Pengajuan Cuti",
       icon: CalendarCheck,

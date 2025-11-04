@@ -116,20 +116,22 @@ export interface AssessmentRecommendation {
   months?: number // for perpanjangan_kontrak
 }
 
-export interface AssessmentValidation {
-  createdByUserId: string
-  createdByName: string
-  createdByRole: string
-  createdAt: string
-  knownByHRUserId?: string
-  knownByHRName?: string
-  knownByHRAt?: string
-  approvedByPJOUserId?: string
-  approvedByPJOName?: string
-  approvedByPJOAt?: string
-  receivedByHRHOUserId?: string
-  receivedByHRHOName?: string
-  receivedByHRHOAt?: string
+export type AssessmentStatus =
+  | "draft" // Being created by DIC
+  | "pending_pjo" // Waiting for PJO Site approval
+  | "pending_hr_site" // Waiting for HR Site final approval
+  | "approved" // Approved by all
+  | "rejected" // Rejected at any stage
+
+export interface AssessmentApprovalHistory {
+  id: string
+  assessmentId: string
+  approverUserId: string
+  approverName: string
+  approverRole: UserRole
+  action: "approved" | "rejected"
+  notes: string
+  timestamp: string
 }
 
 export interface EmployeeAssessment {
@@ -140,7 +142,7 @@ export interface EmployeeAssessment {
   employeeDepartemen: string
   employeeSite: string
   employeeStartDate: string
-  employeeStatus: "Kontrak" | "Tetap"
+  employeeStatus: "Kontrak" | "Tetap" | "Probation"
   assessmentPeriod: string // e.g., "2025-01 to 2025-03"
 
   // Assessment sections
@@ -149,16 +151,31 @@ export interface EmployeeAssessment {
   kehadiran: AssessmentAttendance
   indisipliner: AssessmentDiscipline
 
+  // Scores and grading
+  totalScore: number
+  grade: string
+  penalties: {
+    alpa?: number
+    sakit?: number
+    sp1?: number
+    sp2?: number
+    sp3?: number
+  }
+
   // Additional info
   strengths: string
   weaknesses: string
   recommendations: AssessmentRecommendation[]
 
-  // Validation workflow
-  validation: AssessmentValidation
+  // Workflow fields
+  status: AssessmentStatus
+  createdByUserId: string
+  createdByName: string
+  createdByRole: string
+
+  approvalHistory?: AssessmentApprovalHistory[]
 
   // Metadata
   createdAt: string
   updatedAt: string
-  status: "draft" | "submitted" | "approved" | "rejected"
 }

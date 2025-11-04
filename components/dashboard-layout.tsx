@@ -37,8 +37,8 @@ export function DashboardLayout({ children, title }: DashboardLayoutProps) {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
             <div>
-              <h1 className="text-xl font-bold text-slate-900">Pengajuan Cuti</h1>
-              <p className="text-sm text-slate-600">{title}</p>
+              <h1 className="text-xl font-bold text-slate-900">{title}</h1>
+              <p className="text-sm text-slate-600">{getRoleLabel(user.role)}</p>
             </div>
 
             <div className="flex items-center gap-4">
@@ -60,7 +60,7 @@ export function DashboardLayout({ children, title }: DashboardLayoutProps) {
 
               <Button variant="outline" size="sm" onClick={handleLogout}>
                 <LogOut className="h-4 w-4 mr-2" />
-                Keluar
+                Log Out
               </Button>
             </div>
           </div>

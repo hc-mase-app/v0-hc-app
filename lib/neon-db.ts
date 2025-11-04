@@ -2,6 +2,26 @@ import { neon } from "@neondatabase/serverless"
 
 const sql = neon(process.env.DATABASE_URL || "")
 
+const KEPRIBADIAN_NAMES: Record<string, string> = {
+  A1: "Inisiatif & Kreativitas",
+  A2: "Kedisiplinan & Kerajinan",
+  A3: "Komunikasi & Etika Kerja",
+  A4: "Tanggung Jawab & Motivasi",
+}
+
+const PRESTASI_NAMES: Record<string, string> = {
+  B1: "Pengetahuan & Kemampuan",
+  B2: "Efisiensi & Efektivitas Kerja",
+  B3: "Kecepatan & Ketelitian Kerja",
+  B4: "Kualitas & Kerjasama Tim",
+  B5: "Hasil & Pencapaian Target Kerja",
+  B6: "Penguasaan Sistem & Administrasi",
+  B7: "Pencatatan, Penyimpanan, dan Pengarsipan Kebutuhan Kerja",
+  B8: "Pemahaman & Pengoperasian Unit",
+  B9: "Perawatan Unit & Alat Kerja",
+  B10: "Kebersihan & Kepedulian K3",
+}
+
 function transformUserData(dbUser: any) {
   if (!dbUser) return null
 
@@ -73,6 +93,141 @@ function transformApprovalHistory(dbHistory: any) {
   return {
     id: dbHistory.id,
     leaveRequestId: dbHistory.leave_request_id,
+    approverNik: dbHistory.approver_nik,
+    approverName: dbHistory.approver_name,
+    approverRole: dbHistory.approver_role,
+    action: dbHistory.action,
+    notes: dbHistory.notes,
+    timestamp: dbHistory.created_at,
+    createdAt: dbHistory.created_at,
+  }
+}
+
+function transformAssessmentData(dbAssessment: any) {
+  if (!dbAssessment) return null
+
+  const kepribadian = []
+  for (let i = 1; i <= 4; i++) {
+    const id = `A${i}`
+    const score = Number.parseFloat(dbAssessment[`kepribadian_${i}_score`]) || 0
+    const nilai = Number.parseFloat(dbAssessment[`kepribadian_${i}_nilai`]) || 0
+    kepribadian.push({
+      id: id,
+      name: KEPRIBADIAN_NAMES[id] || `Kriteria ${id}`,
+      score: score,
+      calculatedScore: nilai,
+    })
+  }
+
+  const prestasi = []
+  for (let i = 1; i <= 10; i++) {
+    const id = `B${i}`
+    const score = Number.parseFloat(dbAssessment[`prestasi_${i}_score`]) || 0
+    const nilai = Number.parseFloat(dbAssessment[`prestasi_${i}_nilai`]) || 0
+    prestasi.push({
+      id: id,
+      name: PRESTASI_NAMES[id] || `Kriteria ${id}`,
+      score: score,
+      calculatedScore: nilai,
+    })
+  }
+
+  // Reconstruct kehadiran object
+  const kehadiran = {
+    sakit: Number.parseInt(dbAssessment.kehadiran_sakit) || 0,
+    izin: Number.parseInt(dbAssessment.kehadiran_izin) || 0,
+    alpa: Number.parseInt(dbAssessment.kehadiran_alpa) || 0,
+    score: Number.parseFloat(dbAssessment.kehadiran_nilai) || 0,
+  }
+
+  // Reconstruct indisipliner object
+  const indisipliner = {
+    teguran: 0,
+    sp1: Number.parseInt(dbAssessment.indisipliner_sp1) || 0,
+    sp2: Number.parseInt(dbAssessment.indisipliner_sp2) || 0,
+    sp3: Number.parseInt(dbAssessment.indisipliner_sp3) || 0,
+    score: Number.parseFloat(dbAssessment.indisipliner_nilai) || 0,
+  }
+
+  // Reconstruct recommendations array
+  const recommendations = []
+  if (dbAssessment.rekomendasi_perpanjang_kontrak) {
+    recommendations.push({
+      type: "perpanjangan_kontrak",
+      selected: true,
+      months: dbAssessment.rekomendasi_perpanjang_bulan || 12,
+    })
+  }
+  if (dbAssessment.rekomendasi_pengangkatan_tetap) {
+    recommendations.push({ type: "pengangkatan_tetap", selected: true })
+  }
+  if (dbAssessment.rekomendasi_promosi_jabatan) {
+    recommendations.push({ type: "promosi", selected: true })
+  }
+  if (dbAssessment.rekomendasi_perubahan_gaji) {
+    recommendations.push({ type: "perubahan_gaji", selected: true })
+  }
+  if (dbAssessment.rekomendasi_end_kontrak) {
+    recommendations.push({ type: "end_kontrak", selected: true })
+  }
+
+  const transformed = {
+    id: dbAssessment.id,
+    employeeNik: dbAssessment.employee_nik,
+    employeeName: dbAssessment.employee_name,
+    employeeJabatan: dbAssessment.employee_jabatan,
+    employeeDepartemen: dbAssessment.employee_departemen,
+    employeeSite: dbAssessment.employee_site,
+    employeeTanggalMasuk: dbAssessment.employee_tanggal_masuk,
+    employeeStatus: dbAssessment.employee_status,
+    assessmentPeriod: dbAssessment.assessment_period,
+
+    // Converted arrays/objects
+    kepribadian: kepribadian,
+    prestasi: prestasi,
+    kehadiran: kehadiran,
+    indisipliner: indisipliner,
+
+    // Scoring
+    subtotal: Number.parseFloat(dbAssessment.subtotal) || 0,
+    totalScore: Number.parseFloat(dbAssessment.total_score) || 0,
+    grade: dbAssessment.grade,
+    penalties:
+      typeof dbAssessment.penalties === "string" ? JSON.parse(dbAssessment.penalties) : dbAssessment.penalties || {},
+
+    // Kelebihan & Kekurangan
+    strengths: dbAssessment.kelebihan,
+    weaknesses: dbAssessment.kekurangan,
+
+    // Recommendations
+    recommendations: recommendations,
+
+    // Workflow
+    status: dbAssessment.status,
+    createdByNik: dbAssessment.created_by_nik,
+    createdByName: dbAssessment.created_by_name,
+    createdByRole: dbAssessment.created_by_role,
+    createdAt: dbAssessment.created_at,
+    updatedAt: dbAssessment.updated_at,
+  }
+
+  console.log("[v0] Transformed assessment data:", {
+    id: transformed.id,
+    kepribadianCount: transformed.kepribadian.length,
+    prestasiCount: transformed.prestasi.length,
+    kepribadianSample: transformed.kepribadian[0],
+    prestasiSample: transformed.prestasi[0],
+  })
+
+  return transformed
+}
+
+function transformAssessmentApprovalHistory(dbHistory: any) {
+  if (!dbHistory) return null
+
+  return {
+    id: dbHistory.id,
+    assessmentId: dbHistory.assessment_id,
     approverNik: dbHistory.approver_nik,
     approverName: dbHistory.approver_name,
     approverRole: dbHistory.approver_role,
@@ -545,7 +700,7 @@ export async function updateLeaveRequest(id: string, updates: any) {
     console.log("[v0] Update successful, result:", result.rows[0])
     return result.rows[0]
   } catch (error) {
-    console.error("[v0] Error updating leave request:", error)
+    console.error("[v0] Error updating leave request:", error instanceof Error ? error.message : String(error))
     throw error
   }
 }
@@ -640,6 +795,244 @@ export async function addApprovalHistory(history: any) {
     return result[0]
   } catch (error) {
     console.error("Error adding approval history:", error)
+    throw error
+  }
+}
+
+// ============ ASSESSMENT OPERATIONS ============
+
+export async function getAssessments() {
+  try {
+    const result = await sql`SELECT * FROM employee_assessments ORDER BY created_at DESC`
+    return result.map(transformAssessmentData)
+  } catch (error) {
+    console.error("Error fetching assessments:", error)
+    return []
+  }
+}
+
+export async function getAssessmentById(id: string) {
+  try {
+    const result = await sql`SELECT * FROM employee_assessments WHERE id = ${id}`
+    return transformAssessmentData(result[0])
+  } catch (error) {
+    console.error("Error fetching assessment:", error)
+    return null
+  }
+}
+
+export async function getAssessmentsByStatus(status: string) {
+  try {
+    const result = await sql`
+      SELECT * FROM employee_assessments 
+      WHERE status = ${status} 
+      ORDER BY created_at DESC
+    `
+    return result.map(transformAssessmentData)
+  } catch (error) {
+    console.error("Error fetching assessments by status:", error)
+    return []
+  }
+}
+
+export async function getAssessmentsByCreator(creatorNik: string) {
+  try {
+    const result = await sql`
+      SELECT * FROM employee_assessments 
+      WHERE created_by_nik = ${creatorNik} 
+      ORDER BY created_at DESC
+    `
+    return result.map(transformAssessmentData)
+  } catch (error) {
+    console.error("Error fetching assessments by creator:", error)
+    return []
+  }
+}
+
+export async function getAssessmentsBySite(site: string) {
+  try {
+    const result = await sql`
+      SELECT * FROM employee_assessments 
+      WHERE employee_site = ${site} 
+      ORDER BY created_at DESC
+    `
+    return result.map(transformAssessmentData)
+  } catch (error) {
+    console.error("Error fetching assessments by site:", error)
+    return []
+  }
+}
+
+export async function getAssessmentsBySiteAndStatus(site: string, status: string) {
+  try {
+    console.log("[v0] getAssessmentsBySiteAndStatus called with site:", site, "status:", status)
+    const result = await sql`
+      SELECT * FROM employee_assessments 
+      WHERE employee_site = ${site} AND status = ${status}
+      ORDER BY created_at DESC
+    `
+    console.log("[v0] Found", result.length, "assessments")
+    return result.map(transformAssessmentData)
+  } catch (error) {
+    console.error("Error fetching assessments by site and status:", error)
+    return []
+  }
+}
+
+export async function createAssessment(assessment: any) {
+  try {
+    console.log("[v0] createAssessment called with data:", {
+      employeeNik: assessment.employeeNik,
+      employeeName: assessment.employeeName,
+      status: assessment.status,
+    })
+
+    const result = await sql`
+      INSERT INTO employee_assessments (
+        employee_nik, employee_name, employee_jabatan, employee_departemen,
+        employee_site, employee_tanggal_masuk, employee_status,
+        kepribadian_1_score, kepribadian_1_nilai, kepribadian_2_score, kepribadian_2_nilai,
+        kepribadian_3_score, kepribadian_3_nilai, kepribadian_4_score, kepribadian_4_nilai,
+        kepribadian_total,
+        prestasi_1_score, prestasi_1_nilai, prestasi_2_score, prestasi_2_nilai,
+        prestasi_3_score, prestasi_3_nilai, prestasi_4_score, prestasi_4_nilai,
+        prestasi_5_score, prestasi_5_nilai, prestasi_6_score, prestasi_6_nilai,
+        prestasi_7_score, prestasi_7_nilai, prestasi_8_score, prestasi_8_nilai,
+        prestasi_9_score, prestasi_9_nilai, prestasi_10_score, prestasi_10_nilai,
+        prestasi_total,
+        kehadiran_sakit, kehadiran_izin, kehadiran_alpa, kehadiran_nilai,
+        indisipliner_sp1, indisipliner_sp2, indisipliner_sp3, indisipliner_nilai,
+        subtotal, total_score, grade, penalties,
+        kelebihan, kekurangan,
+        rekomendasi_perpanjang_kontrak, rekomendasi_perpanjang_bulan,
+        rekomendasi_pengangkatan_tetap, rekomendasi_promosi_jabatan,
+        rekomendasi_perubahan_gaji, rekomendasi_end_kontrak,
+        status, created_by_nik, created_by_name, created_by_role
+      )
+      VALUES (
+        ${assessment.employeeNik}, ${assessment.employeeName}, 
+        ${assessment.employeeJabatan || null}, ${assessment.employeeDepartemen || null},
+        ${assessment.employeeSite || null}, ${assessment.employeeTanggalMasuk || null}, 
+        ${assessment.employeeStatus || null},
+        ${assessment.kepribadian1Score || 0}, ${assessment.kepribadian1Nilai || 0},
+        ${assessment.kepribadian2Score || 0}, ${assessment.kepribadian2Nilai || 0},
+        ${assessment.kepribadian3Score || 0}, ${assessment.kepribadian3Nilai || 0},
+        ${assessment.kepribadian4Score || 0}, ${assessment.kepribadian4Nilai || 0},
+        ${assessment.kepribadianTotal || 0},
+        ${assessment.prestasi1Score || 0}, ${assessment.prestasi1Nilai || 0},
+        ${assessment.prestasi2Score || 0}, ${assessment.prestasi2Nilai || 0},
+        ${assessment.prestasi3Score || 0}, ${assessment.prestasi3Nilai || 0},
+        ${assessment.prestasi4Score || 0}, ${assessment.prestasi4Nilai || 0},
+        ${assessment.prestasi5Score || 0}, ${assessment.prestasi5Nilai || 0},
+        ${assessment.prestasi6Score || 0}, ${assessment.prestasi6Nilai || 0},
+        ${assessment.prestasi7Score || 0}, ${assessment.prestasi7Nilai || 0},
+        ${assessment.prestasi8Score || 0}, ${assessment.prestasi8Nilai || 0},
+        ${assessment.prestasi9Score || 0}, ${assessment.prestasi9Nilai || 0},
+        ${assessment.prestasi10Score || 0}, ${assessment.prestasi10Nilai || 0},
+        ${assessment.prestasiTotal || 0},
+        ${assessment.kehadiranSakit || 0}, ${assessment.kehadiranIzin || 0},
+        ${assessment.kehadiranAlpa || 0}, ${assessment.kehadiranNilai || 0},
+        ${assessment.indisiplinerSp1 || 0}, ${assessment.indisiplinerSp2 || 0},
+        ${assessment.indisiplinerSp3 || 0}, ${assessment.indisiplinerNilai || 0},
+        ${assessment.subtotal || 0}, ${assessment.totalScore || 0},
+        ${assessment.grade || null}, ${JSON.stringify(assessment.penalties || {})},
+        ${assessment.kelebihan || null}, ${assessment.kekurangan || null},
+        ${assessment.rekomendasiPerpanjangKontrak || false},
+        ${assessment.rekomendasiPerpanjangBulan || null},
+        ${assessment.rekomendasiPengangkatanTetap || false},
+        ${assessment.rekomendasiPromosiJabatan || false},
+        ${assessment.rekomendasiPerubahanGaji || false},
+        ${assessment.rekomendasiEndKontrak || false},
+        ${assessment.status || "pending_pjo"}, ${assessment.createdByNik},
+        ${assessment.createdByName || null}, ${assessment.createdByRole || null}
+      )
+      RETURNING *
+    `
+
+    console.log("[v0] Assessment created successfully with ID:", result[0].id)
+    return transformAssessmentData(result[0])
+  } catch (error) {
+    console.error("[v0] Error creating assessment:", error)
+    throw error
+  }
+}
+
+export async function updateAssessment(id: string, updates: any) {
+  try {
+    console.log("[v0] updateAssessment called with id:", id, "updates:", updates)
+
+    if (updates.status !== undefined) {
+      const result = await sql`
+        UPDATE employee_assessments 
+        SET status = ${updates.status}, updated_at = CURRENT_TIMESTAMP
+        WHERE id = ${Number.parseInt(id)}
+        RETURNING *
+      `
+
+      console.log("[v0] Update successful, returned rows:", result.length)
+
+      if (!result || result.length === 0) {
+        console.error("[v0] No rows returned from update - Assessment with id", id, "may not exist")
+        throw new Error(`Update returned no rows for assessment id: ${id}`)
+      }
+
+      console.log("[v0] Assessment updated successfully, new status:", result[0].status)
+      return transformAssessmentData(result[0])
+    }
+
+    // If other fields need updating, fetch current and update
+    console.log("[v0] No status update, fetching current assessment")
+    return await getAssessmentById(id)
+  } catch (error) {
+    console.error("[v0] Error updating assessment:", error instanceof Error ? error.message : String(error))
+    throw error
+  }
+}
+
+export async function deleteAssessment(id: string) {
+  try {
+    await sql`DELETE FROM employee_assessments WHERE id = ${id}`
+  } catch (error) {
+    console.error("Error deleting assessment:", error)
+    throw error
+  }
+}
+
+// ============ ASSESSMENT APPROVAL HISTORY OPERATIONS ============
+
+export async function getAssessmentApprovals(assessmentId: string) {
+  try {
+    const result = await sql`
+      SELECT * FROM assessment_approvals 
+      WHERE assessment_id = ${assessmentId} 
+      ORDER BY created_at ASC
+    `
+    return result.map(transformAssessmentApprovalHistory)
+  } catch (error) {
+    console.error("Error fetching assessment approvals:", error)
+    return []
+  }
+}
+
+export async function addAssessmentApproval(approval: any) {
+  try {
+    console.log("[v0] addAssessmentApproval called with data:", approval)
+
+    const result = await sql`
+      INSERT INTO assessment_approvals (
+        assessment_id, approver_nik, approver_name, approver_role, action, notes
+      )
+      VALUES (
+        ${approval.assessmentId}, ${approval.approverNik}, ${approval.approverName},
+        ${approval.approverRole}, ${approval.action}, ${approval.notes || null}
+      )
+      RETURNING *
+    `
+
+    console.log("[v0] Assessment approval added successfully with ID:", result[0].id)
+    return transformAssessmentApprovalHistory(result[0])
+  } catch (error) {
+    console.error("[v0] Error adding assessment approval:", error)
     throw error
   }
 }

@@ -63,7 +63,8 @@ CREATE TABLE IF NOT EXISTS approval_history (
   timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- Create employee_assessments table
+-- Updated employee_assessments table with all workflow fields
+-- Create employee_assessments table with workflow support
 CREATE TABLE IF NOT EXISTS employee_assessments (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   employee_nik VARCHAR(20) NOT NULL,
@@ -83,15 +84,38 @@ CREATE TABLE IF NOT EXISTS employee_assessments (
   recommendations JSONB,
   validation JSONB,
   status VARCHAR(50) DEFAULT 'draft',
+  created_by_user_id UUID NULL REFERENCES users(id) ON DELETE SET NULL,
+  created_by_name VARCHAR(255),
+  created_by_role VARCHAR(50),
+  total_score DECIMAL(5,2),
+  grade VARCHAR(50),
+  penalties JSONB,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
+-- Added assessment_approvals table for tracking approval history
+-- Create assessment_approvals table for tracking approval history
+CREATE TABLE IF NOT EXISTS assessment_approvals (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  assessment_id UUID NOT NULL REFERENCES employee_assessments(id) ON DELETE CASCADE,
+  approver_user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  approver_name VARCHAR(255) NOT NULL,
+  approver_role VARCHAR(50) NOT NULL,
+  action VARCHAR(50) NOT NULL,
+  notes TEXT,
+  timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
 -- Create indexes for better performance
-CREATE INDEX idx_users_email ON users(email);
-CREATE INDEX idx_users_nik ON users(nik);
-CREATE INDEX idx_leave_requests_user_id ON leave_requests(user_id);
-CREATE INDEX idx_leave_requests_status ON leave_requests(status);
-CREATE INDEX idx_leave_requests_submitted_by ON leave_requests(submitted_by);
-CREATE INDEX idx_approval_history_request_id ON approval_history(request_id);
-CREATE INDEX idx_employee_assessments_nik ON employee_assessments(employee_nik);
+CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
+CREATE INDEX IF NOT EXISTS idx_users_nik ON users(nik);
+CREATE INDEX IF NOT EXISTS idx_leave_requests_user_id ON leave_requests(user_id);
+CREATE INDEX IF NOT EXISTS idx_leave_requests_status ON leave_requests(status);
+CREATE INDEX IF NOT EXISTS idx_leave_requests_submitted_by ON leave_requests(submitted_by);
+CREATE INDEX IF NOT EXISTS idx_approval_history_request_id ON approval_history(request_id);
+CREATE INDEX IF NOT EXISTS idx_employee_assessments_nik ON employee_assessments(employee_nik);
+CREATE INDEX IF NOT EXISTS idx_employee_assessments_status ON employee_assessments(status);
+CREATE INDEX IF NOT EXISTS idx_employee_assessments_created_by ON employee_assessments(created_by_user_id);
+CREATE INDEX IF NOT EXISTS idx_assessment_approvals_assessment_id ON assessment_approvals(assessment_id);
+CREATE INDEX IF NOT EXISTS idx_assessment_approvals_approver ON assessment_approvals(approver_user_id);

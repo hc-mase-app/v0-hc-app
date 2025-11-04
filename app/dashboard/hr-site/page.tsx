@@ -1,19 +1,26 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useCallback } from "react"
 import { useAuth } from "@/lib/auth-context"
 import { useRouter } from "next/navigation"
 import { DashboardLayout } from "@/components/dashboard-layout"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Plus, FileText, Clock, CheckCircle, XCircle, Search, Calendar } from "lucide-react"
+import {
+  Plus,
+  FileText,
+  Clock,
+  CheckCircle,
+  XCircle,
+  Calendar,
+  ClipboardList,
+  ArrowRight,
+  TrendingUp,
+} from "lucide-react"
 import type { LeaveRequest } from "@/lib/types"
 import { formatDate, getStatusLabel, getStatusColor } from "@/lib/utils"
 import { Badge } from "@/components/ui/badge"
-import { Input } from "@/components/ui/input"
-import { NewLeaveRequestDialog } from "@/components/new-leave-request-dialog"
-import { LeaveRequestDetailDialog } from "@/components/leave-request-detail-dialog"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import Link from "next/link"
 
 export default function HRSiteDashboard() {
   const { user, isAuthenticated } = useAuth()
@@ -21,24 +28,68 @@ export default function HRSiteDashboard() {
   const [requests, setRequests] = useState<LeaveRequest[]>([])
   const [filteredRequests, setFilteredRequests] = useState<LeaveRequest[]>([])
   const [searchQuery, setSearchQuery] = useState("")
-  const [stats, setStats] = useState({ total: 0, pending: 0, approved: 0, rejected: 0 })
-  const [isNewRequestOpen, setIsNewRequestOpen] = useState(false)
-  const [selectedRequest, setSelectedRequest] = useState<LeaveRequest | null>(null)
+  const [cutiStats, setCutiStats] = useState({ total: 0, pending: 0, approved: 0, rejected: 0 })
+  const [assessmentStats, setAssessmentStats] = useState({ total: 0, pending: 0, approved: 0, rejected: 0 })
+  const [loading, setLoading] = useState(true)
   const [activeTab, setActiveTab] = useState("all")
 
+  const loadStats = useCallback(async () => {
+    if (!user?.site) return
+
+    try {
+      setLoading(true)
+
+      const [cutiRes, assessmentsRes] = await Promise.all([
+        fetch(`/api/workflow?action=all&role=hr_site&site=${encodeURIComponent(user.site)}`),
+        fetch(`/api/assessments?site=${encodeURIComponent(user.site)}`),
+      ])
+
+      const [cutiResult, assessmentsResult] = await Promise.all([cutiRes.json(), assessmentsRes.json()])
+
+      const cutiData =
+        cutiResult?.success && Array.isArray(cutiResult.data)
+          ? cutiResult.data
+          : Array.isArray(cutiResult)
+            ? cutiResult
+            : []
+      const assessmentsData =
+        assessmentsResult?.success && Array.isArray(assessmentsResult.data)
+          ? assessmentsResult.data
+          : Array.isArray(assessmentsResult)
+            ? assessmentsResult
+            : []
+
+      console.log("[v0] HR Site Dashboard loaded:", cutiData.length, "cuti,", assessmentsData.length, "assessments")
+
+      setCutiStats({
+        total: cutiData.length,
+        pending: cutiData.filter(
+          (r: any) => r.status === "pending_dic" || r.status === "pending_pjo" || r.status === "pending_hr_ho",
+        ).length,
+        approved: cutiData.filter((r: any) => r.status === "di_proses" || r.status === "tiket_issued").length,
+        rejected: cutiData.filter((r: any) => r.status?.includes("ditolak")).length,
+      })
+
+      setAssessmentStats({
+        total: assessmentsData.length,
+        pending: assessmentsData.filter((a: any) => a.status === "pending_hr_site").length,
+        approved: assessmentsData.filter((a: any) => a.status === "approved").length,
+        rejected: assessmentsData.filter((a: any) => a.status === "rejected").length,
+      })
+    } catch (error) {
+      console.error("[HR Site Overview] Error loading stats:", error)
+    } finally {
+      setLoading(false)
+    }
+  }, [user?.site])
+
   useEffect(() => {
-    if (!isAuthenticated || !user) {
+    if (!isAuthenticated || !user || user.role !== "hr_site") {
       router.push("/login")
       return
     }
-
-    if (user.role !== "hr_site") {
-      router.push("/dashboard")
-      return
-    }
-
-    loadData()
-  }, [user, isAuthenticated, router])
+    loadStats()
+  }, [user, isAuthenticated, router, loadStats])
 
   const loadData = async () => {
     if (!user) return
@@ -55,7 +106,6 @@ export default function HRSiteDashboard() {
         console.error("[v0] HR Site API error:", data)
         setRequests([])
         setFilteredRequests([])
-        setStats({ total: 0, pending: 0, approved: 0, rejected: 0 })
         return
       }
 
@@ -64,21 +114,10 @@ export default function HRSiteDashboard() {
       )
       setRequests(sortedRequests)
       setFilteredRequests(sortedRequests)
-
-      const stats = {
-        total: data.length,
-        pending: data.filter(
-          (r: LeaveRequest) => r.status === "pending_dic" || r.status === "pending_pjo" || r.status === "pending_hr_ho",
-        ).length,
-        approved: data.filter((r: LeaveRequest) => r.status === "di_proses" || r.status === "tiket_issued").length,
-        rejected: data.filter((r: LeaveRequest) => r.status?.includes("ditolak")).length,
-      }
-      setStats(stats)
     } catch (error) {
       console.error("[v0] Error loading leave requests:", error)
       setRequests([])
       setFilteredRequests([])
-      setStats({ total: 0, pending: 0, approved: 0, rejected: 0 })
     }
   }
 
@@ -125,197 +164,192 @@ export default function HRSiteDashboard() {
     setFilteredRequests(filtered)
   }, [searchQuery, requests, activeTab])
 
-  const handleRequestCreated = () => {
-    loadData()
-    setIsNewRequestOpen(false)
-  }
+  const totalPending = cutiStats.pending + assessmentStats.pending
 
-  if (!user) return null
+  if (!user || loading) return null
 
   return (
     <DashboardLayout title="Dashboard HR Site">
       <div className="space-y-6">
-        {/* Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Total Pengajuan</CardTitle>
-              <FileText className="h-4 w-4 text-muted-foreground" />
+        {/* Welcome Section */}
+        <div className="bg-gradient-to-r from-indigo-600 to-indigo-700 rounded-lg p-4 md:p-6 text-white">
+          <h2 className="text-xl md:text-2xl font-bold mb-2">Selamat Datang, {user?.nama}</h2>
+          <p className="text-sm md:text-base text-indigo-100">
+            HR Site {user?.site} • {totalPending} pending approval menunggu persetujuan Anda
+          </p>
+        </div>
+
+        {/* Cards Section */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-6">
+          {/* Pengajuan Cuti Card */}
+          <Card className="hover:shadow-lg transition-shadow">
+            <CardHeader className="pb-3">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+                <div className="flex items-center gap-2">
+                  <FileText className="h-5 w-5 text-blue-600" />
+                  <CardTitle className="text-base md:text-lg">Pengajuan Cuti</CardTitle>
+                </div>
+                <Link href="/dashboard/hr-site/cuti">
+                  <Button variant="ghost" size="sm" className="w-full sm:w-auto">
+                    Lihat Semua
+                    <ArrowRight className="h-4 w-4 ml-2" />
+                  </Button>
+                </Link>
+              </div>
+              <CardDescription className="text-sm">Kelola pengajuan cuti karyawan</CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{stats.total}</div>
+              <div className="grid grid-cols-2 gap-3 md:gap-4">
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2">
+                    <Clock className="h-4 w-4 text-yellow-600" />
+                    <span className="text-sm text-slate-600">Menunggu</span>
+                  </div>
+                  <p className="text-3xl font-bold text-yellow-600">{cutiStats.pending}</p>
+                </div>
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2">
+                    <FileText className="h-4 w-4 text-slate-600" />
+                    <span className="text-sm text-slate-600">Total</span>
+                  </div>
+                  <p className="text-3xl font-bold text-slate-900">{cutiStats.total}</p>
+                </div>
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2">
+                    <CheckCircle className="h-4 w-4 text-green-600" />
+                    <span className="text-sm text-slate-600">Disetujui</span>
+                  </div>
+                  <p className="text-2xl font-bold text-green-600">{cutiStats.approved}</p>
+                </div>
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2">
+                    <XCircle className="h-4 w-4 text-red-600" />
+                    <span className="text-sm text-slate-600">Ditolak</span>
+                  </div>
+                  <p className="text-2xl font-bold text-red-600">{cutiStats.rejected}</p>
+                </div>
+              </div>
+              <Link href="/dashboard/hr-site/cuti">
+                <Button className="w-full mt-4 bg-blue-600 hover:bg-blue-700 text-sm md:text-base">
+                  <Plus className="h-4 w-4 mr-2" />
+                  Ajukan Izin Baru
+                </Button>
+              </Link>
             </CardContent>
           </Card>
 
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Menunggu</CardTitle>
-              <Clock className="h-4 w-4 text-yellow-600" />
+          {/* Assessment Karyawan Card */}
+          <Card className="hover:shadow-lg transition-shadow">
+            <CardHeader className="pb-3">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+                <div className="flex items-center gap-2">
+                  <ClipboardList className="h-5 w-5 text-purple-600" />
+                  <CardTitle className="text-base md:text-lg">Assessment Karyawan</CardTitle>
+                </div>
+                <Link href="/dashboard/hr-site/assessment">
+                  <Button variant="ghost" size="sm" className="w-full sm:w-auto">
+                    Lihat Semua
+                    <ArrowRight className="h-4 w-4 ml-2" />
+                  </Button>
+                </Link>
+              </div>
+              <CardDescription className="text-sm">Final approval assessment karyawan</CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{stats.pending}</div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Disetujui</CardTitle>
-              <CheckCircle className="h-4 w-4 text-green-600" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{stats.approved}</div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Ditolak</CardTitle>
-              <XCircle className="h-4 w-4 text-red-600" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{stats.rejected}</div>
+              <div className="grid grid-cols-2 gap-3 md:gap-4">
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2">
+                    <Clock className="h-4 w-4 text-yellow-600" />
+                    <span className="text-sm text-slate-600">Menunggu</span>
+                  </div>
+                  <p className="text-3xl font-bold text-yellow-600">{assessmentStats.pending}</p>
+                </div>
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2">
+                    <ClipboardList className="h-4 w-4 text-slate-600" />
+                    <span className="text-sm text-slate-600">Total</span>
+                  </div>
+                  <p className="text-3xl font-bold text-slate-900">{assessmentStats.total}</p>
+                </div>
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2">
+                    <CheckCircle className="h-4 w-4 text-green-600" />
+                    <span className="text-sm text-slate-600">Approved</span>
+                  </div>
+                  <p className="text-2xl font-bold text-green-600">{assessmentStats.approved}</p>
+                </div>
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2">
+                    <XCircle className="h-4 w-4 text-red-600" />
+                    <span className="text-sm text-slate-600">Ditolak</span>
+                  </div>
+                  <p className="text-2xl font-bold text-red-600">{assessmentStats.rejected}</p>
+                </div>
+              </div>
+              {assessmentStats.pending > 0 && (
+                <Link href="/dashboard/hr-site/assessment">
+                  <Button className="w-full mt-4 bg-purple-600 hover:bg-purple-700 text-sm md:text-base">
+                    Review {assessmentStats.pending} Assessment
+                  </Button>
+                </Link>
+              )}
             </CardContent>
           </Card>
         </div>
 
-        {/* Actions */}
-        <div className="flex justify-between items-center">
-          <div>
-            <h2 className="text-2xl font-bold text-slate-900">Pengajuan Izin</h2>
-            <p className="text-sm text-slate-600">Kelola pengajuan izin untuk site {user.site}</p>
-          </div>
-          <Button onClick={() => setIsNewRequestOpen(true)}>
-            <Plus className="h-4 w-4 mr-2" />
-            Ajukan Izin Baru
-          </Button>
-        </div>
-
+        {/* Quick Actions Card */}
         <Card>
-          <CardHeader>
-            <CardTitle>Daftar Pengajuan</CardTitle>
-            <CardDescription>Klik pada pengajuan untuk melihat detail dan riwayat persetujuan</CardDescription>
-            <div className="relative mt-4">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
-              <Input
-                placeholder="Cari berdasarkan nama, jenis izin, status, atau kode booking..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-10"
-              />
-            </div>
+          <CardHeader className="pb-3">
+            <CardTitle className="flex items-center gap-2 text-base md:text-lg">
+              <TrendingUp className="h-5 w-5" />
+              Quick Actions
+            </CardTitle>
+            <CardDescription className="text-sm">Akses cepat ke fitur yang sering digunakan</CardDescription>
           </CardHeader>
           <CardContent>
-            <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-              <TabsList className="grid w-full grid-cols-4">
-                <TabsTrigger value="all">Semua</TabsTrigger>
-                <TabsTrigger value="pending">Menunggu</TabsTrigger>
-                <TabsTrigger value="approved">Disetujui</TabsTrigger>
-                <TabsTrigger value="rejected">Ditolak</TabsTrigger>
-              </TabsList>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4">
+              <Link href="/dashboard/hr-site/cuti">
+                <Button variant="outline" className="w-full h-auto py-3 md:py-4 justify-start bg-transparent">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 bg-blue-100 rounded-lg flex-shrink-0">
+                      <FileText className="h-4 w-4 md:h-5 md:w-5 text-blue-600" />
+                    </div>
+                    <div className="text-left">
+                      <p className="font-semibold text-sm md:text-base">Kelola Pengajuan Cuti</p>
+                      <p className="text-xs md:text-sm text-slate-600">Lihat dan kelola semua pengajuan cuti</p>
+                    </div>
+                  </div>
+                </Button>
+              </Link>
 
-              <TabsContent value="all" className="mt-4">
-                {filteredRequests.length === 0 ? (
-                  <div className="text-center py-12">
-                    <FileText className="h-12 w-12 text-slate-300 mx-auto mb-4" />
-                    <p className="text-slate-600 mb-4">
-                      {searchQuery ? "Tidak ada pengajuan yang sesuai dengan pencarian" : "Belum ada pengajuan izin"}
-                    </p>
-                    {!searchQuery && (
-                      <Button onClick={() => setIsNewRequestOpen(true)}>
-                        <Plus className="h-4 w-4 mr-2" />
-                        Buat Pengajuan Pertama
-                      </Button>
-                    )}
+              <Link href="/dashboard/hr-site/assessment">
+                <Button variant="outline" className="w-full h-auto py-3 md:py-4 justify-start bg-transparent">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 bg-purple-100 rounded-lg flex-shrink-0">
+                      <ClipboardList className="h-4 w-4 md:h-5 md:w-5 text-purple-600" />
+                    </div>
+                    <div className="text-left">
+                      <p className="font-semibold text-sm md:text-base">Final Approval Assessment</p>
+                      <p className="text-xs md:text-sm text-slate-600">Review dan approve assessment karyawan</p>
+                    </div>
                   </div>
-                ) : (
-                  <div className="space-y-3">
-                    {filteredRequests.map((request) => (
-                      <RequestCard key={request.id} request={request} onSelect={setSelectedRequest} />
-                    ))}
-                  </div>
-                )}
-              </TabsContent>
-
-              <TabsContent value="pending" className="mt-4">
-                {filteredRequests.length === 0 ? (
-                  <div className="text-center py-12">
-                    <Clock className="h-12 w-12 text-slate-300 mx-auto mb-4" />
-                    <p className="text-slate-600">Tidak ada pengajuan yang menunggu persetujuan</p>
-                  </div>
-                ) : (
-                  <div className="space-y-3">
-                    {filteredRequests.map((request) => (
-                      <RequestCard key={request.id} request={request} onSelect={setSelectedRequest} />
-                    ))}
-                  </div>
-                )}
-              </TabsContent>
-
-              <TabsContent value="approved" className="mt-4">
-                {filteredRequests.length === 0 ? (
-                  <div className="text-center py-12">
-                    <CheckCircle className="h-12 w-12 text-slate-300 mx-auto mb-4" />
-                    <p className="text-slate-600">Tidak ada pengajuan yang disetujui</p>
-                  </div>
-                ) : (
-                  <div className="space-y-3">
-                    {filteredRequests.map((request) => (
-                      <RequestCard key={request.id} request={request} onSelect={setSelectedRequest} />
-                    ))}
-                  </div>
-                )}
-              </TabsContent>
-
-              <TabsContent value="rejected" className="mt-4">
-                {filteredRequests.length === 0 ? (
-                  <div className="text-center py-12">
-                    <XCircle className="h-12 w-12 text-slate-300 mx-auto mb-4" />
-                    <p className="text-slate-600">Tidak ada pengajuan yang ditolak</p>
-                  </div>
-                ) : (
-                  <div className="space-y-3">
-                    {filteredRequests.map((request) => (
-                      <RequestCard key={request.id} request={request} onSelect={setSelectedRequest} />
-                    ))}
-                  </div>
-                )}
-              </TabsContent>
-            </Tabs>
+                </Button>
+              </Link>
+            </div>
           </CardContent>
         </Card>
       </div>
-
-      {/* Dialogs */}
-      <NewLeaveRequestDialog
-        open={isNewRequestOpen}
-        onOpenChange={setIsNewRequestOpen}
-        onSuccess={handleRequestCreated}
-      />
-
-      {selectedRequest && (
-        <LeaveRequestDetailDialog
-          request={selectedRequest}
-          open={!!selectedRequest}
-          onOpenChange={(open) => !open && setSelectedRequest(null)}
-          onUpdate={loadData}
-        />
-      )}
     </DashboardLayout>
   )
 }
 
 function RequestCard({
   request,
-  onSelect,
 }: {
   request: LeaveRequest
-  onSelect: (request: LeaveRequest) => void
 }) {
   return (
-    <div
-      className="border border-slate-200 rounded-lg p-4 hover:bg-slate-50 cursor-pointer transition-colors"
-      onClick={() => onSelect(request)}
-    >
+    <div className="border border-slate-200 rounded-lg p-4 hover:bg-slate-50 cursor-pointer transition-colors">
       <div className="flex justify-between items-start mb-3">
         <div className="flex-1 space-y-2">
           <div className="flex items-center gap-3">
@@ -343,11 +377,6 @@ function RequestCard({
           </div>
         </div>
         <Badge className={getStatusColor(request.status)}>{getStatusLabel(request.status)}</Badge>
-      </div>
-      <div className="mt-3 pt-3 border-t border-slate-200">
-        <Button variant="outline" size="sm" className="w-full bg-transparent">
-          Lihat Detail Lengkap
-        </Button>
       </div>
     </div>
   )

@@ -54,7 +54,7 @@ export default function LoginPage() {
 
       <Card className="w-full max-w-md bg-[#1a1a1a] border-[#2a2a2a] shadow-[0_0_30px_rgba(212,175,55,0.3),0_0_60px_rgba(212,175,55,0.2)]">
         <CardHeader className="space-y-1">
-          <CardTitle className="text-2xl font-bold text-center text-[#D4AF37]">Pengajuan Cuti</CardTitle>
+          <CardTitle className="text-2xl font-bold text-center text-[#D4AF37]">LOGIN</CardTitle>
           <CardDescription className="text-center text-gray-400">Masuk dengan NIK dan password Anda</CardDescription>
         </CardHeader>
         <CardContent>
