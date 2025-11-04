@@ -6,13 +6,13 @@ import { useRouter } from "next/navigation"
 import { DashboardLayout } from "@/components/dashboard-layout"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { ClipboardList, Clock, CheckCircle, XCircle, ArrowRight, TrendingUp } from "lucide-react"
+import { Plus, FileText, Clock, CheckCircle, XCircle, ArrowRight, TrendingUp } from "lucide-react"
 import Link from "next/link"
 
-export default function HRSiteDashboard() {
+export default function AdminSiteDashboard() {
   const { user, isAuthenticated } = useAuth()
   const router = useRouter()
-  const [assessmentStats, setAssessmentStats] = useState({ total: 0, pending: 0, approved: 0, rejected: 0 })
+  const [cutiStats, setCutiStats] = useState({ total: 0, pending: 0, approved: 0, rejected: 0 })
   const [loading, setLoading] = useState(true)
 
   const loadStats = useCallback(async () => {
@@ -21,33 +21,37 @@ export default function HRSiteDashboard() {
     try {
       setLoading(true)
 
-      const assessmentsRes = await fetch(`/api/assessments?site=${encodeURIComponent(user.site)}`)
-      const assessmentsResult = await assessmentsRes.json()
+      const cutiRes = await fetch(
+        `/api/workflow?action=all&role=admin_site&site=${encodeURIComponent(user.site)}&departemen=${encodeURIComponent(user.departemen || "")}`,
+      )
+      const cutiResult = await cutiRes.json()
 
-      const assessmentsData =
-        assessmentsResult?.success && Array.isArray(assessmentsResult.data)
-          ? assessmentsResult.data
-          : Array.isArray(assessmentsResult)
-            ? assessmentsResult
+      const cutiData =
+        cutiResult?.success && Array.isArray(cutiResult.data)
+          ? cutiResult.data
+          : Array.isArray(cutiResult)
+            ? cutiResult
             : []
 
-      console.log("[v0] HR Site Dashboard loaded:", assessmentsData.length, "assessments")
+      console.log("[v0] Admin Site Dashboard loaded:", cutiData.length, "cuti")
 
-      setAssessmentStats({
-        total: assessmentsData.length,
-        pending: assessmentsData.filter((a: any) => a.status === "pending_hr_site").length,
-        approved: assessmentsData.filter((a: any) => a.status === "approved").length,
-        rejected: assessmentsData.filter((a: any) => a.status === "rejected").length,
+      setCutiStats({
+        total: cutiData.length,
+        pending: cutiData.filter(
+          (r: any) => r.status === "pending_dic" || r.status === "pending_pjo" || r.status === "pending_hr_ho",
+        ).length,
+        approved: cutiData.filter((r: any) => r.status === "di_proses" || r.status === "tiket_issued").length,
+        rejected: cutiData.filter((r: any) => r.status?.includes("ditolak")).length,
       })
     } catch (error) {
-      console.error("[HR Site Overview] Error loading stats:", error)
+      console.error("[Admin Site Overview] Error loading stats:", error)
     } finally {
       setLoading(false)
     }
-  }, [user?.site])
+  }, [user?.site, user?.departemen])
 
   useEffect(() => {
-    if (!isAuthenticated || !user || user.role !== "hr_site") {
+    if (!isAuthenticated || !user || user.role !== "admin_site") {
       router.push("/login")
       return
     }
@@ -57,32 +61,32 @@ export default function HRSiteDashboard() {
   if (!user || loading) return null
 
   return (
-    <DashboardLayout title="Dashboard HR Site">
+    <DashboardLayout title="Dashboard Admin Site">
       <div className="space-y-6">
         {/* Welcome Section */}
-        <div className="bg-gradient-to-r from-purple-600 to-purple-700 rounded-lg p-4 md:p-6 text-white">
+        <div className="bg-gradient-to-r from-blue-600 to-blue-700 rounded-lg p-4 md:p-6 text-white">
           <h2 className="text-xl md:text-2xl font-bold mb-2">Selamat Datang, {user?.nama}</h2>
-          <p className="text-sm md:text-base text-purple-100">
-            HR Site {user?.site} • {assessmentStats.pending} assessment menunggu final approval Anda
+          <p className="text-sm md:text-base text-blue-100">
+            Admin Site {user?.site} • {cutiStats.pending} pengajuan cuti menunggu approval
           </p>
         </div>
 
-        {/* Assessment Karyawan Card */}
+        {/* Pengajuan Cuti Card */}
         <Card className="hover:shadow-lg transition-shadow">
           <CardHeader className="pb-3">
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
               <div className="flex items-center gap-2">
-                <ClipboardList className="h-5 w-5 text-purple-600" />
-                <CardTitle className="text-base md:text-lg">Assessment Karyawan</CardTitle>
+                <FileText className="h-5 w-5 text-blue-600" />
+                <CardTitle className="text-base md:text-lg">Pengajuan Cuti</CardTitle>
               </div>
-              <Link href="/dashboard/hr-site/assessment">
+              <Link href="/dashboard/admin-site/cuti">
                 <Button variant="ghost" size="sm" className="w-full sm:w-auto">
                   Lihat Semua
                   <ArrowRight className="h-4 w-4 ml-2" />
                 </Button>
               </Link>
             </div>
-            <CardDescription className="text-sm">Final approval assessment karyawan</CardDescription>
+            <CardDescription className="text-sm">Kelola pengajuan cuti karyawan</CardDescription>
           </CardHeader>
           <CardContent>
             <div className="grid grid-cols-2 gap-3 md:gap-4">
@@ -91,37 +95,36 @@ export default function HRSiteDashboard() {
                   <Clock className="h-4 w-4 text-yellow-600" />
                   <span className="text-sm text-slate-600">Menunggu</span>
                 </div>
-                <p className="text-3xl font-bold text-yellow-600">{assessmentStats.pending}</p>
+                <p className="text-3xl font-bold text-yellow-600">{cutiStats.pending}</p>
               </div>
               <div className="space-y-2">
                 <div className="flex items-center gap-2">
-                  <ClipboardList className="h-4 w-4 text-slate-600" />
+                  <FileText className="h-4 w-4 text-slate-600" />
                   <span className="text-sm text-slate-600">Total</span>
                 </div>
-                <p className="text-3xl font-bold text-slate-900">{assessmentStats.total}</p>
+                <p className="text-3xl font-bold text-slate-900">{cutiStats.total}</p>
               </div>
               <div className="space-y-2">
                 <div className="flex items-center gap-2">
                   <CheckCircle className="h-4 w-4 text-green-600" />
-                  <span className="text-sm text-slate-600">Approved</span>
+                  <span className="text-sm text-slate-600">Disetujui</span>
                 </div>
-                <p className="text-2xl font-bold text-green-600">{assessmentStats.approved}</p>
+                <p className="text-2xl font-bold text-green-600">{cutiStats.approved}</p>
               </div>
               <div className="space-y-2">
                 <div className="flex items-center gap-2">
                   <XCircle className="h-4 w-4 text-red-600" />
                   <span className="text-sm text-slate-600">Ditolak</span>
                 </div>
-                <p className="text-2xl font-bold text-red-600">{assessmentStats.rejected}</p>
+                <p className="text-2xl font-bold text-red-600">{cutiStats.rejected}</p>
               </div>
             </div>
-            {assessmentStats.pending > 0 && (
-              <Link href="/dashboard/hr-site/assessment">
-                <Button className="w-full mt-4 bg-purple-600 hover:bg-purple-700 text-sm md:text-base">
-                  Review {assessmentStats.pending} Assessment
-                </Button>
-              </Link>
-            )}
+            <Link href="/dashboard/admin-site/cuti">
+              <Button className="w-full mt-4 bg-blue-600 hover:bg-blue-700 text-sm md:text-base">
+                <Plus className="h-4 w-4 mr-2" />
+                Ajukan Izin Baru
+              </Button>
+            </Link>
           </CardContent>
         </Card>
 
@@ -135,15 +138,15 @@ export default function HRSiteDashboard() {
             <CardDescription className="text-sm">Akses cepat ke fitur yang sering digunakan</CardDescription>
           </CardHeader>
           <CardContent>
-            <Link href="/dashboard/hr-site/assessment">
+            <Link href="/dashboard/admin-site/cuti">
               <Button variant="outline" className="w-full h-auto py-3 md:py-4 justify-start bg-transparent">
                 <div className="flex items-center gap-3">
-                  <div className="p-2 bg-purple-100 rounded-lg flex-shrink-0">
-                    <ClipboardList className="h-4 w-4 md:h-5 md:w-5 text-purple-600" />
+                  <div className="p-2 bg-blue-100 rounded-lg flex-shrink-0">
+                    <FileText className="h-4 w-4 md:h-5 md:w-5 text-blue-600" />
                   </div>
                   <div className="text-left">
-                    <p className="font-semibold text-sm md:text-base">Final Approval Assessment</p>
-                    <p className="text-xs md:text-sm text-slate-600">Review dan approve assessment karyawan</p>
+                    <p className="font-semibold text-sm md:text-base">Kelola Pengajuan Cuti</p>
+                    <p className="text-xs md:text-sm text-slate-600">Buat dan kelola pengajuan cuti karyawan</p>
                   </div>
                 </div>
               </Button>

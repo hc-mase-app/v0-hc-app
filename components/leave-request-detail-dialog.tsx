@@ -5,18 +5,21 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { Badge } from "@/components/ui/badge"
 import type { LeaveRequest, ApprovalHistory } from "@/lib/types"
 import { formatDate, getStatusLabel, getStatusColor } from "@/lib/utils"
-import { Calendar, FileText, Clock, MapPin, Plane, User } from "lucide-react"
+import { Calendar, FileText, Clock, MapPin, Plane, User, Download } from "lucide-react"
 import { ApprovalTimeline } from "@/components/approval-timeline"
 import { ApprovalProgress } from "@/components/approval-progress"
+import { Button } from "@/components/ui/button"
+import { downloadTicketPDF } from "@/components/ticket-pdf-generator"
 
 interface LeaveRequestDetailDialogProps {
   request: LeaveRequest
   open: boolean
   onOpenChange: (open: boolean) => void
   onUpdate?: () => void
+  isUserRole?: boolean
 }
 
-export function LeaveRequestDetailDialog({ request, open, onOpenChange }: LeaveRequestDetailDialogProps) {
+export function LeaveRequestDetailDialog({ request, open, onOpenChange, isUserRole }: LeaveRequestDetailDialogProps) {
   const [history, setHistory] = useState<ApprovalHistory[]>([])
   const [loading, setLoading] = useState(false)
 
@@ -49,8 +52,23 @@ export function LeaveRequestDetailDialog({ request, open, onOpenChange }: LeaveR
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Detail Pengajuan Cuti</DialogTitle>
-          <DialogDescription>Informasi lengkap dan riwayat persetujuan</DialogDescription>
+          <div className="flex items-center justify-between">
+            <div>
+              <DialogTitle>Detail Pengajuan Cuti</DialogTitle>
+              <DialogDescription>Informasi lengkap dan riwayat persetujuan</DialogDescription>
+            </div>
+            {isUserRole && request.status === "tiket_issued" && request.bookingCode && (
+              <Button
+                onClick={() => downloadTicketPDF(request)}
+                className="gap-2 bg-green-600 hover:bg-green-700 whitespace-nowrap"
+                size="sm"
+              >
+                <Download className="h-4 w-4" />
+                <span className="hidden sm:inline">Download Tiket</span>
+                <span className="sm:hidden">Tiket</span>
+              </Button>
+            )}
+          </div>
         </DialogHeader>
 
         <div className="space-y-6">

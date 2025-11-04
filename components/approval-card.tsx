@@ -34,6 +34,27 @@ export function ApprovalCard({
   const [notes, setNotes] = useState("")
   const [error, setError] = useState("")
 
+  const canCurrentUserApprove = (): boolean => {
+    if (!user) return false
+    if (readOnly) return false
+
+    const role = user.role as string
+    const status = request.status as string
+
+    // Map role to approvable statuses
+    const approvalMap: Record<string, string[]> = {
+      dic: ["pending_dic"],
+      pjo_site: ["pending_pjo"],
+      hr_ho: ["pending_hr_ho"],
+      admin_site: [],
+      hr_site: [],
+      hr_ticketing: [],
+      user: [],
+    }
+
+    return approvalMap[role]?.includes(status) ?? false
+  }
+
   const handleApprove = async () => {
     if (!user || !notes.trim()) {
       setError("Catatan harus diisi")
@@ -112,6 +133,8 @@ export function ApprovalCard({
     }
   }
 
+  const canApprove = canCurrentUserApprove()
+
   return (
     <div className="border border-slate-200 rounded-lg p-4 space-y-4">
       <div className="flex justify-between items-start">
@@ -167,7 +190,7 @@ export function ApprovalCard({
         </div>
       </div>
 
-      {!readOnly && (
+      {canApprove && (
         <div className="space-y-3 pt-3 border-t border-slate-200">
           <div className="space-y-2">
             <Label htmlFor={`notes-${request.id}`}>Catatan Persetujuan/Penolakan</Label>
@@ -206,6 +229,15 @@ export function ApprovalCard({
               {isApproving ? "Menyetujui..." : "Setujui"}
             </Button>
           </div>
+        </div>
+      )}
+
+      {!canApprove && !readOnly && (
+        <div className="pt-3 border-t border-slate-200">
+          <Button variant="outline" size="sm" onClick={onViewDetail} className="w-full bg-transparent">
+            <Eye className="h-4 w-4 mr-2" />
+            Lihat Detail
+          </Button>
         </div>
       )}
 

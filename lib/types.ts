@@ -1,4 +1,4 @@
-export type UserRole = "user" | "hr_site" | "dic" | "pjo_site" | "hr_ho" | "hr_ticketing" | "super_admin"
+export type UserRole = "user" | "admin_site" | "hr_site" | "dic" | "pjo_site" | "hr_ho" | "hr_ticketing" | "super_admin"
 
 export type LeaveStatus =
   | "pending_dic"

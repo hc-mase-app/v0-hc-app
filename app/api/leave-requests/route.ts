@@ -64,6 +64,7 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const data = await request.json()
+    // Note: Permission check should be done here if needed
     const result = await addLeaveRequest(data)
     return NextResponse.json(result)
   } catch (error) {

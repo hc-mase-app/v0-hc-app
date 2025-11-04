@@ -36,6 +36,7 @@ export function EditUserDialog({ user, open, onOpenChange, onSuccess }: EditUser
   const [noKtp, setNoKtp] = useState(user.noKtp || "")
   const [noTelp, setNoTelp] = useState(user.noTelp || "")
   const [tanggalLahir, setTanggalLahir] = useState(user.tanggalLahir || "")
+  const [tanggalBergabung, setTanggalBergabung] = useState(user.tanggalBergabung || "")
   const [jenisKelamin, setJenisKelamin] = useState<"Laki-laki" | "Perempuan">(user.jenisKelamin || "Laki-laki")
   const [error, setError] = useState("")
   const [isSubmitting, setIsSubmitting] = useState(false)
@@ -54,6 +55,7 @@ export function EditUserDialog({ user, open, onOpenChange, onSuccess }: EditUser
     setNoKtp(user.noKtp || "")
     setNoTelp(user.noTelp || "")
     setTanggalLahir(user.tanggalLahir || "")
+    setTanggalBergabung(user.tanggalBergabung || "")
     setJenisKelamin(user.jenisKelamin || "Laki-laki")
   }, [user])
 
@@ -99,12 +101,8 @@ export function EditUserDialog({ user, open, onOpenChange, onSuccess }: EditUser
         no_ktp: noKtp,
         no_telp: noTelp,
         tanggal_lahir: tanggalLahir,
+        tanggal_bergabung: tanggalBergabung || null,
         jenis_kelamin: jenisKelamin,
-      }
-
-      // Only include password if it's been changed
-      if (password) {
-        Object.assign(updates, { password })
       }
 
       const response = await fetch("/api/users", {
@@ -246,6 +244,7 @@ export function EditUserDialog({ user, open, onOpenChange, onSuccess }: EditUser
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="user">User</SelectItem>
+                  <SelectItem value="admin_site">Admin Site</SelectItem>
                   <SelectItem value="hr_site">HR Site</SelectItem>
                   <SelectItem value="dic">DIC</SelectItem>
                   <SelectItem value="pjo_site">PJO Site</SelectItem>
@@ -324,6 +323,16 @@ export function EditUserDialog({ user, open, onOpenChange, onSuccess }: EditUser
                 required
               />
             </div>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="edit-tanggalBergabung">Tanggal Bergabung (Opsional)</Label>
+            <Input
+              id="edit-tanggalBergabung"
+              type="date"
+              value={tanggalBergabung}
+              onChange={(e) => setTanggalBergabung(e.target.value)}
+            />
           </div>
 
           <div className="space-y-2">

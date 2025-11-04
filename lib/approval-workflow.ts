@@ -20,7 +20,7 @@ async function initializeMigration() {
 
 // ============ TYPE DEFINITIONS ============
 
-export type UserRole = "hr_site" | "dic" | "pjo_site" | "hr_ho" | "hr_ticketing" | "user"
+export type UserRole = "admin_site" | "hr_site" | "dic" | "pjo_site" | "hr_ho" | "hr_ticketing" | "user"
 
 export type LeaveStatus =
   | "pending_dic"
@@ -43,7 +43,8 @@ export interface WorkflowRule {
 // ============ WORKFLOW CONFIGURATION ============
 
 const WORKFLOW_RULES: Record<UserRole, WorkflowRule | null> = {
-  hr_site: null, // Can only create, not approve
+  admin_site: null, // Can only create, not approve
+  hr_site: null, // Only approves assessments, not leave requests
   dic: {
     role: "dic",
     canApprove: ["pending_dic"],
@@ -164,7 +165,7 @@ export async function getAllRequestsForRole(role: UserRole, userSite: string, us
     let result: any[] = []
 
     switch (role) {
-      case "hr_site":
+      case "admin_site":
         result = await sql`
           SELECT 
             lr.*,
@@ -172,9 +173,12 @@ export async function getAllRequestsForRole(role: UserRole, userSite: string, us
             u.no_ktp, u.no_telp, u.email, u.tanggal_lahir, u.jenis_kelamin
           FROM leave_requests lr
           LEFT JOIN users u ON lr.nik = u.nik
-          WHERE lr.site = ${userSite}
+          WHERE lr.site = ${userSite} AND lr.departemen = ${userDepartemen}
           ORDER BY lr.created_at DESC
         `
+        break
+      case "hr_site":
+        result = []
         break
       case "dic":
         result = await sql`

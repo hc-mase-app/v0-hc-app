@@ -20,6 +20,9 @@ export default function DashboardPage() {
         case "user":
           router.push("/dashboard/user")
           break
+        case "admin_site":
+          router.push("/dashboard/admin-site")
+          break
         case "hr_site":
           router.push("/dashboard/hr-site")
           break

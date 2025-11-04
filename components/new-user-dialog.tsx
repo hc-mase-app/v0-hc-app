@@ -35,6 +35,7 @@ export function NewUserDialog({ open, onOpenChange, onSuccess }: NewUserDialogPr
   const [noKtp, setNoKtp] = useState("")
   const [noTelp, setNoTelp] = useState("")
   const [tanggalLahir, setTanggalLahir] = useState("")
+  const [tanggalBergabung, setTanggalBergabung] = useState("")
   const [jenisKelamin, setJenisKelamin] = useState<"Laki-laki" | "Perempuan" | "">("")
   const [error, setError] = useState("")
   const [isSubmitting, setIsSubmitting] = useState(false)
@@ -82,6 +83,7 @@ export function NewUserDialog({ open, onOpenChange, onSuccess }: NewUserDialogPr
         no_ktp: noKtp,
         no_telp: noTelp,
         tanggal_lahir: tanggalLahir,
+        tanggal_bergabung: tanggalBergabung || null,
         jenis_kelamin: jenisKelamin,
       }
 
@@ -112,6 +114,7 @@ export function NewUserDialog({ open, onOpenChange, onSuccess }: NewUserDialogPr
       setNoKtp("")
       setNoTelp("")
       setTanggalLahir("")
+      setTanggalBergabung("")
       setJenisKelamin("")
 
       onSuccess()
@@ -241,6 +244,7 @@ export function NewUserDialog({ open, onOpenChange, onSuccess }: NewUserDialogPr
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="user">User</SelectItem>
+                  <SelectItem value="admin_site">Admin Site</SelectItem>
                   <SelectItem value="hr_site">HR Site</SelectItem>
                   <SelectItem value="dic">DIC</SelectItem>
                   <SelectItem value="pjo_site">PJO Site</SelectItem>
@@ -335,6 +339,16 @@ export function NewUserDialog({ open, onOpenChange, onSuccess }: NewUserDialogPr
               />
               <span className="text-muted-foreground">@3s-gsm.com</span>
             </div>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="tanggalBergabung">Tanggal Bergabung (Opsional)</Label>
+            <Input
+              id="tanggalBergabung"
+              type="date"
+              value={tanggalBergabung}
+              onChange={(e) => setTanggalBergabung(e.target.value)}
+            />
           </div>
 
           {error && (

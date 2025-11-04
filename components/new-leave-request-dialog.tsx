@@ -43,8 +43,8 @@ export function NewLeaveRequestDialog({ open, onOpenChange, onSuccess }: NewLeav
   const [isSubmitting, setIsSubmitting] = useState(false)
 
   useEffect(() => {
-    if (open && user && user.role !== "hr_site") {
-      setError("Hanya HR Site yang dapat membuat pengajuan cuti")
+    if (open && user && user.role !== "hr_site" && user.role !== "admin_site") {
+      setError("Hanya Admin Site atau HR Site yang dapat membuat pengajuan cuti")
       return
     }
   }, [open, user])
@@ -56,7 +56,15 @@ export function NewLeaveRequestDialog({ open, onOpenChange, onSuccess }: NewLeav
           const response = await fetch("/api/users")
           if (response.ok) {
             const users = await response.json()
-            setAllUsers(users)
+            if (user?.role === "admin_site") {
+              const filteredUsers = users.filter((u: User) => u.site === user.site && u.departemen === user.departemen)
+              setAllUsers(filteredUsers)
+            } else if (user?.role === "hr_site") {
+              const filteredUsers = users.filter((u: User) => u.site === user.site)
+              setAllUsers(filteredUsers)
+            } else {
+              setAllUsers(users)
+            }
           }
         } catch (error) {
           console.error("Error fetching users:", error)
@@ -64,7 +72,7 @@ export function NewLeaveRequestDialog({ open, onOpenChange, onSuccess }: NewLeav
       }
       fetchUsers()
     }
-  }, [open])
+  }, [open, user])
 
   useEffect(() => {
     const lookupUser = async () => {
@@ -135,8 +143,8 @@ export function NewLeaveRequestDialog({ open, onOpenChange, onSuccess }: NewLeav
     e.preventDefault()
     setError("")
 
-    if (!user || user.role !== "hr_site") {
-      setError("Hanya HR Site yang dapat membuat pengajuan cuti")
+    if (!user || (user.role !== "hr_site" && user.role !== "admin_site")) {
+      setError("Hanya Admin Site atau HR Site yang dapat membuat pengajuan cuti")
       return
     }
 
@@ -161,6 +169,11 @@ export function NewLeaveRequestDialog({ open, onOpenChange, onSuccess }: NewLeav
 
     if (selectedUser.site !== user.site) {
       setError(`Anda hanya dapat membuat pengajuan untuk site ${user.site}`)
+      return
+    }
+
+    if (user.role === "admin_site" && selectedUser.departemen !== user.departemen) {
+      setError(`Anda hanya dapat membuat pengajuan untuk departemen ${user.departemen}`)
       return
     }
 

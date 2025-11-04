@@ -40,7 +40,16 @@ interface ImportResult {
   errors: Array<{ row: number; error: string }>
 }
 
-const VALID_ROLES: UserRole[] = ["user", "hr_site", "dic", "pjo_site", "hr_ho", "hr_ticketing", "super_admin"]
+const VALID_ROLES: UserRole[] = [
+  "user",
+  "admin_site",
+  "hr_site",
+  "dic",
+  "pjo_site",
+  "hr_ho",
+  "hr_ticketing",
+  "super_admin",
+]
 const VALID_STATUSES = ["Kontrak", "Tetap"]
 
 function parseCSVLine(line: string): string[] {
@@ -381,7 +390,7 @@ export function CSVImportDialog({ open, onOpenChange, onSuccess }: CSVImportDial
                   <ul className="list-disc list-inside mt-1 text-blue-700">
                     <li>Untuk Excel: Pastikan data ada di sheet pertama</li>
                     <li>Header harus persis sama dengan format di atas</li>
-                    <li>Role valid: user, hr_site, dic, pjo_site, hr_ho, hr_ticketing, super_admin</li>
+                    <li>Role valid: user, admin_site, hr_site, dic, pjo_site, hr_ho, hr_ticketing, super_admin</li>
                   </ul>
                 </div>
               </div>
