@@ -1,9 +1,9 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { getAssessmentById, updateAssessment, addAssessmentApproval } from "@/lib/neon-db"
 
-export async function POST(request: NextRequest, { params }: { params: { id: string } }) {
+export async function POST(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
-    const { id } = params
+    const { id } = await params
     const { approverUserId, approverName, approverRole, notes } = await request.json()
 
     console.log("[v0] Approve endpoint called with:", { id, approverRole, approverName })

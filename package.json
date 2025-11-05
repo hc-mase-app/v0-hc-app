@@ -9,6 +9,9 @@
     "start": "next start"
   },
   "dependencies": {
+    "@capacitor/core": "latest",
+    "@capacitor/filesystem": "latest",
+    "@capacitor/share": "latest",
     "@hookform/resolvers": "^3.10.0",
     "@neondatabase/serverless": "latest",
     "@radix-ui/react-accordion": "latest",

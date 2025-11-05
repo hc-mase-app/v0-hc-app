@@ -12,6 +12,7 @@ import { Label } from "@/components/ui/label"
 import { AlertCircle, Save, Download, Send } from "lucide-react"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import jsPDF from "jspdf"
+import { downloadPDF } from "@/lib/download-utils"
 import { useAuth } from "@/lib/auth-context"
 import { useRouter } from "next/navigation"
 
@@ -383,7 +384,7 @@ export default function AssessmentForm() {
     }, 100)
   }
 
-  const handleExportPDF = () => {
+  const handleExportPDF = async () => {
     try {
       const doc = new jsPDF()
       const pageWidth = doc.internal.pageSize.getWidth()
@@ -538,7 +539,8 @@ export default function AssessmentForm() {
         }
       }
 
-      doc.save(`Assessment_${formData.nama}_${new Date().toISOString().split("T")[0]}.pdf`)
+      const pdfOutput = doc.output("dataurlstring")
+      await downloadPDF(pdfOutput, `Assessment_${formData.nama}_${new Date().toISOString().split("T")[0]}.pdf`)
     } catch (error) {
       console.error("Error exporting PDF:", error)
       alert("Gagal export PDF")

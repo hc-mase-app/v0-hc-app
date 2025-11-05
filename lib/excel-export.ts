@@ -1,4 +1,5 @@
 import * as XLSX from "xlsx"
+import { downloadExcel } from "./download-utils"
 
 function getHakTiket(jabatan: string): string {
   const jabatanUpper = jabatan?.toUpperCase() || ""
@@ -12,7 +13,7 @@ function getHakTiket(jabatan: string): string {
   return "-"
 }
 
-export function exportToExcel(data: any[], fileName: string) {
+export async function exportToExcel(data: any[], fileName: string) {
   console.log("[v0] ========== EXCEL EXPORT START ==========")
   console.log("[v0] exportToExcel called with", data.length, "records")
   console.log("[v0] fileName:", fileName)
@@ -139,18 +140,7 @@ export function exportToExcel(data: any[], fileName: string) {
     console.log("[v0] File size:", excelBuffer.byteLength, "bytes")
 
     console.log("[v0] ========== TRIGGERING DOWNLOAD ==========")
-    const blob = new Blob([excelBuffer], {
-      type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-    })
-
-    const url = URL.createObjectURL(blob)
-    const link = document.createElement("a")
-    link.href = url
-    link.download = `${fileName}.xlsx`
-    document.body.appendChild(link)
-    link.click()
-    document.body.removeChild(link)
-    URL.revokeObjectURL(url)
+    await downloadExcel(excelBuffer, `${fileName}.xlsx`)
 
     console.log("[v0] ========== EXCEL EXPORT COMPLETE ==========")
     console.log("[v0] File downloaded:", `${fileName}.xlsx`)

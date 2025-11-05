@@ -3,6 +3,7 @@
 import html2canvas from "html2canvas"
 import jsPDF from "jspdf"
 import type { LeaveRequest } from "@/lib/types"
+import { downloadPDFCapacitor, isCapacitorAvailable } from "@/lib/pdf-download-mobile"
 
 function convertOklchToHex(oklchValue: string): string {
   const hex: { [key: string]: string } = {
@@ -14,6 +15,92 @@ function convertOklchToHex(oklchValue: string): string {
     "oklch(0.55 0.22 25)": "#dc2626",
   }
   return hex[oklchValue] || "#000000"
+}
+
+declare global {
+  interface Window {
+    cordova?: {
+      file?: {
+        externalDataDirectory: string
+        externalApplicationStorageDirectory: string
+        downloadsDirectory: string
+      }
+    }
+    resolveLocalFileSystemURL?: (path: string, onSuccess: (entry: any) => void, onError: (error: any) => void) => void
+  }
+}
+
+function isCordovaAvailable(): boolean {
+  return typeof window !== "undefined" && !!(window as any).cordova
+}
+
+async function downloadPDFViaCordova(base64Data: string, filename: string) {
+  return new Promise((resolve, reject) => {
+    const cordova = (window as any).cordova
+    const filePlugin = cordova?.file
+
+    if (!filePlugin) {
+      reject(new Error("File plugin not available"))
+      return
+    }
+
+    const downloadPath = filePlugin.downloadsDirectory || filePlugin.externalDataDirectory
+
+    // Convert base64 ke blob
+    const byteCharacters = atob(base64Data.split(",")[1])
+    const byteNumbers = new Array(byteCharacters.length)
+    for (let i = 0; i < byteCharacters.length; i++) {
+      byteNumbers[i] = byteCharacters.charCodeAt(i)
+    }
+    const byteArray = new Uint8Array(byteNumbers)
+    const blob = new Blob([byteArray], { type: "application/pdf" })
+
+    // Write file
+    const reader = new FileReader()
+    reader.onload = async () => {
+      try {
+        const data = reader.result as ArrayBuffer
+        const file = new File([data], filename, { type: "application/pdf" })
+
+        // Gunakan native share atau download intent
+        if ((window as any).cordova?.plugins?.fileOpener2) {
+          const fileOpener = (window as any).cordova.plugins.fileOpener2
+          fileOpener.open(`${downloadPath}${filename}`, "application/pdf", {
+            error: (e: any) => {
+              console.log("[v0] Error opening PDF:", e)
+            },
+            success: () => {
+              console.log("[v0] PDF opened successfully")
+            },
+          })
+        }
+
+        // Show native share dialog
+        if ((window as any).plugins?.socialsharing) {
+          const socialSharing = (window as any).plugins.socialsharing
+          socialSharing.share(
+            "Tiket Perjalanan",
+            "Tiket Perjalanan Karyawan",
+            `${downloadPath}${filename}`,
+            null,
+            () => {
+              console.log("[v0] PDF shared successfully")
+              resolve(true)
+            },
+            (error: any) => {
+              console.log("[v0] Sharing error:", error)
+              reject(error)
+            },
+          )
+        } else {
+          resolve(true)
+        }
+      } catch (error) {
+        reject(error)
+      }
+    }
+    reader.readAsArrayBuffer(blob)
+  })
 }
 
 export async function downloadTicketPDF(request: LeaveRequest) {
@@ -149,9 +236,38 @@ export async function downloadTicketPDF(request: LeaveRequest) {
     const imgHeight = (canvas.height * pdfWidth) / canvas.width
 
     pdf.addImage(imgData, "PNG", 0, 0, pdfWidth, imgHeight)
-    pdf.save(`Tiket-Perjalanan-${request.bookingCode || request.userNik}-${new Date().toISOString().split("T")[0]}.pdf`)
 
-    console.log("[v0] PDF saved successfully")
+    // Support both Web and Cordova/APK
+    const filename = `Tiket-Perjalanan-${request.bookingCode || request.userNik}-${new Date().toISOString().split("T")[0]}.pdf`
+
+    // Try Capacitor first (for APK/mobile), then fall back to browser
+    if (isCapacitorAvailable()) {
+      console.log("[v0] Using Capacitor file download")
+      try {
+        await downloadPDFCapacitor(pdf.output("datauristring"), filename)
+      } catch (error) {
+        console.warn("[v0] Capacitor download failed, falling back to browser")
+        const link = document.createElement("a")
+        link.href = pdf.output("datauristring")
+        link.download = filename
+        document.body.appendChild(link)
+        link.click()
+        document.body.removeChild(link)
+      }
+    } else if (isCordovaAvailable()) {
+      console.log("[v0] Using Cordova file download")
+      await downloadPDFViaCordova(pdf.output("datauristring"), filename)
+    } else {
+      console.log("[v0] Using browser download API")
+      const link = document.createElement("a")
+      link.href = pdf.output("datauristring")
+      link.download = filename
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
+    }
+
+    console.log("[v0] PDF downloaded successfully")
   } catch (error) {
     console.error("[v0] PDF generation error:", error instanceof Error ? error.message : String(error))
     alert("Gagal mengunduh tiket. Silakan coba lagi.")
