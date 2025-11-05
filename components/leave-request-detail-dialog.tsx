@@ -201,6 +201,16 @@ export function LeaveRequestDetailDialog({ request, open, onOpenChange, isUserRo
                 </div>
               </div>
 
+              {request.lamaOnsite && (
+                <div className="flex items-start gap-2">
+                  <Clock className="h-4 w-4 text-slate-500 mt-0.5" />
+                  <div>
+                    <p className="text-xs text-slate-500">Lama Onsite</p>
+                    <p className="font-medium">{request.lamaOnsite} hari</p>
+                  </div>
+                </div>
+              )}
+
               {request.tanggalCutiPeriodikBerikutnya && (
                 <div className="flex items-start gap-2">
                   <Calendar className="h-4 w-4 text-slate-500 mt-0.5" />
@@ -220,19 +230,13 @@ export function LeaveRequestDetailDialog({ request, open, onOpenChange, isUserRo
             </div>
           )}
 
-          {(request.lamaOnsite || request.namaPesawat || request.jamKeberangkatan) && (
+          {(request.namaPesawat || request.jamKeberangkatan) && (
             <div className="bg-blue-50 border border-blue-200 p-4 rounded-lg">
               <div className="flex items-center gap-2 mb-3">
                 <Plane className="h-5 w-5 text-blue-700" />
                 <h3 className="font-semibold text-blue-900">Informasi Tiket & Perjalanan</h3>
               </div>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                {request.lamaOnsite && (
-                  <div>
-                    <p className="text-xs text-blue-600 font-medium">Lama Onsite</p>
-                    <p className="font-semibold text-blue-900">{request.lamaOnsite} hari</p>
-                  </div>
-                )}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {request.namaPesawat && (
                   <div>
                     <p className="text-xs text-blue-600 font-medium">Nama Pesawat</p>
