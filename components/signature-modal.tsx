@@ -4,48 +4,43 @@ import type React from "react"
 
 import { useRef, useEffect, useState } from "react"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
 import { X } from "lucide-react"
 
-interface SignaturePadProps {
-  onSignatureChange: (signatureData: string) => void
-  value?: string
+interface SignatureModalProps {
+  isOpen: boolean
+  onClose: () => void
+  onSave: (signatureData: string) => void
+  title: string
 }
 
-export function SignaturePad({ onSignatureChange, value }: SignaturePadProps) {
+export function SignatureModal({ isOpen, onClose, onSave, title }: SignatureModalProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const [isDrawing, setIsDrawing] = useState(false)
-  const [hasSignature, setHasSignature] = useState(!!value)
+  const [hasSignature, setHasSignature] = useState(false)
 
   useEffect(() => {
+    if (!isOpen) return
+
     const canvas = canvasRef.current
     if (!canvas) return
 
     const ctx = canvas.getContext("2d")
     if (!ctx) return
 
-    // Set canvas size
     canvas.width = canvas.offsetWidth
-    canvas.height = 150
+    canvas.height = canvas.offsetHeight
 
     // Set background
     ctx.fillStyle = "white"
     ctx.fillRect(0, 0, canvas.width, canvas.height)
 
-    // Draw border
-    ctx.strokeStyle = "#e5e7eb"
-    ctx.lineWidth = 1
-    ctx.strokeRect(0, 0, canvas.width, canvas.height)
-
-    // Load existing signature if available
-    if (value) {
-      const img = new Image()
-      img.onload = () => {
-        ctx.drawImage(img, 0, 0)
-      }
-      img.src = value
-    }
-  }, [value])
+    // Set drawing style
+    ctx.strokeStyle = "#000"
+    ctx.lineWidth = 2
+    ctx.lineCap = "round"
+    ctx.lineJoin = "round"
+  }, [isOpen])
 
   const getCoordinates = (canvas: HTMLCanvasElement, e: React.MouseEvent | React.TouchEvent) => {
     const rect = canvas.getBoundingClientRect()
@@ -87,21 +82,12 @@ export function SignaturePad({ onSignatureChange, value }: SignaturePadProps) {
 
     const { x, y } = getCoordinates(canvas, e)
     ctx.lineTo(x, y)
-    ctx.strokeStyle = "#000"
-    ctx.lineWidth = 2
-    ctx.lineCap = "round"
-    ctx.lineJoin = "round"
     ctx.stroke()
-
     setHasSignature(true)
   }
 
   const stopDrawing = () => {
     setIsDrawing(false)
-    const canvas = canvasRef.current
-    if (canvas) {
-      onSignatureChange(canvas.toDataURL())
-    }
   }
 
   const clearSignature = () => {
@@ -113,24 +99,32 @@ export function SignaturePad({ onSignatureChange, value }: SignaturePadProps) {
 
     ctx.fillStyle = "white"
     ctx.fillRect(0, 0, canvas.width, canvas.height)
-
-    ctx.strokeStyle = "#e5e7eb"
-    ctx.lineWidth = 1
-    ctx.strokeRect(0, 0, canvas.width, canvas.height)
-
     setHasSignature(false)
-    onSignatureChange("")
+  }
+
+  const handleSave = () => {
+    const canvas = canvasRef.current
+    if (!canvas || !hasSignature) return
+
+    const signatureData = canvas.toDataURL("image/png")
+    onSave(signatureData)
+    onClose()
   }
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="text-lg">Tanda Tangan Penilai</CardTitle>
-      </CardHeader>
-      <CardContent>
-        <div className="space-y-3">
+    <Dialog open={isOpen} onOpenChange={onClose}>
+      <DialogContent className="max-w-3xl bg-[#1a1a1a] border-[#D4AF37]">
+        <DialogHeader>
+          <DialogTitle className="text-[#D4AF37] text-xl">{title}</DialogTitle>
+        </DialogHeader>
+
+        <div className="space-y-4">
+          <p className="text-slate-300 text-sm">Tanda tangani di area putih di bawah ini:</p>
+
           <canvas
             ref={canvasRef}
+            className="w-full border-2 border-[#D4AF37] rounded-lg bg-white cursor-crosshair touch-none"
+            style={{ height: "300px" }}
             onMouseDown={startDrawing}
             onMouseMove={draw}
             onMouseUp={stopDrawing}
@@ -138,24 +132,30 @@ export function SignaturePad({ onSignatureChange, value }: SignaturePadProps) {
             onTouchStart={startDrawing}
             onTouchMove={draw}
             onTouchEnd={stopDrawing}
-            className="w-full border-2 border-gray-300 rounded cursor-crosshair bg-white"
-            style={{ touchAction: "none" }}
           />
-          <div className="flex gap-2">
-            <Button
-              type="button"
-              variant="outline"
-              onClick={clearSignature}
-              disabled={!hasSignature}
-              className="flex-1 bg-transparent"
-            >
-              <X className="h-4 w-4 mr-2" />
-              Hapus Tanda Tangan
-            </Button>
-          </div>
-          <p className="text-xs text-muted-foreground">Tanda tangan di atas untuk mengkonfirmasi penilaian</p>
         </div>
-      </CardContent>
-    </Card>
+
+        <DialogFooter className="gap-2">
+          <Button
+            type="button"
+            variant="outline"
+            onClick={clearSignature}
+            disabled={!hasSignature}
+            className="border-[#D4AF37] text-[#D4AF37] hover:bg-[#D4AF37] hover:text-black bg-transparent"
+          >
+            <X className="h-4 w-4 mr-2" />
+            Hapus
+          </Button>
+          <Button
+            type="button"
+            onClick={handleSave}
+            disabled={!hasSignature}
+            className="bg-[#D4AF37] hover:bg-[#c49d2f] text-black"
+          >
+            Simpan Tanda Tangan
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   )
 }

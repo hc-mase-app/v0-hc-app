@@ -2,16 +2,20 @@
 
 import type React from "react"
 import { Button } from "@/components/ui/button"
-import { ArrowLeft, X } from "lucide-react"
+import { ArrowLeft, X, Edit } from "lucide-react"
 import { useRouter } from "next/navigation"
-import { useState, useRef, useEffect } from "react"
+import { useState, useEffect } from "react"
 import Image from "next/image"
+import { SignatureModal } from "@/components/signature-modal"
 
 export default function LeadershipActivityPage() {
   const router = useRouter()
   const [selectedCompany, setSelectedCompany] = useState("")
   const [photoData, setPhotoData] = useState<string | null>(null)
   const [photoError, setPhotoError] = useState("")
+
+  const [signatureModalOpen, setSignatureModalOpen] = useState(false)
+  const [currentSignatureKey, setCurrentSignatureKey] = useState<string>("")
 
   // Form data states
   const [activities, setActivities] = useState<string[]>([])
@@ -36,20 +40,6 @@ export default function LeadershipActivityPage() {
     hcga: { data: null as string | null, nama: "", tanggal: "" },
   })
 
-  const canvasRefs = {
-    atasan: useRef<HTMLCanvasElement>(null),
-    karyawan: useRef<HTMLCanvasElement>(null),
-    pjo: useRef<HTMLCanvasElement>(null),
-    hcga: useRef<HTMLCanvasElement>(null),
-  }
-
-  const [isDrawing, setIsDrawing] = useState({
-    atasan: false,
-    karyawan: false,
-    pjo: false,
-    hcga: false,
-  })
-
   const companyLogos = {
     pt_sss: "/sss-logo.png",
     pt_gsm: "/gsm-logo.png",
@@ -63,88 +53,31 @@ export default function LeadershipActivityPage() {
       pjo: { ...prev.pjo, tanggal: today },
       hcga: { ...prev.hcga, tanggal: today },
     }))
-
-    // Initialize all canvases with high resolution
-    Object.values(canvasRefs).forEach((ref) => {
-      const canvas = ref.current
-      if (!canvas) return
-
-      const ctx = canvas.getContext("2d")
-      if (!ctx) return
-
-      // Set high resolution for better quality
-      const rect = canvas.getBoundingClientRect()
-      const dpr = window.devicePixelRatio || 1
-      canvas.width = rect.width * dpr
-      canvas.height = rect.height * dpr
-      ctx.scale(dpr, dpr)
-
-      // Set drawing style
-      ctx.strokeStyle = "#000"
-      ctx.lineWidth = 2
-      ctx.lineCap = "round"
-      ctx.lineJoin = "round"
-    })
   }, [])
 
-  const getCoordinates = (
-    canvas: HTMLCanvasElement,
-    e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>,
-  ) => {
-    const rect = canvas.getBoundingClientRect()
-    const x = "touches" in e ? e.touches[0].clientX - rect.left : e.clientX - rect.left
-    const y = "touches" in e ? e.touches[0].clientY - rect.top : e.clientY - rect.top
-    return { x, y }
+  const openSignatureModal = (key: string) => {
+    setCurrentSignatureKey(key)
+    setSignatureModalOpen(true)
   }
 
-  const startDrawing = (
-    key: keyof typeof canvasRefs,
-    e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>,
-  ) => {
-    e.preventDefault()
-    const canvas = canvasRefs[key].current
-    if (!canvas) return
-
-    const ctx = canvas.getContext("2d")
-    if (!ctx) return
-
-    setIsDrawing((prev) => ({ ...prev, [key]: true }))
-
-    const { x, y } = getCoordinates(canvas, e)
-    ctx.beginPath()
-    ctx.moveTo(x, y)
+  const handleSaveSignature = (signatureData: string) => {
+    setSignatures((prev) => ({
+      ...prev,
+      [currentSignatureKey]: {
+        ...prev[currentSignatureKey as keyof typeof signatures],
+        data: signatureData,
+      },
+    }))
   }
 
-  const draw = (
-    key: keyof typeof canvasRefs,
-    e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>,
-  ) => {
-    e.preventDefault()
-    if (!isDrawing[key]) return
-
-    const canvas = canvasRefs[key].current
-    if (!canvas) return
-
-    const ctx = canvas.getContext("2d")
-    if (!ctx) return
-
-    const { x, y } = getCoordinates(canvas, e)
-    ctx.lineTo(x, y)
-    ctx.stroke()
-  }
-
-  const stopDrawing = (key: keyof typeof canvasRefs) => {
-    setIsDrawing((prev) => ({ ...prev, [key]: false }))
-  }
-
-  const clearSignature = (key: keyof typeof canvasRefs) => {
-    const canvas = canvasRefs[key].current
-    if (!canvas) return
-
-    const ctx = canvas.getContext("2d")
-    if (!ctx) return
-
-    ctx.clearRect(0, 0, canvas.width, canvas.height)
+  const clearSignature = (key: string) => {
+    setSignatures((prev) => ({
+      ...prev,
+      [key]: {
+        ...prev[key as keyof typeof signatures],
+        data: null,
+      },
+    }))
   }
 
   // Export to print/PDF
@@ -154,30 +87,12 @@ export default function LeadershipActivityPage() {
       return
     }
 
-    const capturedSignatures: Record<string, string | null> = {}
-
-    Object.entries(canvasRefs).forEach(([key, ref]) => {
-      const canvas = ref.current
-      if (!canvas) {
-        capturedSignatures[key] = null
-        return
-      }
-
-      const ctx = canvas.getContext("2d")
-      if (!ctx) {
-        capturedSignatures[key] = null
-        return
-      }
-
-      const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height)
-      const hasContent = imageData.data.some((channel) => channel !== 0)
-
-      if (hasContent) {
-        capturedSignatures[key] = canvas.toDataURL("image/png")
-      } else {
-        capturedSignatures[key] = null
-      }
-    })
+    const capturedSignatures: Record<string, string | null> = {
+      atasan: signatures.atasan.data,
+      karyawan: signatures.karyawan.data,
+      pjo: signatures.pjo.data,
+      hcga: signatures.hcga.data,
+    }
 
     try {
       let logoDataURL = null
@@ -429,7 +344,7 @@ export default function LeadershipActivityPage() {
         </div>
 
         {/* Signatures */}
-        <div className="grid grid-cols-2 gap-4 mb-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
           {Object.entries({
             atasan: { title: "Dibuat oleh,", subtitle: "Atasan Langsung" },
             karyawan: { title: "Diterima oleh,", subtitle: "Karyawan" },
@@ -438,32 +353,52 @@ export default function LeadershipActivityPage() {
           }).map(([key, info]) => (
             <div key={key} className="bg-[#2a2a2a] p-4 rounded-lg border border-[#3a3a3a]">
               <p className="font-semibold text-[#D4AF37]">{info.title}</p>
-              <p className="text-sm text-slate-400 mb-2">{info.subtitle}</p>
+              <p className="text-sm text-slate-400 mb-3">{info.subtitle}</p>
 
-              <canvas
-                ref={canvasRefs[key as keyof typeof canvasRefs]}
-                className="border border-[#3a3a3a] bg-white rounded mb-2 w-full touch-none cursor-crosshair"
-                style={{ width: "100%", height: "100px" }}
-                onMouseDown={(e) => startDrawing(key as keyof typeof canvasRefs, e)}
-                onMouseMove={(e) => draw(key as keyof typeof canvasRefs, e)}
-                onMouseUp={() => stopDrawing(key as keyof typeof canvasRefs)}
-                onMouseLeave={() => stopDrawing(key as keyof typeof canvasRefs)}
-                onTouchStart={(e) => startDrawing(key as keyof typeof canvasRefs, e)}
-                onTouchMove={(e) => draw(key as keyof typeof canvasRefs, e)}
-                onTouchEnd={() => stopDrawing(key as keyof typeof canvasRefs)}
-              />
-
-              <div className="mb-2">
+              {/* Signature preview or button */}
+              {signatures[key as keyof typeof signatures].data ? (
+                <div className="mb-3">
+                  <div className="border-2 border-[#D4AF37] rounded-lg bg-white p-2 mb-2">
+                    <Image
+                      src={signatures[key as keyof typeof signatures].data || "/placeholder.svg"}
+                      alt="Signature"
+                      width={300}
+                      height={100}
+                      className="w-full h-24 object-contain"
+                    />
+                  </div>
+                  <div className="flex gap-2">
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      onClick={() => openSignatureModal(key)}
+                      className="flex-1 border-[#D4AF37] text-[#D4AF37] hover:bg-[#D4AF37] hover:text-black"
+                    >
+                      <Edit className="h-4 w-4 mr-2" />
+                      Edit
+                    </Button>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      onClick={() => clearSignature(key)}
+                      className="flex-1 border-red-500 text-red-500 hover:bg-red-500 hover:text-white"
+                    >
+                      <X className="h-4 w-4 mr-2" />
+                      Hapus
+                    </Button>
+                  </div>
+                </div>
+              ) : (
                 <Button
                   type="button"
-                  size="sm"
-                  variant="outline"
-                  onClick={() => clearSignature(key as keyof typeof canvasRefs)}
-                  className="w-full border-[#D4AF37] text-[#D4AF37] hover:bg-[#D4AF37] hover:text-black"
+                  onClick={() => openSignatureModal(key)}
+                  className="w-full mb-3 bg-[#D4AF37] hover:bg-[#c49d2f] text-black"
                 >
-                  Hapus
+                  ✍️ Tanda Tangan
                 </Button>
-              </div>
+              )}
 
               <input
                 type="text"
@@ -545,6 +480,21 @@ export default function LeadershipActivityPage() {
           <p>- Yan -</p>
         </div>
       </div>
+
+      <SignatureModal
+        isOpen={signatureModalOpen}
+        onClose={() => setSignatureModalOpen(false)}
+        onSave={handleSaveSignature}
+        title={`Tanda Tangan - ${
+          currentSignatureKey === "atasan"
+            ? "Atasan Langsung"
+            : currentSignatureKey === "karyawan"
+              ? "Karyawan"
+              : currentSignatureKey === "pjo"
+                ? "PJO / Mgr. / GM / Dir."
+                : "HCGA"
+        }`}
+      />
     </div>
   )
 }
