@@ -220,6 +220,35 @@ export function LeaveRequestDetailDialog({ request, open, onOpenChange, isUserRo
             </div>
           )}
 
+          {(request.lamaOnsite || request.namaPesawat || request.jamKeberangkatan) && (
+            <div className="bg-blue-50 border border-blue-200 p-4 rounded-lg">
+              <div className="flex items-center gap-2 mb-3">
+                <Plane className="h-5 w-5 text-blue-700" />
+                <h3 className="font-semibold text-blue-900">Informasi Tiket & Perjalanan</h3>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                {request.lamaOnsite && (
+                  <div>
+                    <p className="text-xs text-blue-600 font-medium">Lama Onsite</p>
+                    <p className="font-semibold text-blue-900">{request.lamaOnsite} hari</p>
+                  </div>
+                )}
+                {request.namaPesawat && (
+                  <div>
+                    <p className="text-xs text-blue-600 font-medium">Nama Pesawat</p>
+                    <p className="font-semibold text-blue-900">{request.namaPesawat}</p>
+                  </div>
+                )}
+                {request.jamKeberangkatan && (
+                  <div>
+                    <p className="text-xs text-blue-600 font-medium">Jam Keberangkatan</p>
+                    <p className="font-semibold text-blue-900">{request.jamKeberangkatan}</p>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
           {request.bookingCode && (
             <div className="bg-green-50 border border-green-200 rounded-lg p-4">
               <p className="text-sm font-semibold text-green-900 mb-1">Kode Booking:</p>
