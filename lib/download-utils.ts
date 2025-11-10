@@ -2,7 +2,15 @@ import { Filesystem, Directory } from "@capacitor/filesystem"
 import { Share } from "@capacitor/share"
 
 export function isCapacitor(): boolean {
-  return typeof window !== "undefined" && !!(window as any).Capacitor
+  if (typeof window === "undefined") return false
+
+  const capacitor = (window as any).Capacitor
+  if (!capacitor) return false
+
+  // Check if we're actually running in a native platform (iOS or Android)
+  // Not just having Capacitor imported
+  const platform = capacitor.getPlatform ? capacitor.getPlatform() : null
+  return platform === "ios" || platform === "android"
 }
 
 function isPreviewEnvironment(): boolean {
@@ -12,10 +20,13 @@ function isPreviewEnvironment(): boolean {
 }
 
 async function isCapacitorPluginsAvailable(): Promise<boolean> {
-  if (!isCapacitor()) return false
+  if (!isCapacitor()) {
+    console.log("[v0] Not running in native Capacitor app")
+    return false
+  }
 
   try {
-    // Test if Filesystem plugin is available
+    // Test if Filesystem plugin is available and functional
     const testResult = await Filesystem.checkPermissions()
     console.log("[v0] Capacitor Filesystem permissions:", testResult)
     return true
@@ -100,8 +111,6 @@ export async function downloadExcel(excelBuffer: ArrayBuffer, filename: string):
   console.log("[v0] ========== DOWNLOAD EXCEL START ==========")
   console.log("[v0] Filename:", filename)
   console.log("[v0] Buffer size:", excelBuffer.byteLength, "bytes")
-  console.log("[v0] Is Capacitor:", isCapacitor())
-  console.log("[v0] Is Preview Environment:", isPreviewEnvironment())
 
   try {
     if (!excelBuffer || excelBuffer.byteLength === 0) {
@@ -113,45 +122,49 @@ export async function downloadExcel(excelBuffer: ArrayBuffer, filename: string):
     })
     console.log("[v0] Blob created, size:", blob.size, "bytes")
 
-    const canUseCapacitor = await isCapacitorPluginsAvailable()
-    console.log("[v0] Can use Capacitor:", canUseCapacitor)
+    const isNativeApp = isCapacitor()
+    console.log("[v0] Is Native App:", isNativeApp)
+    console.log("[v0] Is Preview:", isPreviewEnvironment())
 
-    if (canUseCapacitor && !isPreviewEnvironment()) {
-      // Mobile: Convert to base64 and save
-      console.log("[v0] Using Capacitor for mobile download")
+    if (isNativeApp && !isPreviewEnvironment()) {
+      // Only try Capacitor if we're truly in a native app
+      const canUseCapacitor = await isCapacitorPluginsAvailable()
+      console.log("[v0] Can use Capacitor:", canUseCapacitor)
 
-      try {
-        const base64Data = await blobToBase64(blob)
-        const base64Clean = base64Data.replace(
-          /^data:application\/vnd\.openxmlformats-officedocument\.spreadsheetml\.sheet;base64,/,
-          "",
-        )
+      if (canUseCapacitor) {
+        console.log("[v0] Using Capacitor for mobile download")
+        try {
+          const base64Data = await blobToBase64(blob)
+          const base64Clean = base64Data.replace(
+            /^data:application\/vnd\.openxmlformats-officedocument\.spreadsheetml\.sheet;base64,/,
+            "",
+          )
 
-        const result = await Filesystem.writeFile({
-          path: filename,
-          data: base64Clean,
-          directory: Directory.Documents,
-        })
+          const result = await Filesystem.writeFile({
+            path: filename,
+            data: base64Clean,
+            directory: Directory.Documents,
+          })
 
-        console.log("[v0] Excel saved to:", result.uri)
+          console.log("[v0] Excel saved to:", result.uri)
 
-        // Share the file
-        await Share.share({
-          title: "Download Excel",
-          text: `File ${filename} berhasil disimpan`,
-          url: result.uri,
-          dialogTitle: "Simpan atau Bagikan Excel",
-        })
-        console.log("[v0] Share dialog shown")
-      } catch (capacitorError) {
-        console.error("[v0] Capacitor download failed, falling back to web download:", capacitorError)
-        await webDownload(blob, filename)
+          await Share.share({
+            title: "Download Excel",
+            text: `File ${filename} berhasil disimpan`,
+            url: result.uri,
+            dialogTitle: "Simpan atau Bagikan Excel",
+          })
+          console.log("[v0] Share dialog shown")
+          console.log("[v0] ========== DOWNLOAD EXCEL COMPLETE ==========")
+          return
+        } catch (capacitorError) {
+          console.error("[v0] Capacitor download failed, falling back to web download:", capacitorError)
+        }
       }
-    } else {
-      // Web: Gunakan blob URL download
-      await webDownload(blob, filename)
     }
 
+    console.log("[v0] Using web browser download (default for web)")
+    await webDownload(blob, filename)
     console.log("[v0] ========== DOWNLOAD EXCEL COMPLETE ==========")
   } catch (error) {
     console.error("[v0] ========== DOWNLOAD EXCEL ERROR ==========")
@@ -188,7 +201,7 @@ async function webDownload(blob: Blob, filename: string): Promise<void> {
         console.warn("[v0] Cleanup error (non-critical):", cleanupError)
       }
       resolve()
-    }, 2000)
+    }, 100)
   })
 }
 
