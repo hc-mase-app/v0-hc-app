@@ -3,6 +3,7 @@
 import { neon } from "@neondatabase/serverless"
 import { ensureLeaveRequestsSchema } from "./db-migration"
 import { mapDbRowToLeaveRequest, mapDbRowsToLeaveRequests } from "./db-mapper"
+import { validateLeaveRequestCreate, validateBookingCode, sanitizeString } from "./validation"
 
 const sql = neon(process.env.DATABASE_URL || "")
 
@@ -276,46 +277,59 @@ export async function approveRequest(
   notes = "",
 ): Promise<{ success: boolean; error?: string }> {
   try {
+    if (!requestId || requestId.trim() === "") {
+      return { success: false, error: "Request ID diperlukan" }
+    }
+
+    if (!approverNik || approverNik.trim() === "") {
+      return { success: false, error: "Approver NIK diperlukan" }
+    }
+
     // Get request and validate
     const request = await getRequestById(requestId)
     if (!request) {
-      return { success: false, error: "Request not found" }
+      return { success: false, error: "Request tidak ditemukan" }
     }
 
     const rule = WORKFLOW_RULES[approverRole]
     if (!rule) {
-      return { success: false, error: "Role cannot approve" }
+      return { success: false, error: "Role ini tidak memiliki hak untuk approve" }
     }
 
     if (!rule.canApprove.includes(request.status)) {
-      return { success: false, error: `Cannot approve request with status ${request.status}` }
+      return { success: false, error: `Tidak dapat approve request dengan status ${request.status}` }
     }
 
     // Get approver info
     const approverResult = await sql`SELECT name, role FROM users WHERE nik = ${approverNik}`
     if (!approverResult || approverResult.length === 0) {
-      return { success: false, error: "Approver not found" }
+      return { success: false, error: "Approver tidak ditemukan di database" }
     }
     const approver = approverResult[0]
 
-    // Update status
     const newStatus = rule.approveTransition
-    await sql`
+    const updateResult = await sql`
       UPDATE leave_requests 
       SET status = ${newStatus}, updated_at = CURRENT_TIMESTAMP 
       WHERE id = ${requestId}
+      RETURNING id
     `
+
+    if (!updateResult || updateResult.length === 0) {
+      return { success: false, error: "Gagal mengupdate status request" }
+    }
 
     // Record approval history
     await sql`
       INSERT INTO approval_history (leave_request_id, approver_nik, approver_name, approver_role, action, notes)
-      VALUES (${requestId}, ${approverNik}, ${approver.name}, ${approver.role}, 'approved', ${notes || null})
+      VALUES (${requestId}, ${approverNik}, ${approver.name}, ${approver.role}, 'approved', ${sanitizeString(notes) || null})
     `
 
     return { success: true }
   } catch (error) {
     console.error("[Workflow] Error approving request:", error)
-    return { success: false, error: String(error) }
+    const errorMessage = error instanceof Error ? error.message : String(error)
+    return { success: false, error: `Database error: ${errorMessage}` }
   }
 }
 
@@ -326,50 +340,70 @@ export async function rejectRequest(
   notes: string,
 ): Promise<{ success: boolean; error?: string }> {
   try {
+    if (!requestId || requestId.trim() === "") {
+      return { success: false, error: "Request ID diperlukan" }
+    }
+
+    if (!approverNik || approverNik.trim() === "") {
+      return { success: false, error: "Approver NIK diperlukan" }
+    }
+
+    if (!notes || notes.trim() === "") {
+      return { success: false, error: "Alasan penolakan wajib diisi" }
+    }
+
     // Get request and validate
     const request = await getRequestById(requestId)
     if (!request) {
-      return { success: false, error: "Request not found" }
+      return { success: false, error: "Request tidak ditemukan" }
     }
 
     const rule = WORKFLOW_RULES[approverRole]
     if (!rule) {
-      return { success: false, error: "Role cannot reject" }
+      return { success: false, error: "Role ini tidak memiliki hak untuk reject" }
     }
 
     if (!rule.canApprove.includes(request.status)) {
-      return { success: false, error: `Cannot reject request with status ${request.status}` }
-    }
-
-    if (!notes || notes.trim() === "") {
-      return { success: false, error: "Rejection reason is required" }
+      return { success: false, error: `Tidak dapat reject request dengan status ${request.status}` }
     }
 
     // Get approver info
     const approverResult = await sql`SELECT name, role FROM users WHERE nik = ${approverNik}`
     if (!approverResult || approverResult.length === 0) {
-      return { success: false, error: "Approver not found" }
+      return { success: false, error: "Approver tidak ditemukan di database" }
     }
     const approver = approverResult[0]
 
-    // Update status
     const newStatus = rule.rejectTransition
-    await sql`
+    const updateResult = await sql`
       UPDATE leave_requests 
       SET status = ${newStatus}, updated_at = CURRENT_TIMESTAMP 
       WHERE id = ${requestId}
+      RETURNING id
     `
+
+    if (!updateResult || updateResult.length === 0) {
+      return { success: false, error: "Gagal mengupdate status request" }
+    }
 
     // Record rejection history
     await sql`
       INSERT INTO approval_history (leave_request_id, approver_nik, approver_name, approver_role, action, notes)
-      VALUES (${requestId}, ${approverNik}, ${approver.name}, ${approver.role}, 'rejected', ${notes})
+      VALUES (
+        ${requestId}, 
+        ${approverNik}, 
+        ${approver.name}, 
+        ${approver.role}, 
+        'rejected', 
+        ${sanitizeString(notes)}
+      )
     `
 
     return { success: true }
   } catch (error) {
     console.error("[Workflow] Error rejecting request:", error)
-    return { success: false, error: String(error) }
+    const errorMessage = error instanceof Error ? error.message : String(error)
+    return { success: false, error: `Database error: ${errorMessage}` }
   }
 }
 
@@ -393,9 +427,25 @@ export async function createLeaveRequest(data: {
   departemen: string
 }): Promise<{ success: boolean; data?: any; error?: string }> {
   try {
+    const validation = validateLeaveRequestCreate(data)
+    if (!validation.valid) {
+      return {
+        success: false,
+        error: validation.errors.join("; "),
+      }
+    }
+
     await initializeMigration()
 
     console.log(`[v0] Creating leave request with site: ${data.site}, dept: ${data.departemen}`)
+
+    const sanitizedData = {
+      ...data,
+      berangkatDari: sanitizeString(data.berangkatDari),
+      tujuan: sanitizeString(data.tujuan),
+      catatan: sanitizeString(data.catatan),
+      cutiPeriodikBerikutnya: sanitizeString(data.cutiPeriodikBerikutnya),
+    }
 
     const result = await sql`
       INSERT INTO leave_requests (
@@ -404,22 +454,22 @@ export async function createLeaveRequest(data: {
         cuti_periodik_berikutnya, catatan, lama_onsite, status, submitted_by,
         site, departemen
       ) VALUES (
-        ${data.nik},
-        ${data.jenisCuti},
-        ${data.tanggalPengajuan},
-        ${data.periodeAwal},
-        ${data.periodeAkhir},
-        ${data.jumlahHari},
-        ${data.berangkatDari || null},
-        ${data.tujuan || null},
-        ${data.tanggalKeberangkatan || null},
-        ${data.cutiPeriodikBerikutnya || null},
-        ${data.catatan || null},
-        ${data.lamaOnsite || null},
+        ${sanitizedData.nik},
+        ${sanitizedData.jenisCuti},
+        ${sanitizedData.tanggalPengajuan},
+        ${sanitizedData.periodeAwal},
+        ${sanitizedData.periodeAkhir},
+        ${sanitizedData.jumlahHari},
+        ${sanitizedData.berangkatDari || null},
+        ${sanitizedData.tujuan || null},
+        ${sanitizedData.tanggalKeberangkatan || null},
+        ${sanitizedData.cutiPeriodikBerikutnya || null},
+        ${sanitizedData.catatan || null},
+        ${sanitizedData.lamaOnsite || null},
         'pending_dic',
-        ${data.submittedBy},
-        ${data.site},
-        ${data.departemen}
+        ${sanitizedData.submittedBy},
+        ${sanitizedData.site},
+        ${sanitizedData.departemen}
       )
       RETURNING *
     `
@@ -428,7 +478,8 @@ export async function createLeaveRequest(data: {
     return { success: true, data: result[0] }
   } catch (error) {
     console.error("[v0] Workflow Error creating leave request:", error)
-    return { success: false, error: String(error) }
+    const errorMessage = error instanceof Error ? error.message : String(error)
+    return { success: false, error: `Database error: ${errorMessage}` }
   }
 }
 
@@ -442,38 +493,68 @@ export async function updateBookingCode(
   updatedBy: string,
 ): Promise<{ success: boolean; error?: string }> {
   try {
+    const bookingCodeError = validateBookingCode(bookingCode)
+    if (bookingCodeError) {
+      return { success: false, error: bookingCodeError }
+    }
+
+    if (!requestId || requestId.trim() === "") {
+      return { success: false, error: "Request ID diperlukan" }
+    }
+
+    if (!updatedBy || updatedBy.trim() === "") {
+      return { success: false, error: "updatedBy diperlukan" }
+    }
+
     // Validate request is in di_proses status
     const request = await getRequestById(requestId)
     if (!request) {
-      return { success: false, error: "Request not found" }
+      return { success: false, error: "Request tidak ditemukan" }
     }
 
     if (request.status !== "di_proses") {
-      return { success: false, error: "Request must be in di_proses status" }
+      return { success: false, error: `Request harus dalam status di_proses, saat ini: ${request.status}` }
     }
 
+    const sanitizedBookingCode = sanitizeString(bookingCode)
+    const sanitizedNamaPesawat = sanitizeString(namaPesawat)
+    const sanitizedJamKeberangkatan = sanitizeString(jamKeberangkatan)
+
     // Update booking code, airline name, departure time and status
-    await sql`
+    const updateResult = await sql`
       UPDATE leave_requests 
       SET 
-        booking_code = ${bookingCode}, 
-        nama_pesawat = ${namaPesawat || null},
-        jam_keberangkatan = ${jamKeberangkatan || null},
+        booking_code = ${sanitizedBookingCode}, 
+        nama_pesawat = ${sanitizedNamaPesawat || null},
+        jam_keberangkatan = ${sanitizedJamKeberangkatan || null},
         status = 'tiket_issued', 
         updated_at = CURRENT_TIMESTAMP 
       WHERE id = ${requestId}
+      RETURNING id
     `
+
+    if (!updateResult || updateResult.length === 0) {
+      return { success: false, error: "Gagal mengupdate booking code" }
+    }
 
     // Record in history
     await sql`
       INSERT INTO approval_history (leave_request_id, approver_nik, approver_name, approver_role, action, notes)
-      VALUES (${requestId}, ${updatedBy}, 'HR Ticketing', 'hr_ticketing', 'tiket_issued', ${`Booking code: ${bookingCode}, Airline: ${namaPesawat || "-"}, Departure time: ${jamKeberangkatan || "-"}`})
+      VALUES (
+        ${requestId}, 
+        ${updatedBy}, 
+        'HR Ticketing', 
+        'hr_ticketing', 
+        'tiket_issued', 
+        ${`Booking code: ${sanitizedBookingCode}, Airline: ${sanitizedNamaPesawat || "-"}, Departure time: ${sanitizedJamKeberangkatan || "-"}`}
+      )
     `
 
     return { success: true }
   } catch (error) {
     console.error("[Workflow] Error updating booking code:", error)
-    return { success: false, error: String(error) }
+    const errorMessage = error instanceof Error ? error.message : String(error)
+    return { success: false, error: `Database error: ${errorMessage}` }
   }
 }
 

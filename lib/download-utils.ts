@@ -5,9 +5,15 @@ export function isCapacitor(): boolean {
   return typeof window !== "undefined" && !!(window as any).Capacitor
 }
 
+function isPreviewEnvironment(): boolean {
+  if (typeof window === "undefined") return false
+  const hostname = window.location.hostname
+  return hostname.includes("vusercontent.net") || hostname.includes("preview") || hostname.includes("localhost")
+}
+
 export async function downloadPDF(pdfData: string | Blob, filename: string): Promise<void> {
   try {
-    if (isCapacitor()) {
+    if (isCapacitor() && !isPreviewEnvironment()) {
       // Mobile: Gunakan Capacitor Filesystem
       let base64Data: string
 
@@ -75,13 +81,25 @@ export async function downloadPDF(pdfData: string | Blob, filename: string): Pro
 }
 
 export async function downloadExcel(excelBuffer: ArrayBuffer, filename: string): Promise<void> {
+  console.log("[v0] ========== DOWNLOAD EXCEL START ==========")
+  console.log("[v0] Filename:", filename)
+  console.log("[v0] Buffer size:", excelBuffer.byteLength, "bytes")
+  console.log("[v0] Is Capacitor:", isCapacitor())
+  console.log("[v0] Is Preview Environment:", isPreviewEnvironment())
+
   try {
+    if (!excelBuffer || excelBuffer.byteLength === 0) {
+      throw new Error("Invalid or empty Excel buffer")
+    }
+
     const blob = new Blob([excelBuffer], {
       type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
     })
+    console.log("[v0] Blob created, size:", blob.size, "bytes")
 
-    if (isCapacitor()) {
+    if (isCapacitor() && !isPreviewEnvironment()) {
       // Mobile: Convert to base64 and save
+      console.log("[v0] Using Capacitor for mobile download")
       const base64Data = await blobToBase64(blob)
       const base64Clean = base64Data.replace(
         /^data:application\/vnd\.openxmlformats-officedocument\.spreadsheetml\.sheet;base64,/,
@@ -103,19 +121,37 @@ export async function downloadExcel(excelBuffer: ArrayBuffer, filename: string):
         url: result.uri,
         dialogTitle: "Simpan atau Bagikan Excel",
       })
+      console.log("[v0] Share dialog shown")
     } else {
       // Web: Gunakan blob URL download
+      console.log("[v0] Using web browser download")
       const url = URL.createObjectURL(blob)
+      console.log("[v0] Blob URL created:", url)
+
       const link = document.createElement("a")
       link.href = url
       link.download = filename
+      link.style.display = "none"
       document.body.appendChild(link)
+      console.log("[v0] Download link appended to body")
+
       link.click()
-      document.body.removeChild(link)
-      URL.revokeObjectURL(url)
+      console.log("[v0] Download link clicked")
+
+      setTimeout(() => {
+        document.body.removeChild(link)
+        URL.revokeObjectURL(url)
+        console.log("[v0] Download link cleaned up")
+      }, 1000)
     }
+
+    console.log("[v0] ========== DOWNLOAD EXCEL COMPLETE ==========")
   } catch (error) {
+    console.error("[v0] ========== DOWNLOAD EXCEL ERROR ==========")
     console.error("[v0] Error downloading Excel:", error)
+    console.error("[v0] Error details:", error instanceof Error ? error.message : "Unknown error")
+    console.error("[v0] Error stack:", error instanceof Error ? error.stack : "No stack trace")
+    console.error("[v0] ===========================================")
     throw error
   }
 }

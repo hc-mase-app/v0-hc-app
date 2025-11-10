@@ -1,4 +1,5 @@
 import { neon } from "@neondatabase/serverless"
+import { mapDbRowToLeaveRequest, mapDbRowsToLeaveRequests } from "./db-mapper"
 
 const sql = neon(process.env.DATABASE_URL || "")
 
@@ -43,46 +44,6 @@ function transformUserData(dbUser: any) {
     jenisKelamin: dbUser.jenis_kelamin,
     createdAt: dbUser.created_at,
     updatedAt: dbUser.updated_at,
-  }
-}
-
-function transformLeaveRequestData(dbRequest: any) {
-  if (!dbRequest) return null
-
-  return {
-    id: dbRequest.id,
-    userNik: dbRequest.nik,
-    userName: dbRequest.user_name || dbRequest.name || dbRequest.nik, // Get name from joined users table
-    site: dbRequest.site, // From joined users table
-    jabatan: dbRequest.jabatan, // From joined users table
-    departemen: dbRequest.departemen, // From joined users table
-    poh: dbRequest.poh, // From joined users table
-    statusKaryawan: dbRequest.status_karyawan, // From joined users table
-    noKtp: dbRequest.no_ktp, // From joined users table
-    noTelp: dbRequest.no_telp, // From joined users table
-    email: dbRequest.email, // From joined users table
-    tanggalLahir: dbRequest.tanggal_lahir, // From joined users table
-    jenisKelamin: dbRequest.jenis_kelamin, // From joined users table
-    jenisPengajuanCuti: dbRequest.jenis_cuti,
-    jenisCuti: dbRequest.jenis_cuti,
-    tanggalPengajuan: dbRequest.tanggal_pengajuan,
-    tanggalMulai: dbRequest.periode_awal,
-    tanggalSelesai: dbRequest.periode_akhir,
-    periodeAwal: dbRequest.periode_awal,
-    periodeAkhir: dbRequest.periode_akhir,
-    jumlahHari: dbRequest.jumlah_hari,
-    berangkatDari: dbRequest.berangkat_dari,
-    tujuan: dbRequest.tujuan,
-    tanggalKeberangkatan: dbRequest.tanggal_keberangkatan,
-    tanggalCutiPeriodikBerikutnya: dbRequest.cuti_periodik_berikutnya,
-    cutiPeriodikBerikutnya: dbRequest.cuti_periodik_berikutnya,
-    catatan: dbRequest.catatan,
-    alasan: dbRequest.catatan,
-    status: dbRequest.status,
-    submittedBy: dbRequest.submitted_by,
-    bookingCode: dbRequest.booking_code,
-    createdAt: dbRequest.created_at,
-    updatedAt: dbRequest.updated_at,
   }
 }
 
@@ -405,7 +366,7 @@ export async function getLeaveRequests() {
       LEFT JOIN users u ON lr.nik = u.nik
       ORDER BY lr.created_at DESC
     `
-    return result.map(transformLeaveRequestData)
+    return mapDbRowsToLeaveRequests(result)
   } catch (error) {
     console.error("Error fetching leave requests:", error)
     return []
@@ -423,7 +384,7 @@ export async function getLeaveRequestById(id: string) {
       LEFT JOIN users u ON lr.nik = u.nik
       WHERE lr.id = ${id}
     `
-    return transformLeaveRequestData(result[0])
+    return result[0] ? mapDbRowToLeaveRequest(result[0]) : null
   } catch (error) {
     console.error("Error fetching leave request:", error)
     return null
@@ -442,7 +403,7 @@ export async function getLeaveRequestsByUserId(userId: string) {
       WHERE lr.nik = ${userId}
       ORDER BY lr.created_at DESC
     `
-    return result.map(transformLeaveRequestData)
+    return mapDbRowsToLeaveRequests(result)
   } catch (error) {
     console.error("Error fetching leave requests by user:", error)
     return []
@@ -461,7 +422,7 @@ export async function getLeaveRequestsBySite(site: string) {
       WHERE u.site = ${site}
       ORDER BY lr.created_at DESC
     `
-    return result.map(transformLeaveRequestData)
+    return mapDbRowsToLeaveRequests(result)
   } catch (error) {
     console.error("Error fetching leave requests by site:", error)
     return []
@@ -480,7 +441,7 @@ export async function getLeaveRequestsByStatus(status: string) {
       WHERE lr.status = ${status}
       ORDER BY lr.created_at DESC
     `
-    return result.map(transformLeaveRequestData)
+    return mapDbRowsToLeaveRequests(result)
   } catch (error) {
     console.error("Error fetching leave requests by status:", error)
     return []
@@ -499,7 +460,7 @@ export async function getPendingRequestsForDIC(site: string) {
       WHERE lr.status = 'pending_dic' AND u.site = ${site}
       ORDER BY lr.created_at DESC
     `
-    return result.map(transformLeaveRequestData)
+    return mapDbRowsToLeaveRequests(result)
   } catch (error) {
     console.error("Error fetching pending requests for DIC:", error)
     return []
@@ -518,7 +479,7 @@ export async function getPendingRequestsForDICBySiteDept(site: string, departeme
       WHERE lr.status = 'pending_dic' AND u.site = ${site} AND u.departemen = ${departemen}
       ORDER BY lr.created_at DESC
     `
-    return result.map(transformLeaveRequestData)
+    return mapDbRowsToLeaveRequests(result)
   } catch (error) {
     console.error("Error fetching pending requests for DIC by site/dept:", error)
     return []
@@ -581,7 +542,7 @@ export async function getPendingRequestsForPJO(site: string) {
       })
     }
 
-    const transformed = result.map(transformLeaveRequestData)
+    const transformed = mapDbRowsToLeaveRequests(result)
     console.log("[v0] Transformed count:", transformed.length)
     console.log("========== getPendingRequestsForPJO DEBUG END (SUCCESS) ==========\n")
     return transformed
@@ -610,7 +571,7 @@ export async function getPendingRequestsForHRHO() {
       WHERE lr.status = 'pending_hr_ho'
       ORDER BY lr.created_at DESC
     `
-    return result.map(transformLeaveRequestData)
+    return mapDbRowsToLeaveRequests(result)
   } catch (error) {
     console.error("Error fetching pending requests for HR HO:", error)
     return []
@@ -629,7 +590,7 @@ export async function getApprovedRequests() {
       WHERE lr.status = 'approved'
       ORDER BY lr.created_at DESC
     `
-    return result.map(transformLeaveRequestData)
+    return mapDbRowsToLeaveRequests(result)
   } catch (error) {
     console.error("Error fetching approved requests:", error)
     return []
@@ -697,7 +658,7 @@ export async function updateLeaveRequest(id: string, updates: any) {
     console.log("[v0] Update successful, result:", result.rows[0])
     return result.rows[0]
   } catch (error) {
-    console.error("[v0] Error updating leave request:", error instanceof Error ? error.message : String(error))
+    console.error("[v0] Error updating leave request:", error)
     throw error
   }
 }
@@ -723,7 +684,7 @@ export async function getLeaveRequestsSubmittedBy(userId: string) {
       WHERE lr.submitted_by = ${userId}
       ORDER BY lr.created_at DESC
     `
-    return result.map(transformLeaveRequestData)
+    return mapDbRowsToLeaveRequests(result)
   } catch (error) {
     console.error("Error fetching leave requests submitted by user:", error)
     return []
@@ -744,7 +705,7 @@ export async function getLeaveRequestsBySiteDept(site: string, departemen: strin
       ORDER BY lr.created_at DESC
     `
     console.log("[v0] getLeaveRequestsBySiteDept found", result.length, "requests")
-    return result.map(transformLeaveRequestData)
+    return mapDbRowsToLeaveRequests(result)
   } catch (error) {
     console.error("[v0] Error fetching leave requests by site/dept:", error)
     return []
@@ -981,7 +942,7 @@ export async function updateAssessment(id: string, updates: any) {
     console.log("[v0] No status update, fetching current assessment")
     return await getAssessmentById(id)
   } catch (error) {
-    console.error("[v0] Error updating assessment:", error instanceof Error ? error.message : String(error))
+    console.error("[v0] Error updating assessment:", error)
     throw error
   }
 }

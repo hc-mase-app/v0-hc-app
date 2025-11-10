@@ -15,18 +15,19 @@ import {
 import { ensureLeaveRequestsSchema } from "@/lib/db-migration"
 import { successResponse, errorResponse, withErrorHandling } from "@/lib/api-response"
 
-let migrationChecked = false
+let migrationInitialized: Promise<any> | null = null
+
+async function ensureMigration() {
+  if (!migrationInitialized) {
+    console.log("[v0] Initializing database schema...")
+    migrationInitialized = ensureLeaveRequestsSchema()
+  }
+  return migrationInitialized
+}
 
 export async function GET(request: NextRequest) {
   try {
-    if (!migrationChecked) {
-      console.log("[v0] Checking database schema...")
-      const migrationResult = await ensureLeaveRequestsSchema()
-      migrationChecked = true
-      if (migrationResult.migrated) {
-        console.log("[v0] Database schema updated successfully")
-      }
-    }
+    await ensureMigration()
 
     const searchParams = request.nextUrl.searchParams
     const action = searchParams.get("action")
@@ -137,14 +138,7 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    if (!migrationChecked) {
-      console.log("[v0] Checking database schema...")
-      const migrationResult = await ensureLeaveRequestsSchema()
-      migrationChecked = true
-      if (migrationResult.migrated) {
-        console.log("[v0] Database schema updated successfully")
-      }
-    }
+    await ensureMigration()
 
     const data = await request.json()
     const { action } = data

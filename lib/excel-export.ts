@@ -18,11 +18,18 @@ export async function exportToExcel(data: any[], fileName: string) {
   console.log("[v0] exportToExcel called with", data.length, "records")
   console.log("[v0] fileName:", fileName)
 
+  if (!data || data.length === 0) {
+    console.error("[v0] No data provided for export")
+    throw new Error("Tidak ada data untuk di-export")
+  }
+
   try {
     const headers = [
       "NAMA TRAVEL",
       "TGL INVOICE",
       "NOMOR INVOICE",
+      "NIK",
+      "TANGGAL LAHIR",
       "SITE",
       "NAMA",
       "JABATAN",
@@ -43,8 +50,6 @@ export async function exportToExcel(data: any[], fileName: string) {
     headers.forEach((header, index) => {
       console.log(`[v0] Header ${index}: "${header}"`)
     })
-    console.log("[v0] Header at position 8:", headers[8])
-    console.log("[v0] Header at position 9:", headers[9])
 
     const rows = data.map((item, index) => {
       const namaPesawatValue = item.namaPesawat || "-"
@@ -54,21 +59,23 @@ export async function exportToExcel(data: any[], fileName: string) {
         "-", // 0: NAMA TRAVEL
         "-", // 1: TGL INVOICE
         "-", // 2: NOMOR INVOICE
-        item.site || "-", // 3: SITE
-        item.userName || "-", // 4: NAMA
-        item.jabatan && item.departemen ? `${item.jabatan} - ${item.departemen}` : item.jabatan || "-", // 5: JABATAN
-        getHakTiket(item.jabatan), // 6: HAK Tiket Karyawan
-        item.poh || "-", // 7: POH TIKET KARYAWAN
-        namaPesawatValue, // 8: NAMA PESAWAT
-        lamaOnsiteValue, // 9: LAMA ONSITE
-        "-", // 10: NOTES
-        item.catatan || "-", // 11: NOTES LAINNYA
-        item.bookingCodeIssuedAt ? formatDateForExcel(item.bookingCodeIssuedAt) : "-", // 12: TGL ISSUED TIKET
-        item.tanggalKeberangkatan ? formatDateForExcel(item.tanggalKeberangkatan) : "-", // 13: TGL TIKET
+        item.userNik || "-", // 3: NIK
+        item.tanggalLahir ? formatDateForExcel(item.tanggalLahir) : "-", // 4: TANGGAL LAHIR
+        item.site || "-", // 5: SITE
+        item.userName || "-", // 6: NAMA
+        item.jabatan && item.departemen ? `${item.jabatan} - ${item.departemen}` : item.jabatan || "-", // 7: JABATAN
+        getHakTiket(item.jabatan), // 8: HAK Tiket Karyawan
+        item.poh || "-", // 9: POH TIKET KARYAWAN
+        namaPesawatValue, // 10: NAMA PESAWAT
+        lamaOnsiteValue, // 11: LAMA ONSITE
+        "-", // 12: NOTES
+        item.catatan || "-", // 13: NOTES LAINNYA
+        item.bookingCodeIssuedAt ? formatDateForExcel(item.bookingCodeIssuedAt) : "-", // 14: TGL ISSUED TIKET
+        item.tanggalKeberangkatan ? formatDateForExcel(item.tanggalKeberangkatan) : "-", // 15: TGL TIKET
         item.berangkatDari && item.tujuan
           ? `${item.berangkatDari} - ${item.tujuan}`
-          : item.berangkatDari || item.tujuan || "-", // 14: RUTE
-        "-", // 15: Harga TIKET
+          : item.berangkatDari || item.tujuan || "-", // 16: RUTE
+        "-", // 17: Harga TIKET
       ]
 
       if (index === 0) {
@@ -78,8 +85,6 @@ export async function exportToExcel(data: any[], fileName: string) {
         row.forEach((value, colIndex) => {
           console.log(`[v0] Column ${colIndex} (${headers[colIndex]}): "${value}"`)
         })
-        console.log(`[v0] Position 8 (NAMA PESAWAT): "${row[8]}"`)
-        console.log(`[v0] Position 9 (LAMA ONSITE): "${row[9]}"`)
       }
 
       return row
@@ -99,17 +104,23 @@ export async function exportToExcel(data: any[], fileName: string) {
     console.log("[v0] Worksheet rows:", range.e.r + 1)
 
     // Check specific cells
-    console.log("[v0] Cell I1 (NAMA PESAWAT header):", worksheet["I1"]?.v)
-    console.log("[v0] Cell J1 (LAMA ONSITE header):", worksheet["J1"]?.v)
+    console.log("[v0] Cell D1 (NIK header):", worksheet["D1"]?.v)
+    console.log("[v0] Cell E1 (TANGGAL LAHIR header):", worksheet["E1"]?.v)
+    console.log("[v0] Cell K1 (NAMA PESAWAT header):", worksheet["K1"]?.v)
+    console.log("[v0] Cell L1 (LAMA ONSITE header):", worksheet["L1"]?.v)
     if (rows.length > 0) {
-      console.log("[v0] Cell I2 (First NAMA PESAWAT value):", worksheet["I2"]?.v)
-      console.log("[v0] Cell J2 (First LAMA ONSITE value):", worksheet["J2"]?.v)
+      console.log("[v0] Cell D2 (First NIK value):", worksheet["D2"]?.v)
+      console.log("[v0] Cell E2 (First TANGGAL LAHIR value):", worksheet["E2"]?.v)
+      console.log("[v0] Cell K2 (First NAMA PESAWAT value):", worksheet["K2"]?.v)
+      console.log("[v0] Cell L2 (First LAMA ONSITE value):", worksheet["L2"]?.v)
     }
 
     worksheet["!cols"] = [
       { wch: 20 }, // NAMA TRAVEL
       { wch: 15 }, // TGL INVOICE
       { wch: 18 }, // NOMOR INVOICE
+      { wch: 15 }, // NIK
+      { wch: 15 }, // TANGGAL LAHIR
       { wch: 12 }, // SITE
       { wch: 25 }, // NAMA
       { wch: 30 }, // JABATAN
@@ -139,15 +150,21 @@ export async function exportToExcel(data: any[], fileName: string) {
     console.log("[v0] Excel file written successfully")
     console.log("[v0] File size:", excelBuffer.byteLength, "bytes")
 
+    if (!excelBuffer || excelBuffer.byteLength === 0) {
+      throw new Error("Failed to generate Excel file - buffer is empty")
+    }
+
     console.log("[v0] ========== TRIGGERING DOWNLOAD ==========")
     await downloadExcel(excelBuffer, `${fileName}.xlsx`)
 
     console.log("[v0] ========== EXCEL EXPORT COMPLETE ==========")
     console.log("[v0] File downloaded:", `${fileName}.xlsx`)
     console.log("[v0] VERIFICATION:")
-    console.log("[v0] - Headers include NAMA PESAWAT at position 8: YES")
-    console.log("[v0] - Headers include LAMA ONSITE at position 9: YES")
-    console.log("[v0] - Total columns in Excel: 16")
+    console.log("[v0] - Headers include NIK at position 3: YES")
+    console.log("[v0] - Headers include TANGGAL LAHIR at position 4: YES")
+    console.log("[v0] - Headers include NAMA PESAWAT at position 10: YES")
+    console.log("[v0] - Headers include LAMA ONSITE at position 11: YES")
+    console.log("[v0] - Total columns in Excel: 18")
     console.log("[v0] ==========================================")
   } catch (error) {
     console.error("[v0] ========== EXCEL EXPORT ERROR ==========")
@@ -159,9 +176,18 @@ export async function exportToExcel(data: any[], fileName: string) {
 }
 
 function formatDateForExcel(date: string | Date): string {
-  const d = new Date(date)
-  const month = String(d.getMonth() + 1).padStart(2, "0")
-  const day = String(d.getDate()).padStart(2, "0")
-  const year = d.getFullYear()
-  return `${day}/${month}/${year}`
+  try {
+    const d = new Date(date)
+    if (isNaN(d.getTime())) {
+      console.error("[v0] Invalid date:", date)
+      return "-"
+    }
+    const month = String(d.getMonth() + 1).padStart(2, "0")
+    const day = String(d.getDate()).padStart(2, "0")
+    const year = d.getFullYear()
+    return `${day}/${month}/${year}`
+  } catch (error) {
+    console.error("[v0] Error formatting date:", date, error)
+    return "-"
+  }
 }

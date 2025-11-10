@@ -185,6 +185,7 @@ export default function HRTicketingDashboard() {
 
   const handleExportToExcel = () => {
     try {
+      console.log("[v0] ========== EXPORT HANDLER START ==========")
       console.log("[v0] Export started")
       console.log("[v0] Start date:", startDate)
       console.log("[v0] End date:", endDate)
@@ -286,14 +287,28 @@ export default function HRTicketingDashboard() {
       const fileName = `Riwayat_Pengajuan_Cuti_${activeTab}_${dateRangeText}`
 
       console.log("[v0] Calling exportToExcel with", enrichedDataToExport.length, "records")
-      exportToExcel(enrichedDataToExport, fileName)
+      console.log("[v0] ========== CALLING EXPORT FUNCTION ==========")
 
-      toast({
-        title: "Berhasil",
-        description: `${enrichedDataToExport.length} data berhasil di-export ke Excel`,
-      })
+      exportToExcel(enrichedDataToExport, fileName)
+        .then(() => {
+          console.log("[v0] Export completed successfully")
+          toast({
+            title: "Berhasil",
+            description: `${enrichedDataToExport.length} data berhasil di-export ke Excel`,
+          })
+        })
+        .catch((error) => {
+          console.error("[v0] Export failed:", error)
+          toast({
+            title: "Error",
+            description: error instanceof Error ? error.message : "Gagal export Excel",
+            variant: "destructive",
+          })
+        })
     } catch (error) {
+      console.error("[v0] ========== EXPORT HANDLER ERROR ==========")
       console.error("[v0] Error in handleExportToExcel:", error)
+      console.error("[v0] ===========================================")
       toast({
         title: "Error",
         description: error instanceof Error ? error.message : "Gagal export Excel",
