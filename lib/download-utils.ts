@@ -11,9 +11,25 @@ function isPreviewEnvironment(): boolean {
   return hostname.includes("vusercontent.net") || hostname.includes("preview") || hostname.includes("localhost")
 }
 
+async function isCapacitorPluginsAvailable(): Promise<boolean> {
+  if (!isCapacitor()) return false
+
+  try {
+    // Test if Filesystem plugin is available
+    const testResult = await Filesystem.checkPermissions()
+    console.log("[v0] Capacitor Filesystem permissions:", testResult)
+    return true
+  } catch (error) {
+    console.warn("[v0] Capacitor Filesystem not available:", error)
+    return false
+  }
+}
+
 export async function downloadPDF(pdfData: string | Blob, filename: string): Promise<void> {
   try {
-    if (isCapacitor() && !isPreviewEnvironment()) {
+    const canUseCapacitor = await isCapacitorPluginsAvailable()
+
+    if (canUseCapacitor && !isPreviewEnvironment()) {
       // Mobile: Gunakan Capacitor Filesystem
       let base64Data: string
 
@@ -97,52 +113,43 @@ export async function downloadExcel(excelBuffer: ArrayBuffer, filename: string):
     })
     console.log("[v0] Blob created, size:", blob.size, "bytes")
 
-    if (isCapacitor() && !isPreviewEnvironment()) {
+    const canUseCapacitor = await isCapacitorPluginsAvailable()
+    console.log("[v0] Can use Capacitor:", canUseCapacitor)
+
+    if (canUseCapacitor && !isPreviewEnvironment()) {
       // Mobile: Convert to base64 and save
       console.log("[v0] Using Capacitor for mobile download")
-      const base64Data = await blobToBase64(blob)
-      const base64Clean = base64Data.replace(
-        /^data:application\/vnd\.openxmlformats-officedocument\.spreadsheetml\.sheet;base64,/,
-        "",
-      )
 
-      const result = await Filesystem.writeFile({
-        path: filename,
-        data: base64Clean,
-        directory: Directory.Documents,
-      })
+      try {
+        const base64Data = await blobToBase64(blob)
+        const base64Clean = base64Data.replace(
+          /^data:application\/vnd\.openxmlformats-officedocument\.spreadsheetml\.sheet;base64,/,
+          "",
+        )
 
-      console.log("[v0] Excel saved to:", result.uri)
+        const result = await Filesystem.writeFile({
+          path: filename,
+          data: base64Clean,
+          directory: Directory.Documents,
+        })
 
-      // Share the file
-      await Share.share({
-        title: "Download Excel",
-        text: `File ${filename} berhasil disimpan`,
-        url: result.uri,
-        dialogTitle: "Simpan atau Bagikan Excel",
-      })
-      console.log("[v0] Share dialog shown")
+        console.log("[v0] Excel saved to:", result.uri)
+
+        // Share the file
+        await Share.share({
+          title: "Download Excel",
+          text: `File ${filename} berhasil disimpan`,
+          url: result.uri,
+          dialogTitle: "Simpan atau Bagikan Excel",
+        })
+        console.log("[v0] Share dialog shown")
+      } catch (capacitorError) {
+        console.error("[v0] Capacitor download failed, falling back to web download:", capacitorError)
+        await webDownload(blob, filename)
+      }
     } else {
       // Web: Gunakan blob URL download
-      console.log("[v0] Using web browser download")
-      const url = URL.createObjectURL(blob)
-      console.log("[v0] Blob URL created:", url)
-
-      const link = document.createElement("a")
-      link.href = url
-      link.download = filename
-      link.style.display = "none"
-      document.body.appendChild(link)
-      console.log("[v0] Download link appended to body")
-
-      link.click()
-      console.log("[v0] Download link clicked")
-
-      setTimeout(() => {
-        document.body.removeChild(link)
-        URL.revokeObjectURL(url)
-        console.log("[v0] Download link cleaned up")
-      }, 1000)
+      await webDownload(blob, filename)
     }
 
     console.log("[v0] ========== DOWNLOAD EXCEL COMPLETE ==========")
@@ -154,6 +161,35 @@ export async function downloadExcel(excelBuffer: ArrayBuffer, filename: string):
     console.error("[v0] ===========================================")
     throw error
   }
+}
+
+async function webDownload(blob: Blob, filename: string): Promise<void> {
+  console.log("[v0] Using web browser download")
+  const url = URL.createObjectURL(blob)
+  console.log("[v0] Blob URL created:", url)
+
+  const link = document.createElement("a")
+  link.href = url
+  link.download = filename
+  link.style.display = "none"
+  document.body.appendChild(link)
+  console.log("[v0] Download link appended to body")
+
+  link.click()
+  console.log("[v0] Download link clicked")
+
+  await new Promise<void>((resolve) => {
+    setTimeout(() => {
+      try {
+        document.body.removeChild(link)
+        URL.revokeObjectURL(url)
+        console.log("[v0] Download link cleaned up")
+      } catch (cleanupError) {
+        console.warn("[v0] Cleanup error (non-critical):", cleanupError)
+      }
+      resolve()
+    }, 2000)
+  })
 }
 
 function blobToBase64(blob: Blob): Promise<string> {
