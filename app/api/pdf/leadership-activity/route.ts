@@ -1,6 +1,53 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { jsPDF } from "jspdf"
 
+async function compressImage(dataUrl: string, maxSizeKB: number): Promise<string> {
+  return new Promise((resolve) => {
+    const img = new window.Image()
+    img.onload = () => {
+      const canvas = document.createElement('canvas')
+      let width = img.width
+      let height = img.height
+      
+      // Resize if too large
+      const maxDimension = 1200
+      if (width > maxDimension || height > maxDimension) {
+        if (width > height) {
+          height = (height / width) * maxDimension
+          width = maxDimension
+        } else {
+          width = (width / height) * maxDimension
+          height = maxDimension
+        }
+      }
+      
+      canvas.width = width
+      canvas.height = height
+      const ctx = canvas.getContext('2d')
+      
+      if (ctx) {
+        ctx.drawImage(img, 0, 0, width, height)
+        
+        // Try different quality levels
+        let quality = 0.7
+        let compressed = canvas.toDataURL('image/jpeg', quality)
+        
+        // If still too large, reduce quality further
+        while (compressed.length > maxSizeKB * 1024 && quality > 0.3) {
+          quality -= 0.1
+          compressed = canvas.toDataURL('image/jpeg', quality)
+        }
+        
+        resolve(compressed)
+      } else {
+        resolve(dataUrl) // Fallback to original
+      }
+    }
+    img.onerror = () => resolve(dataUrl) // Fallback to original
+    img.src = dataUrl
+  })
+}
+
 export async function POST(request: NextRequest) {
   try {
     const data = await request.json()
@@ -25,7 +72,7 @@ export async function POST(request: NextRequest) {
       orientation: "portrait",
       unit: "mm",
       format: "a4",
-      compress: isMobile ? true : false,
+      compress: true,
     })
 
     const pageWidth = doc.internal.pageSize.getWidth()
@@ -37,7 +84,7 @@ export async function POST(request: NextRequest) {
     // Logo (if provided as base64)
     if (data.logoDataURL) {
       try {
-        const maxLogoSize = isMobile ? 50 * 1024 : 100 * 1024
+        const maxLogoSize = 100 * 1024
         const logoSize = data.logoDataURL.length
         
         if (logoSize < maxLogoSize) {
@@ -47,7 +94,6 @@ export async function POST(request: NextRequest) {
         }
       } catch (e) {
         console.error("Error adding logo:", e)
-        // Continue without logo
       }
     }
 
@@ -184,7 +230,6 @@ export async function POST(request: NextRequest) {
           doc.addImage(signatureDataUrl, "PNG", xPos + 5, yPos + 6, sigWidth - 10, 15)
         } catch (e) {
           console.error(`Error adding signature ${sig.key}:`, e)
-          // Continue without this signature
         }
       }
 
@@ -199,47 +244,34 @@ export async function POST(request: NextRequest) {
       }
     })
 
-    // Photo page
     if (data.photoData) {
       try {
-        const photoSize = data.photoData.length
-        const maxPhotoSize = isMobile ? 300 * 1024 : 800 * 1024 // Increased limits
+        doc.addPage()
+        yPos = margin
+
+        doc.setFontSize(14)
+        doc.setFont("helvetica", "bold")
+        doc.setTextColor(0, 0, 0)
+        doc.text("BUKTI PERTEMUAN (FOTO)", pageWidth / 2, yPos, { align: "center" })
+        yPos += 10
+
+        const maxWidth = contentWidth
+        const maxHeight = pageHeight - yPos - margin
+        const xOffset = margin
+
+        const imageFormat = data.photoData.includes('data:image/png') ? "PNG" : "JPEG"
         
-        if (photoSize > maxPhotoSize) {
-          console.warn('[PDF] Photo size large:', photoSize, 'bytes')
-          // Add warning page instead of trying to add large photo
-          doc.addPage()
-          yPos = margin
-          doc.setFontSize(12)
-          doc.setTextColor(200, 0, 0)
-          doc.text("Perhatian: Foto terlalu besar untuk ditambahkan ke PDF", pageWidth / 2, yPos + 20, { align: "center" })
-          doc.text("Silakan gunakan foto dengan ukuran lebih kecil (< 1MB)", pageWidth / 2, yPos + 30, { align: "center" })
-        } else {
-          doc.addPage()
-          yPos = margin
-
-          doc.setFontSize(14)
-          doc.setFont("helvetica", "bold")
-          doc.setTextColor(0, 0, 0)
-          doc.text("BUKTI PERTEMUAN (FOTO)", pageWidth / 2, yPos, { align: "center" })
-          yPos += 10
-
-          const maxWidth = contentWidth
-          const maxHeight = pageHeight - yPos - margin
-          const xOffset = margin
-
-          const imageFormat = data.photoData.includes('data:image/png') ? "PNG" : "JPEG"
-          
-          doc.addImage(data.photoData, imageFormat, xOffset, yPos, maxWidth, maxHeight * 0.8)
-        }
+        doc.addImage(data.photoData, imageFormat, xOffset, yPos, maxWidth, maxHeight * 0.8)
+        
+        console.log('[PDF] Photo added successfully to PDF')
       } catch (e) {
-        console.error("Error adding photo:", e)
+        console.error("Error adding photo to PDF:", e)
         doc.addPage()
         yPos = margin
         doc.setFontSize(12)
-        doc.setTextColor(255, 0, 0)
-        doc.text("Error: Foto tidak dapat ditambahkan ke PDF", pageWidth / 2, yPos + 20, { align: "center" })
-        doc.text("Format atau ukuran foto tidak didukung", pageWidth / 2, yPos + 30, { align: "center" })
+        doc.setTextColor(200, 0, 0)
+        doc.text("Error: Foto tidak dapat ditambahkan", pageWidth / 2, yPos + 20, { align: "center" })
+        doc.text("Format foto tidak didukung", pageWidth / 2, yPos + 30, { align: "center" })
       }
     }
 
@@ -247,7 +279,27 @@ export async function POST(request: NextRequest) {
     const pdfBuffer = doc.output("arraybuffer")
 
     const sanitize = (str: string) => str.replace(/[^a-zA-Z0-9\s]/g, "_").replace(/\s+/g, "_").replace(/_+/g, "_").substring(0, 50)
-    const filename = `LA_${sanitize(data.formData?.nama || "Nama")}_${new Date().toISOString().split('T')[0]}.pdf`
+    
+    const namaAtasan = sanitize(data.signatures?.atasan?.nama || "Atasan")
+    const namaBawahan = sanitize(data.formData?.nama || "Karyawan")
+    const jabatan = sanitize(data.formData?.jabatan || "Jabatan")
+    const departemen = sanitize(data.formData?.departemen || "Departemen")
+    
+    // Format activities: coaching, directing, mentoring, counseling
+    const activityFormatted = data.activities && data.activities.length > 0 
+      ? data.activities
+          .map((act: string) => {
+            const lower = act.toLowerCase()
+            if (lower.includes('coaching')) return 'coaching'
+            if (lower.includes('directing')) return 'directing'
+            if (lower.includes('mentoring')) return 'mentoring'
+            if (lower.includes('motivating') || lower.includes('counseling')) return 'counseling'
+            return lower
+          })
+          .join('_')
+      : 'activity'
+    
+    const filename = `${namaAtasan}_${activityFormatted}_${namaBawahan}_${jabatan}_${departemen}.pdf`
 
     return new NextResponse(pdfBuffer, {
       status: 200,
