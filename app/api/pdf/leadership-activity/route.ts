@@ -4,11 +4,28 @@ import { jsPDF } from "jspdf"
 export async function POST(request: NextRequest) {
   try {
     const data = await request.json()
+    
+    if (!data.formData?.nama || !data.formData?.nik) {
+      return NextResponse.json(
+        { error: "Validation failed", message: "Nama dan NIK harus diisi" },
+        { status: 400 }
+      )
+    }
 
+    if (!data.activities || data.activities.length === 0) {
+      return NextResponse.json(
+        { error: "Validation failed", message: "Minimal harus ada 1 activity" },
+        { status: 400 }
+      )
+    }
+
+    const isMobile = request.headers.get('user-agent')?.toLowerCase().includes('mobile')
+    
     const doc = new jsPDF({
       orientation: "portrait",
       unit: "mm",
       format: "a4",
+      compress: isMobile ? true : false,
     })
 
     const pageWidth = doc.internal.pageSize.getWidth()
@@ -20,9 +37,17 @@ export async function POST(request: NextRequest) {
     // Logo (if provided as base64)
     if (data.logoDataURL) {
       try {
-        doc.addImage(data.logoDataURL, "PNG", margin, yPos, 25, 25)
+        const maxLogoSize = isMobile ? 50 * 1024 : 100 * 1024
+        const logoSize = data.logoDataURL.length
+        
+        if (logoSize < maxLogoSize) {
+          doc.addImage(data.logoDataURL, "PNG", margin, yPos, 25, 25)
+        } else {
+          console.warn('[PDF] Logo too large, skipping')
+        }
       } catch (e) {
         console.error("Error adding logo:", e)
+        // Continue without logo
       }
     }
 
@@ -159,6 +184,7 @@ export async function POST(request: NextRequest) {
           doc.addImage(signatureDataUrl, "PNG", xPos + 5, yPos + 6, sigWidth - 10, 15)
         } catch (e) {
           console.error(`Error adding signature ${sig.key}:`, e)
+          // Continue without this signature
         }
       }
 
@@ -175,44 +201,84 @@ export async function POST(request: NextRequest) {
 
     // Photo page
     if (data.photoData) {
-      doc.addPage()
-      yPos = margin
-
-      doc.setFontSize(14)
-      doc.setFont("helvetica", "bold")
-      doc.text("BUKTI PERTEMUAN (FOTO)", pageWidth / 2, yPos, { align: "center" })
-      yPos += 10
-
       try {
-        const maxWidth = contentWidth
-        const maxHeight = pageHeight - yPos - margin
-        const xOffset = margin + (maxWidth - maxWidth) / 2
+        const photoSize = data.photoData.length
+        const maxPhotoSize = isMobile ? 300 * 1024 : 800 * 1024 // Increased limits
+        
+        if (photoSize > maxPhotoSize) {
+          console.warn('[PDF] Photo size large:', photoSize, 'bytes')
+          // Add warning page instead of trying to add large photo
+          doc.addPage()
+          yPos = margin
+          doc.setFontSize(12)
+          doc.setTextColor(200, 0, 0)
+          doc.text("Perhatian: Foto terlalu besar untuk ditambahkan ke PDF", pageWidth / 2, yPos + 20, { align: "center" })
+          doc.text("Silakan gunakan foto dengan ukuran lebih kecil (< 1MB)", pageWidth / 2, yPos + 30, { align: "center" })
+        } else {
+          doc.addPage()
+          yPos = margin
 
-        doc.addImage(data.photoData, "JPEG", xOffset, yPos, maxWidth, maxHeight * 0.8)
+          doc.setFontSize(14)
+          doc.setFont("helvetica", "bold")
+          doc.setTextColor(0, 0, 0)
+          doc.text("BUKTI PERTEMUAN (FOTO)", pageWidth / 2, yPos, { align: "center" })
+          yPos += 10
+
+          const maxWidth = contentWidth
+          const maxHeight = pageHeight - yPos - margin
+          const xOffset = margin
+
+          const imageFormat = data.photoData.includes('data:image/png') ? "PNG" : "JPEG"
+          
+          doc.addImage(data.photoData, imageFormat, xOffset, yPos, maxWidth, maxHeight * 0.8)
+        }
       } catch (e) {
         console.error("Error adding photo:", e)
-        doc.text("Error: Tidak dapat menambahkan foto", pageWidth / 2, yPos + 20, { align: "center" })
+        doc.addPage()
+        yPos = margin
+        doc.setFontSize(12)
+        doc.setTextColor(255, 0, 0)
+        doc.text("Error: Foto tidak dapat ditambahkan ke PDF", pageWidth / 2, yPos + 20, { align: "center" })
+        doc.text("Format atau ukuran foto tidak didukung", pageWidth / 2, yPos + 30, { align: "center" })
       }
     }
 
     // Generate PDF as buffer
     const pdfBuffer = doc.output("arraybuffer")
 
-    // Create filename
-    const sanitize = (str: string) => str.replace(/[^a-zA-Z0-9]/g, "_").replace(/_+/g, "_")
-    const filename = `${sanitize(data.signatures?.atasan?.nama || "Atasan")}_${sanitize(data.activities?.join("-") || "Activity")}_${sanitize(data.formData?.nama || "Nama")}_${sanitize(data.formData?.jabatan || "Jabatan")}_${sanitize(data.formData?.departemen || "Departemen")}.pdf`
+    const sanitize = (str: string) => str.replace(/[^a-zA-Z0-9\s]/g, "_").replace(/\s+/g, "_").replace(/_+/g, "_").substring(0, 50)
+    const filename = `LA_${sanitize(data.formData?.nama || "Nama")}_${new Date().toISOString().split('T')[0]}.pdf`
 
-    // Return PDF as downloadable file
     return new NextResponse(pdfBuffer, {
       status: 200,
       headers: {
         "Content-Type": "application/pdf",
         "Content-Disposition": `attachment; filename="${filename}"`,
         "Content-Length": pdfBuffer.byteLength.toString(),
+        "Cache-Control": "no-cache, no-store, must-revalidate",
+        "Pragma": "no-cache",
+        "Expires": "0",
+        "Access-Control-Allow-Origin": "*",
+        "Access-Control-Allow-Methods": "POST, OPTIONS",
+        "Access-Control-Allow-Headers": "Content-Type",
       },
     })
   } catch (error) {
     console.error("Error generating PDF:", error)
-    return NextResponse.json({ error: "Failed to generate PDF" }, { status: 500 })
+    return NextResponse.json({ 
+      error: "Failed to generate PDF",
+      message: error instanceof Error ? error.message : "Unknown error"
+    }, { status: 500 })
   }
+}
+
+export async function OPTIONS() {
+  return new NextResponse(null, {
+    status: 200,
+    headers: {
+      "Access-Control-Allow-Origin": "*",
+      "Access-Control-Allow-Methods": "POST, OPTIONS",
+      "Access-Control-Allow-Headers": "Content-Type",
+    },
+  })
 }

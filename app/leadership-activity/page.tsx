@@ -2,8 +2,8 @@
 
 import type React from "react"
 import { Button } from "@/components/ui/button"
-import { ArrowLeft, X, Edit } from "lucide-react"
-import { useRouter } from "next/navigation"
+import { ArrowLeft, X, Edit, Loader2 } from 'lucide-react'
+import { useRouter } from 'next/navigation'
 import { useState, useEffect } from "react"
 import Image from "next/image"
 import { SignatureModal } from "@/components/signature-modal"
@@ -13,6 +13,7 @@ export default function LeadershipActivityPage() {
   const [selectedCompany, setSelectedCompany] = useState("")
   const [photoData, setPhotoData] = useState<string | null>(null)
   const [photoError, setPhotoError] = useState("")
+  const [isExporting, setIsExporting] = useState(false)
 
   const [signatureModalOpen, setSignatureModalOpen] = useState(false)
   const [currentSignatureKey, setCurrentSignatureKey] = useState<string>("")
@@ -82,8 +83,49 @@ export default function LeadershipActivityPage() {
 
   // Export to print/PDF
   const handleExport = async () => {
+    if (isExporting) {
+      console.log("[v0] Export already in progress, ignoring duplicate request")
+      return
+    }
+
     if (!selectedCompany) {
       alert("Silakan pilih perusahaan terlebih dahulu")
+      return
+    }
+
+    if (!formData.nama?.trim()) {
+      alert("Nama harus diisi")
+      return
+    }
+
+    if (!formData.nik?.trim()) {
+      alert("NIK harus diisi")
+      return
+    }
+
+    if (activities.length === 0) {
+      alert("Silakan pilih minimal 1 activity")
+      return
+    }
+
+    if (!formData.masalah?.trim()) {
+      alert("Masalah harus diisi")
+      return
+    }
+
+    if (!formData.tindak_lanjut?.trim()) {
+      alert("Tindak lanjut/solusi harus diisi")
+      return
+    }
+
+    if (!formData.komitmen?.trim()) {
+      alert("Komitmen harus diisi")
+      return
+    }
+
+    const hasSignature = Object.values(signatures).some(sig => sig.data !== null)
+    if (!hasSignature) {
+      alert("Minimal harus ada 1 tanda tangan")
       return
     }
 
@@ -94,23 +136,44 @@ export default function LeadershipActivityPage() {
       hcga: signatures.hcga.data,
     }
 
+    setIsExporting(true)
+    let objectUrl: string | null = null
+
     try {
+      console.log("[v0] Starting PDF generation...")
+      
       let logoDataURL = null
       const logoSrc = companyLogos[selectedCompany as keyof typeof companyLogos]
       if (logoSrc) {
         try {
           const response = await fetch(logoSrc)
+          if (!response.ok) throw new Error('Logo fetch failed')
+          
           const blob = await response.blob()
-          logoDataURL = await new Promise<string>((resolve) => {
+          
+          if (blob.size > 100 * 1024) {
+            console.warn('[v0] Logo size large:', blob.size, 'bytes')
+          }
+          
+          logoDataURL = await new Promise<string>((resolve, reject) => {
             const reader = new FileReader()
             reader.onloadend = () => resolve(reader.result as string)
+            reader.onerror = reject
             reader.readAsDataURL(blob)
           })
         } catch (e) {
-          console.error("Error loading logo:", e)
+          console.error("[v0] Error loading logo:", e)
+          // Continue without logo
         }
       }
 
+      let processedPhotoData = photoData
+      if (photoData && photoData.length > 500 * 1024) {
+        console.warn('[v0] Photo size large, may affect performance on mobile')
+      }
+
+      console.log("[v0] Sending PDF generation request...")
+      
       const response = await fetch("/api/pdf/leadership-activity", {
         method: "POST",
         headers: {
@@ -121,33 +184,79 @@ export default function LeadershipActivityPage() {
           formData,
           signatures,
           capturedSignatures,
-          photoData,
+          photoData: processedPhotoData,
           logoDataURL,
         }),
       })
 
+      console.log("[v0] PDF response status:", response.status)
+
       if (!response.ok) {
-        throw new Error("Failed to generate PDF")
+        const errorData = await response.json().catch(() => ({ message: 'Server error' }))
+        throw new Error(errorData.message || "Failed to generate PDF")
       }
 
       const contentDisposition = response.headers.get("Content-Disposition")
       const filenameMatch = contentDisposition?.match(/filename="(.+)"/)
-      const filename = filenameMatch ? filenameMatch[1] : "Leadership_Activity.pdf"
+      const filename = filenameMatch ? filenameMatch[1] : `Leadership_Activity_${formData.nama.replace(/[^a-zA-Z0-9]/g, '_')}_${new Date().toISOString().split('T')[0]}.pdf`
 
       const blob = await response.blob()
-      const url = window.URL.createObjectURL(blob)
+      console.log("[v0] PDF blob size:", blob.size, "bytes")
+      
+      if (blob.size === 0) {
+        throw new Error('Generated PDF is empty')
+      }
+      
+      objectUrl = window.URL.createObjectURL(blob)
       const a = document.createElement("a")
-      a.href = url
+      a.style.display = "none"
+      a.href = objectUrl
       a.download = filename
+      
       document.body.appendChild(a)
-      a.click()
-      window.URL.revokeObjectURL(url)
-      document.body.removeChild(a)
+      
+      // Try modern download first
+      try {
+        a.click()
+        console.log("[v0] PDF download initiated successfully")
+      } catch (e) {
+        console.error("[v0] Click download failed, trying alternative:", e)
+        // Fallback: open in new tab for manual download
+        window.open(objectUrl, '_blank')
+        console.log("[v0] PDF opened in new tab for manual download")
+      }
+      
+      // Clean up
+      setTimeout(() => {
+        if (objectUrl) {
+          window.URL.revokeObjectURL(objectUrl)
+        }
+        document.body.removeChild(a)
+      }, 100)
 
-      alert("PDF berhasil didownload!")
+      alert("PDF berhasil didownload! Cek folder Download Anda.")
     } catch (error) {
-      console.error("Error exporting PDF:", error)
-      alert("Gagal export ke PDF. Silakan coba lagi.")
+      console.error("[v0] Error exporting PDF:", error)
+      
+      let errorMessage = 'Terjadi kesalahan saat membuat PDF'
+      if (error instanceof Error) {
+        if (error.message.includes('fetch')) {
+          errorMessage = 'Koneksi ke server gagal. Periksa koneksi internet Anda.'
+        } else if (error.message.includes('empty')) {
+          errorMessage = 'PDF yang dihasilkan kosong. Silakan coba lagi.'
+        } else {
+          errorMessage = error.message
+        }
+      }
+      
+      alert(`Gagal export ke PDF: ${errorMessage}`)
+      
+      // Clean up on error
+      if (objectUrl) {
+        window.URL.revokeObjectURL(objectUrl)
+      }
+    } finally {
+      setIsExporting(false)
     }
   }
 
@@ -170,11 +279,45 @@ export default function LeadershipActivityPage() {
       return
     }
 
+    const maxSize = 5 * 1024 * 1024 // 5MB
+    if (file.size > maxSize) {
+      setPhotoError("Ukuran file terlalu besar (maksimal 5MB)")
+      setPhotoData(null)
+      return
+    }
+
     const reader = new FileReader()
     reader.onload = (event) => {
       const dataUrl = event.target?.result as string
-      setPhotoData(dataUrl)
-      setPhotoError("")
+      
+      const img = document.createElement('img')
+      img.onload = () => {
+        const canvas = document.createElement('canvas')
+        let width = img.width
+        let height = img.height
+        
+        const maxDimension = 1920
+        if (width > maxDimension || height > maxDimension) {
+          if (width > height) {
+            height = (height / width) * maxDimension
+            width = maxDimension
+          } else {
+            width = (width / height) * maxDimension
+            height = maxDimension
+          }
+        }
+        
+        canvas.width = width
+        canvas.height = height
+        const ctx = canvas.getContext('2d')
+        if (ctx) {
+          ctx.drawImage(img, 0, 0, width, height)
+          const compressedDataUrl = canvas.toDataURL('image/jpeg', 0.8)
+          setPhotoData(compressedDataUrl)
+          setPhotoError("")
+        }
+      }
+      img.src = dataUrl
     }
     reader.onerror = () => {
       setPhotoError("Gagal membaca file")
@@ -469,9 +612,19 @@ export default function LeadershipActivityPage() {
         <div className="text-center">
           <Button
             onClick={handleExport}
-            className="bg-[#D4AF37] hover:bg-[#c49d2f] text-black px-8 py-3 text-lg font-semibold"
+            disabled={isExporting}
+            className="bg-[#D4AF37] hover:bg-[#c49d2f] text-black px-8 py-3 text-lg font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            📄 Simpan sebagai PDF
+            {isExporting ? (
+              <>
+                <Loader2 className="h-5 w-5 mr-2 animate-spin" />
+                Membuat PDF...
+              </>
+            ) : (
+              <>
+                📄 Simpan sebagai PDF
+              </>
+            )}
           </Button>
         </div>
 
