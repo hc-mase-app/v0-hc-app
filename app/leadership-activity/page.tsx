@@ -2,7 +2,7 @@
 
 import type React from "react"
 import { Button } from "@/components/ui/button"
-import { ArrowLeft, X, Edit, Loader2 } from 'lucide-react'
+import { ArrowLeft, X, Edit, Loader2, Save, FolderOpen } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import { useState, useEffect } from "react"
 import Image from "next/image"
@@ -14,11 +14,12 @@ export default function LeadershipActivityPage() {
   const [photoData, setPhotoData] = useState<string | null>(null)
   const [photoError, setPhotoError] = useState("")
   const [isExporting, setIsExporting] = useState(false)
+  const [isSaving, setIsSaving] = useState(false)
+  const [lastSaved, setLastSaved] = useState<string | null>(null)
 
   const [signatureModalOpen, setSignatureModalOpen] = useState(false)
   const [currentSignatureKey, setCurrentSignatureKey] = useState<string>("")
 
-  // Form data states
   const [activities, setActivities] = useState<string[]>([])
   const [formData, setFormData] = useState({
     nik: "",
@@ -33,7 +34,6 @@ export default function LeadershipActivityPage() {
     catatan: "",
   })
 
-  // Signature states
   const [signatures, setSignatures] = useState({
     atasan: { data: null as string | null, nama: "", tanggal: "" },
     karyawan: { data: null as string | null, nama: "", tanggal: "" },
@@ -54,12 +54,9 @@ export default function LeadershipActivityPage() {
       pjo: { ...prev.pjo, tanggal: today },
       hcga: { ...prev.hcga, tanggal: today },
     }))
+    
+    loadSavedData()
   }, [])
-
-  const openSignatureModal = (key: string) => {
-    setCurrentSignatureKey(key)
-    setSignatureModalOpen(true)
-  }
 
   const handleSaveSignature = (signatureData: string) => {
     setSignatures((prev) => ({
@@ -81,7 +78,6 @@ export default function LeadershipActivityPage() {
     }))
   }
 
-  // Export to print/PDF
   const handleExport = async () => {
     if (isExporting) {
       console.log("[v0] Export already in progress, ignoring duplicate request")
@@ -235,6 +231,11 @@ export default function LeadershipActivityPage() {
       }, 100)
 
       alert("PDF berhasil didownload! Cek folder Download Anda.")
+      
+      if (confirm("PDF berhasil dibuat! Hapus data tersimpan?")) {
+        localStorage.removeItem('leadershipActivityDraft')
+        setLastSaved(null)
+      }
     } catch (error) {
       console.error("[v0] Error exporting PDF:", error)
       
@@ -260,7 +261,6 @@ export default function LeadershipActivityPage() {
     }
   }
 
-  // Activity change handler
   const handleActivityChange = (activity: string) => {
     setActivities((prev) => (prev.includes(activity) ? prev.filter((a) => a !== activity) : [...prev, activity]))
   }
@@ -326,6 +326,97 @@ export default function LeadershipActivityPage() {
     reader.readAsDataURL(file)
   }
 
+  const handleSaveData = () => {
+    try {
+      setIsSaving(true)
+      const dataToSave = {
+        selectedCompany,
+        activities,
+        formData,
+        signatures,
+        photoData,
+        savedAt: new Date().toISOString()
+      }
+      
+      localStorage.setItem('leadershipActivityDraft', JSON.stringify(dataToSave))
+      const savedTime = new Date().toLocaleString('id-ID')
+      setLastSaved(savedTime)
+      
+      setTimeout(() => {
+        setIsSaving(false)
+        alert(`Data berhasil disimpan pada ${savedTime}`)
+      }, 500)
+    } catch (error) {
+      console.error("[v0] Error saving data:", error)
+      setIsSaving(false)
+      alert("Gagal menyimpan data. Pastikan browser Anda mendukung penyimpanan lokal.")
+    }
+  }
+
+  const loadSavedData = () => {
+    try {
+      const savedDataString = localStorage.getItem('leadershipActivityDraft')
+      if (savedDataString) {
+        const savedData = JSON.parse(savedDataString)
+        
+        setSelectedCompany(savedData.selectedCompany || "")
+        setActivities(savedData.activities || [])
+        setFormData(savedData.formData || {
+          nik: "",
+          departemen: "",
+          nama: "",
+          lokasi: "",
+          jabatan: "",
+          tanggal_masuk: "",
+          masalah: "",
+          tindak_lanjut: "",
+          komitmen: "",
+          catatan: "",
+        })
+        setSignatures(savedData.signatures || {
+          atasan: { data: null, nama: "", tanggal: "" },
+          karyawan: { data: null, nama: "", tanggal: "" },
+          pjo: { data: null, nama: "", tanggal: "" },
+          hcga: { data: null, nama: "", tanggal: "" },
+        })
+        setPhotoData(savedData.photoData || null)
+        
+        if (savedData.savedAt) {
+          const savedDate = new Date(savedData.savedAt)
+          setLastSaved(savedDate.toLocaleString('id-ID'))
+        }
+      }
+    } catch (error) {
+      console.error("[v0] Error loading saved data:", error)
+    }
+  }
+
+  const handleLoadData = () => {
+    const savedDataString = localStorage.getItem('leadershipActivityDraft')
+    if (!savedDataString) {
+      alert("Tidak ada data tersimpan")
+      return
+    }
+    
+    if (confirm("Memuat data tersimpan akan mengganti data yang sedang diisi. Lanjutkan?")) {
+      loadSavedData()
+      alert("Data berhasil dimuat!")
+    }
+  }
+
+  const handleClearSavedData = () => {
+    if (confirm("Hapus data tersimpan? Tindakan ini tidak dapat dibatalkan.")) {
+      localStorage.removeItem('leadershipActivityDraft')
+      setLastSaved(null)
+      alert("Data tersimpan berhasil dihapus")
+    }
+  }
+
+  const openSignatureModal = (key: string) => {
+    setCurrentSignatureKey(key)
+    setSignatureModalOpen(true)
+  }
+
   return (
     <div className="min-h-screen bg-[#0a0a0a] p-4">
       <div className="max-w-4xl mx-auto bg-[#1a1a1a] rounded-xl shadow-2xl p-6 border border-[#2a2a2a]">
@@ -365,6 +456,55 @@ export default function LeadershipActivityPage() {
             <option value="pt_sss">PT SSS</option>
             <option value="pt_gsm">PT GSM</option>
           </select>
+        </div>
+
+        <div className="mb-6 bg-gradient-to-r from-[#2a2a2a] to-[#1a1a1a] p-4 rounded-lg border border-[#D4AF37]">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="flex-1">
+              {lastSaved ? (
+                <p className="text-sm text-slate-300">
+                  <span className="text-[#D4AF37] font-semibold">Tersimpan:</span> {lastSaved}
+                </p>
+              ) : (
+                <p className="text-sm text-slate-400">Belum ada data tersimpan</p>
+              )}
+            </div>
+            <div className="flex gap-2 flex-wrap">
+              <Button
+                onClick={handleSaveData}
+                disabled={isSaving}
+                size="sm"
+                className="bg-[#D4AF37] hover:bg-[#c49d2f] text-black"
+              >
+                {isSaving ? (
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                ) : (
+                  <Save className="h-4 w-4 mr-2" />
+                )}
+                Simpan Draft
+              </Button>
+              <Button
+                onClick={handleLoadData}
+                size="sm"
+                variant="outline"
+                className="border-[#D4AF37] text-[#D4AF37] hover:bg-[#D4AF37] hover:text-black"
+              >
+                <FolderOpen className="h-4 w-4 mr-2" />
+                Muat Draft
+              </Button>
+              {lastSaved && (
+                <Button
+                  onClick={handleClearSavedData}
+                  size="sm"
+                  variant="outline"
+                  className="border-red-500 text-red-500 hover:bg-red-500 hover:text-white"
+                >
+                  <X className="h-4 w-4 mr-2" />
+                  Hapus Draft
+                </Button>
+              )}
+            </div>
+          </div>
         </div>
 
         {/* Activity Type */}
@@ -498,7 +638,6 @@ export default function LeadershipActivityPage() {
               <p className="font-semibold text-[#D4AF37]">{info.title}</p>
               <p className="text-sm text-slate-400 mb-3">{info.subtitle}</p>
 
-              {/* Signature preview or button */}
               {signatures[key as keyof typeof signatures].data ? (
                 <div className="mb-3">
                   <div className="border-2 border-[#D4AF37] rounded-lg bg-white p-2 mb-2">

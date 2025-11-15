@@ -84,14 +84,8 @@ export async function POST(request: NextRequest) {
     // Logo (if provided as base64)
     if (data.logoDataURL) {
       try {
-        const maxLogoSize = 100 * 1024
-        const logoSize = data.logoDataURL.length
-        
-        if (logoSize < maxLogoSize) {
-          doc.addImage(data.logoDataURL, "PNG", margin, yPos, 25, 25)
-        } else {
-          console.warn('[PDF] Logo too large, skipping')
-        }
+        doc.addImage(data.logoDataURL, "PNG", margin, yPos, 25, 25)
+        console.log('[PDF] Logo added successfully')
       } catch (e) {
         console.error("Error adding logo:", e)
       }
@@ -256,14 +250,38 @@ export async function POST(request: NextRequest) {
         yPos += 10
 
         const maxWidth = contentWidth
-        const maxHeight = pageHeight - yPos - margin
-        const xOffset = margin
+        const maxHeight = pageHeight - yPos - margin - 10 // Leave some bottom margin
+
+        // Create a temporary image to get dimensions
+        const img = new window.Image()
+        await new Promise<void>((resolve, reject) => {
+          img.onload = () => resolve()
+          img.onerror = () => reject(new Error("Failed to load image"))
+          img.src = data.photoData
+        })
+
+        const imgWidth = img.width
+        const imgHeight = img.height
+        const aspectRatio = imgWidth / imgHeight
+
+        // Calculate scaled dimensions maintaining aspect ratio
+        let scaledWidth = maxWidth
+        let scaledHeight = maxWidth / aspectRatio
+
+        // If height exceeds max, scale by height instead
+        if (scaledHeight > maxHeight) {
+          scaledHeight = maxHeight
+          scaledWidth = maxHeight * aspectRatio
+        }
+
+        // Center the image horizontally
+        const xOffset = margin + (maxWidth - scaledWidth) / 2
 
         const imageFormat = data.photoData.includes('data:image/png') ? "PNG" : "JPEG"
         
-        doc.addImage(data.photoData, imageFormat, xOffset, yPos, maxWidth, maxHeight * 0.8)
+        doc.addImage(data.photoData, imageFormat, xOffset, yPos, scaledWidth, scaledHeight)
         
-        console.log('[PDF] Photo added successfully to PDF')
+        console.log('[PDF] Photo added successfully to PDF with original aspect ratio')
       } catch (e) {
         console.error("Error adding photo to PDF:", e)
         doc.addPage()
