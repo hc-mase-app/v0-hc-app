@@ -3,7 +3,7 @@
 import { useEffect } from "react"
 import { useRouter } from 'next/navigation'
 import { initializeMockData } from "@/lib/mock-data"
-import { Users, Presentation, UserCheck, CalendarCheck, Lock } from 'lucide-react'
+import { Users, Presentation, UserCheck, CalendarCheck, Lock, ClipboardList } from 'lucide-react'
 
 export default function Home() {
   const router = useRouter()
@@ -19,26 +19,46 @@ export default function Home() {
       icon: Users,
       href: "/leadership-activity",
       requiresLogin: false,
+      external: false,
     },
     {
       title: "Penilaian Presentasi",
       icon: Presentation,
       href: "/penilaian-presentasi",
       requiresLogin: false,
+      external: false,
     },
+    {
+      title: "Psikotest",
+      icon: ClipboardList,
+      href: "https://psikotest-nine.vercel.app/",
+      requiresLogin: false,
+      external: true,
+    },
+    // Locked cards at the end
     {
       title: "Assessment Karyawan",
       icon: UserCheck,
       href: "/login",
       requiresLogin: true,
+      external: false,
     },
     {
       title: "Pengajuan Cuti",
       icon: CalendarCheck,
       href: "/login",
       requiresLogin: true,
+      external: false,
     },
   ]
+
+  const handleFeatureClick = (feature: typeof features[0]) => {
+    if (feature.external) {
+      window.open(feature.href, '_blank', 'noopener,noreferrer')
+    } else {
+      router.push(feature.href)
+    }
+  }
 
   return (
     <div className="min-h-screen bg-[#0a0a0a] dark flex flex-col">
@@ -51,13 +71,13 @@ export default function Home() {
           </div>
         </div>
 
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-6 md:gap-8 max-w-5xl w-full px-4">
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-6 md:gap-8 max-w-6xl w-full px-4">
           {features.map((feature) => {
             const Icon = feature.icon
             return (
               <button
                 key={feature.title}
-                onClick={() => router.push(feature.href)}
+                onClick={() => handleFeatureClick(feature)}
                 className="group flex flex-col items-center gap-3 transition-all duration-300 active:scale-95"
               >
                 <div className="relative">
