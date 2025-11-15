@@ -2,11 +2,22 @@
 
 import type React from "react"
 import { Button } from "@/components/ui/button"
-import { ArrowLeft, X, Edit, Loader2, Save, FolderOpen } from 'lucide-react'
+import { ArrowLeft, X, Edit, Loader2, Save, FolderOpen, Trash2 } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import { useState, useEffect } from "react"
 import Image from "next/image"
 import { SignatureModal } from "@/components/signature-modal"
+
+interface SavedDraft {
+  id: string
+  name: string
+  selectedCompany: string
+  activities: string[]
+  formData: any
+  signatures: any
+  photoData: string | null
+  savedAt: string
+}
 
 export default function LeadershipActivityPage() {
   const router = useRouter()
@@ -15,7 +26,9 @@ export default function LeadershipActivityPage() {
   const [photoError, setPhotoError] = useState("")
   const [isExporting, setIsExporting] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
-  const [lastSaved, setLastSaved] = useState<string | null>(null)
+  const [savedDrafts, setSavedDrafts] = useState<SavedDraft[]>([])
+  const [showDraftsList, setShowDraftsList] = useState(false)
+  const [draftName, setDraftName] = useState("")
 
   const [signatureModalOpen, setSignatureModalOpen] = useState(false)
   const [currentSignatureKey, setCurrentSignatureKey] = useState<string>("")
@@ -55,7 +68,7 @@ export default function LeadershipActivityPage() {
       hcga: { ...prev.hcga, tanggal: today },
     }))
     
-    loadSavedData()
+    loadAllDrafts()
   }, [])
 
   const handleSaveSignature = (signatureData: string) => {
@@ -159,7 +172,6 @@ export default function LeadershipActivityPage() {
           })
         } catch (e) {
           console.error("[v0] Error loading logo:", e)
-          // Continue without logo
         }
       }
 
@@ -211,18 +223,15 @@ export default function LeadershipActivityPage() {
       
       document.body.appendChild(a)
       
-      // Try modern download first
       try {
         a.click()
         console.log("[v0] PDF download initiated successfully")
       } catch (e) {
         console.error("[v0] Click download failed, trying alternative:", e)
-        // Fallback: open in new tab for manual download
         window.open(objectUrl, '_blank')
         console.log("[v0] PDF opened in new tab for manual download")
       }
       
-      // Clean up
       setTimeout(() => {
         if (objectUrl) {
           window.URL.revokeObjectURL(objectUrl)
@@ -231,11 +240,6 @@ export default function LeadershipActivityPage() {
       }, 100)
 
       alert("PDF berhasil didownload! Cek folder Download Anda.")
-      
-      if (confirm("PDF berhasil dibuat! Hapus data tersimpan?")) {
-        localStorage.removeItem('leadershipActivityDraft')
-        setLastSaved(null)
-      }
     } catch (error) {
       console.error("[v0] Error exporting PDF:", error)
       
@@ -252,7 +256,6 @@ export default function LeadershipActivityPage() {
       
       alert(`Gagal export ke PDF: ${errorMessage}`)
       
-      // Clean up on error
       if (objectUrl) {
         window.URL.revokeObjectURL(objectUrl)
       }
@@ -279,7 +282,7 @@ export default function LeadershipActivityPage() {
       return
     }
 
-    const maxSize = 5 * 1024 * 1024 // 5MB
+    const maxSize = 5 * 1024 * 1024
     if (file.size > maxSize) {
       setPhotoError("Ukuran file terlalu besar (maksimal 5MB)")
       setPhotoData(null)
@@ -327,9 +330,19 @@ export default function LeadershipActivityPage() {
   }
 
   const handleSaveData = () => {
+    const name = prompt("Nama draft (contoh: NIK - Nama Karyawan):", formData.nik && formData.nama ? `${formData.nik} - ${formData.nama}` : "")
+    
+    if (!name || !name.trim()) {
+      alert("Nama draft tidak boleh kosong")
+      return
+    }
+
     try {
       setIsSaving(true)
-      const dataToSave = {
+      
+      const newDraft: SavedDraft = {
+        id: Date.now().toString(),
+        name: name.trim(),
         selectedCompany,
         activities,
         formData,
@@ -338,77 +351,90 @@ export default function LeadershipActivityPage() {
         savedAt: new Date().toISOString()
       }
       
-      localStorage.setItem('leadershipActivityDraft', JSON.stringify(dataToSave))
-      const savedTime = new Date().toLocaleString('id-ID')
-      setLastSaved(savedTime)
+      const existingDrafts = loadAllDraftsFromStorage()
+      const updatedDrafts = [...existingDrafts, newDraft]
+      
+      localStorage.setItem('leadershipActivityDrafts', JSON.stringify(updatedDrafts))
+      setSavedDrafts(updatedDrafts)
       
       setTimeout(() => {
         setIsSaving(false)
-        alert(`Data berhasil disimpan pada ${savedTime}`)
+        alert(`Draft "${name}" berhasil disimpan!`)
       }, 500)
     } catch (error) {
       console.error("[v0] Error saving data:", error)
       setIsSaving(false)
-      alert("Gagal menyimpan data. Pastikan browser Anda mendukung penyimpanan lokal.")
+      alert("Gagal menyimpan draft. Pastikan browser Anda mendukung penyimpanan lokal.")
     }
   }
 
-  const loadSavedData = () => {
+  const loadAllDraftsFromStorage = (): SavedDraft[] => {
     try {
-      const savedDataString = localStorage.getItem('leadershipActivityDraft')
+      const savedDataString = localStorage.getItem('leadershipActivityDrafts')
       if (savedDataString) {
-        const savedData = JSON.parse(savedDataString)
-        
-        setSelectedCompany(savedData.selectedCompany || "")
-        setActivities(savedData.activities || [])
-        setFormData(savedData.formData || {
-          nik: "",
-          departemen: "",
-          nama: "",
-          lokasi: "",
-          jabatan: "",
-          tanggal_masuk: "",
-          masalah: "",
-          tindak_lanjut: "",
-          komitmen: "",
-          catatan: "",
-        })
-        setSignatures(savedData.signatures || {
-          atasan: { data: null, nama: "", tanggal: "" },
-          karyawan: { data: null, nama: "", tanggal: "" },
-          pjo: { data: null, nama: "", tanggal: "" },
-          hcga: { data: null, nama: "", tanggal: "" },
-        })
-        setPhotoData(savedData.photoData || null)
-        
-        if (savedData.savedAt) {
-          const savedDate = new Date(savedData.savedAt)
-          setLastSaved(savedDate.toLocaleString('id-ID'))
-        }
+        return JSON.parse(savedDataString)
       }
     } catch (error) {
-      console.error("[v0] Error loading saved data:", error)
+      console.error("[v0] Error loading drafts:", error)
+    }
+    return []
+  }
+
+  const loadAllDrafts = () => {
+    const drafts = loadAllDraftsFromStorage()
+    setSavedDrafts(drafts)
+  }
+
+  const handleLoadDraft = (draft: SavedDraft) => {
+    if (confirm(`Memuat draft "${draft.name}" akan mengganti data yang sedang diisi. Lanjutkan?`)) {
+      setSelectedCompany(draft.selectedCompany || "")
+      setActivities(draft.activities || [])
+      setFormData(draft.formData || {
+        nik: "",
+        departemen: "",
+        nama: "",
+        lokasi: "",
+        jabatan: "",
+        tanggal_masuk: "",
+        masalah: "",
+        tindak_lanjut: "",
+        komitmen: "",
+        catatan: "",
+      })
+      setSignatures(draft.signatures || {
+        atasan: { data: null, nama: "", tanggal: "" },
+        karyawan: { data: null, nama: "", tanggal: "" },
+        pjo: { data: null, nama: "", tanggal: "" },
+        hcga: { data: null, nama: "", tanggal: "" },
+      })
+      setPhotoData(draft.photoData || null)
+      
+      setShowDraftsList(false)
+      alert(`Draft "${draft.name}" berhasil dimuat!`)
     }
   }
 
-  const handleLoadData = () => {
-    const savedDataString = localStorage.getItem('leadershipActivityDraft')
-    if (!savedDataString) {
-      alert("Tidak ada data tersimpan")
-      return
-    }
-    
-    if (confirm("Memuat data tersimpan akan mengganti data yang sedang diisi. Lanjutkan?")) {
-      loadSavedData()
-      alert("Data berhasil dimuat!")
+  const handleDeleteDraft = (draftId: string, draftName: string) => {
+    if (confirm(`Hapus draft "${draftName}"? Tindakan ini tidak dapat dibatalkan.`)) {
+      try {
+        const existingDrafts = loadAllDraftsFromStorage()
+        const updatedDrafts = existingDrafts.filter(d => d.id !== draftId)
+        
+        localStorage.setItem('leadershipActivityDrafts', JSON.stringify(updatedDrafts))
+        setSavedDrafts(updatedDrafts)
+        
+        alert(`Draft "${draftName}" berhasil dihapus`)
+      } catch (error) {
+        console.error("[v0] Error deleting draft:", error)
+        alert("Gagal menghapus draft")
+      }
     }
   }
 
-  const handleClearSavedData = () => {
-    if (confirm("Hapus data tersimpan? Tindakan ini tidak dapat dibatalkan.")) {
-      localStorage.removeItem('leadershipActivityDraft')
-      setLastSaved(null)
-      alert("Data tersimpan berhasil dihapus")
+  const toggleDraftsList = () => {
+    setShowDraftsList(!showDraftsList)
+    if (!showDraftsList) {
+      loadAllDrafts()
     }
   }
 
@@ -459,15 +485,11 @@ export default function LeadershipActivityPage() {
         </div>
 
         <div className="mb-6 bg-gradient-to-r from-[#2a2a2a] to-[#1a1a1a] p-4 rounded-lg border border-[#D4AF37]">
-          <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="flex flex-wrap items-center justify-between gap-3 mb-3">
             <div className="flex-1">
-              {lastSaved ? (
-                <p className="text-sm text-slate-300">
-                  <span className="text-[#D4AF37] font-semibold">Tersimpan:</span> {lastSaved}
-                </p>
-              ) : (
-                <p className="text-sm text-slate-400">Belum ada data tersimpan</p>
-              )}
+              <p className="text-sm text-slate-300">
+                <span className="text-[#D4AF37] font-semibold">Draft Tersimpan:</span> {savedDrafts.length} draft
+              </p>
             </div>
             <div className="flex gap-2 flex-wrap">
               <Button
@@ -481,30 +503,65 @@ export default function LeadershipActivityPage() {
                 ) : (
                   <Save className="h-4 w-4 mr-2" />
                 )}
-                Simpan Draft
+                Simpan Draft Baru
               </Button>
               <Button
-                onClick={handleLoadData}
+                onClick={toggleDraftsList}
                 size="sm"
                 variant="outline"
                 className="border-[#D4AF37] text-[#D4AF37] hover:bg-[#D4AF37] hover:text-black"
               >
                 <FolderOpen className="h-4 w-4 mr-2" />
-                Muat Draft
+                {showDraftsList ? "Tutup" : "Lihat"} Daftar Draft ({savedDrafts.length})
               </Button>
-              {lastSaved && (
-                <Button
-                  onClick={handleClearSavedData}
-                  size="sm"
-                  variant="outline"
-                  className="border-red-500 text-red-500 hover:bg-red-500 hover:text-white"
-                >
-                  <X className="h-4 w-4 mr-2" />
-                  Hapus Draft
-                </Button>
-              )}
             </div>
           </div>
+
+          {showDraftsList && (
+            <div className="mt-4 border-t border-[#3a3a3a] pt-4">
+              <h3 className="text-[#D4AF37] font-semibold mb-3">Daftar Draft Tersimpan:</h3>
+              {savedDrafts.length === 0 ? (
+                <p className="text-slate-400 text-sm text-center py-4">Belum ada draft tersimpan</p>
+              ) : (
+                <div className="space-y-2 max-h-96 overflow-y-auto">
+                  {savedDrafts.map((draft) => (
+                    <div
+                      key={draft.id}
+                      className="flex items-center justify-between bg-[#1a1a1a] p-3 rounded-lg border border-[#3a3a3a] hover:border-[#D4AF37] transition-colors"
+                    >
+                      <div className="flex-1">
+                        <p className="text-slate-200 font-medium">{draft.name}</p>
+                        <p className="text-slate-400 text-xs mt-1">
+                          Disimpan: {new Date(draft.savedAt).toLocaleString('id-ID')}
+                        </p>
+                        <p className="text-slate-500 text-xs">
+                          {draft.selectedCompany === 'pt_sss' ? 'PT SSS' : draft.selectedCompany === 'pt_gsm' ? 'PT GSM' : 'Belum pilih perusahaan'}
+                        </p>
+                      </div>
+                      <div className="flex gap-2">
+                        <Button
+                          onClick={() => handleLoadDraft(draft)}
+                          size="sm"
+                          className="bg-[#D4AF37] hover:bg-[#c49d2f] text-black"
+                        >
+                          <FolderOpen className="h-4 w-4 mr-1" />
+                          Muat
+                        </Button>
+                        <Button
+                          onClick={() => handleDeleteDraft(draft.id, draft.name)}
+                          size="sm"
+                          variant="outline"
+                          className="border-red-500 text-red-500 hover:bg-red-500 hover:text-white"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
         </div>
 
         {/* Activity Type */}

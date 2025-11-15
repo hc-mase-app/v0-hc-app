@@ -252,17 +252,38 @@ export async function POST(request: NextRequest) {
         const maxWidth = contentWidth
         const maxHeight = pageHeight - yPos - margin - 10 // Leave some bottom margin
 
+        let imageFormat: "PNG" | "JPEG" | "WEBP" = "JPEG" // Default to JPEG
+        const photoDataLower = data.photoData.toLowerCase()
+        
+        if (photoDataLower.includes('data:image/png')) {
+          imageFormat = "PNG"
+        } else if (photoDataLower.includes('data:image/webp')) {
+          imageFormat = "WEBP"
+        } else if (photoDataLower.includes('data:image/jpg') || photoDataLower.includes('data:image/jpeg')) {
+          imageFormat = "JPEG"
+        } else {
+          // For unknown formats or missing MIME type, try to detect from base64 or default to JPEG
+          imageFormat = "JPEG"
+        }
+
+        console.log(`[PDF] Detected photo format: ${imageFormat}`)
+
         // Create a temporary image to get dimensions
         const img = new window.Image()
         await new Promise<void>((resolve, reject) => {
           img.onload = () => resolve()
-          img.onerror = () => reject(new Error("Failed to load image"))
+          img.onerror = (err) => {
+            console.error('[PDF] Image load error:', err)
+            reject(new Error("Failed to load image"))
+          }
           img.src = data.photoData
         })
 
         const imgWidth = img.width
         const imgHeight = img.height
         const aspectRatio = imgWidth / imgHeight
+
+        console.log(`[PDF] Photo dimensions: ${imgWidth}x${imgHeight}, aspect ratio: ${aspectRatio}`)
 
         // Calculate scaled dimensions maintaining aspect ratio
         let scaledWidth = maxWidth
@@ -277,11 +298,30 @@ export async function POST(request: NextRequest) {
         // Center the image horizontally
         const xOffset = margin + (maxWidth - scaledWidth) / 2
 
-        const imageFormat = data.photoData.includes('data:image/png') ? "PNG" : "JPEG"
+        let photoAdded = false
+        const formatsToTry: Array<"PNG" | "JPEG" | "WEBP"> = [imageFormat]
         
-        doc.addImage(data.photoData, imageFormat, xOffset, yPos, scaledWidth, scaledHeight)
-        
-        console.log('[PDF] Photo added successfully to PDF with original aspect ratio')
+        // Add fallback formats
+        if (imageFormat !== "JPEG") formatsToTry.push("JPEG")
+        if (imageFormat !== "PNG") formatsToTry.push("PNG")
+        if (imageFormat !== "WEBP") formatsToTry.push("WEBP")
+
+        for (const format of formatsToTry) {
+          try {
+            console.log(`[PDF] Attempting to add photo with format: ${format}`)
+            doc.addImage(data.photoData, format, xOffset, yPos, scaledWidth, scaledHeight)
+            photoAdded = true
+            console.log(`[PDF] Photo added successfully with format: ${format}`)
+            break
+          } catch (formatError) {
+            console.warn(`[PDF] Failed to add photo with format ${format}:`, formatError)
+            // Continue to next format
+          }
+        }
+
+        if (!photoAdded) {
+          throw new Error("All image format attempts failed")
+        }
       } catch (e) {
         console.error("Error adding photo to PDF:", e)
         doc.addPage()
