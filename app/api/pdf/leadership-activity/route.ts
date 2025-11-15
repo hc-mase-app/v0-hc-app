@@ -250,40 +250,35 @@ export async function POST(request: NextRequest) {
         yPos += 10
 
         const maxWidth = contentWidth
-        const maxHeight = pageHeight - yPos - margin - 10 // Leave some bottom margin
+        const maxHeight = pageHeight - yPos - margin - 10
 
-        let imageFormat: "PNG" | "JPEG" | "WEBP" = "JPEG" // Default to JPEG
+        // Detect image format from data URL
+        let imageFormat: "PNG" | "JPEG" | "WEBP" = "JPEG"
         const photoDataLower = data.photoData.toLowerCase()
         
-        if (photoDataLower.includes('data:image/png')) {
+        if (photoDataLower.includes('data:image/png') || photoDataLower.includes('png')) {
           imageFormat = "PNG"
-        } else if (photoDataLower.includes('data:image/webp')) {
+        } else if (photoDataLower.includes('data:image/webp') || photoDataLower.includes('webp')) {
           imageFormat = "WEBP"
-        } else if (photoDataLower.includes('data:image/jpg') || photoDataLower.includes('data:image/jpeg')) {
-          imageFormat = "JPEG"
-        } else {
-          // For unknown formats or missing MIME type, try to detect from base64 or default to JPEG
+        } else if (photoDataLower.includes('data:image/jpg') || photoDataLower.includes('data:image/jpeg') || photoDataLower.includes('jpeg') || photoDataLower.includes('jpg')) {
           imageFormat = "JPEG"
         }
 
-        console.log(`[PDF] Detected photo format: ${imageFormat}`)
+        console.log(`[v0] Detected photo format: ${imageFormat}`)
+        console.log(`[v0] Photo data length: ${data.photoData.length}`)
+        
+        // Get image dimensions from data URL
+        let imgWidth = 800
+        let imgHeight = 600
+        let aspectRatio = imgWidth / imgHeight
 
-        // Create a temporary image to get dimensions
-        const img = new window.Image()
-        await new Promise<void>((resolve, reject) => {
-          img.onload = () => resolve()
-          img.onerror = (err) => {
-            console.error('[PDF] Image load error:', err)
-            reject(new Error("Failed to load image"))
-          }
-          img.src = data.photoData
-        })
-
-        const imgWidth = img.width
-        const imgHeight = img.height
-        const aspectRatio = imgWidth / imgHeight
-
-        console.log(`[PDF] Photo dimensions: ${imgWidth}x${imgHeight}, aspect ratio: ${aspectRatio}`)
+        // If we have dimension data from client
+        if (data.photoDimensions) {
+          imgWidth = data.photoDimensions.width
+          imgHeight = data.photoDimensions.height
+          aspectRatio = imgWidth / imgHeight
+          console.log(`[v0] Using client-provided dimensions: ${imgWidth}x${imgHeight}`)
+        }
 
         // Calculate scaled dimensions maintaining aspect ratio
         let scaledWidth = maxWidth
@@ -306,16 +301,16 @@ export async function POST(request: NextRequest) {
         if (imageFormat !== "PNG") formatsToTry.push("PNG")
         if (imageFormat !== "WEBP") formatsToTry.push("WEBP")
 
+        // Try each format
         for (const format of formatsToTry) {
           try {
-            console.log(`[PDF] Attempting to add photo with format: ${format}`)
+            console.log(`[v0] Attempting to add photo with format: ${format}`)
             doc.addImage(data.photoData, format, xOffset, yPos, scaledWidth, scaledHeight)
             photoAdded = true
-            console.log(`[PDF] Photo added successfully with format: ${format}`)
+            console.log(`[v0] Photo added successfully with format: ${format}`)
             break
           } catch (formatError) {
-            console.warn(`[PDF] Failed to add photo with format ${format}:`, formatError)
-            // Continue to next format
+            console.warn(`[v0] Failed with format ${format}:`, formatError)
           }
         }
 
@@ -323,7 +318,7 @@ export async function POST(request: NextRequest) {
           throw new Error("All image format attempts failed")
         }
       } catch (e) {
-        console.error("Error adding photo to PDF:", e)
+        console.error("[v0] Error adding photo to PDF:", e)
         doc.addPage()
         yPos = margin
         doc.setFontSize(12)

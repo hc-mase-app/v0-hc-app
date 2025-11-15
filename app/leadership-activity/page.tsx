@@ -176,8 +176,26 @@ export default function LeadershipActivityPage() {
       }
 
       let processedPhotoData = photoData
-      if (photoData && photoData.length > 500 * 1024) {
-        console.warn('[v0] Photo size large, may affect performance on mobile')
+      let photoDimensions = null
+      if (photoData) {
+        try {
+          const img = document.createElement('img')
+          await new Promise<void>((resolve, reject) => {
+            img.onload = () => {
+              photoDimensions = { width: img.width, height: img.height }
+              console.log("[v0] Photo dimensions:", photoDimensions)
+              resolve()
+            }
+            img.onerror = reject
+            img.src = photoData
+          })
+        } catch (e) {
+          console.error("[v0] Error getting photo dimensions:", e)
+        }
+        
+        if (photoData.length > 500 * 1024) {
+          console.warn('[v0] Photo size large, may affect performance on mobile')
+        }
       }
 
       console.log("[v0] Sending PDF generation request...")
@@ -193,6 +211,7 @@ export default function LeadershipActivityPage() {
           signatures,
           capturedSignatures,
           photoData: processedPhotoData,
+          photoDimensions,
           logoDataURL,
         }),
       })
