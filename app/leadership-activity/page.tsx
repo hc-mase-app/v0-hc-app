@@ -1,18 +1,22 @@
 "use client"
 
 import type React from "react"
-
 import { Button } from "@/components/ui/button"
-import { ArrowLeft, X } from "lucide-react"
-import { useRouter } from "next/navigation"
-import { useState, useRef, useEffect } from "react"
+import { ArrowLeft, X, Edit, Loader2 } from 'lucide-react'
+import { useRouter } from 'next/navigation'
+import { useState, useEffect } from "react"
 import Image from "next/image"
+import { SignatureModal } from "@/components/signature-modal"
 
 export default function LeadershipActivityPage() {
   const router = useRouter()
   const [selectedCompany, setSelectedCompany] = useState("")
   const [photoData, setPhotoData] = useState<string | null>(null)
   const [photoError, setPhotoError] = useState("")
+  const [isExporting, setIsExporting] = useState(false)
+
+  const [signatureModalOpen, setSignatureModalOpen] = useState(false)
+  const [currentSignatureKey, setCurrentSignatureKey] = useState<string>("")
 
   // Form data states
   const [activities, setActivities] = useState<string[]>([])
@@ -37,20 +41,6 @@ export default function LeadershipActivityPage() {
     hcga: { data: null as string | null, nama: "", tanggal: "" },
   })
 
-  const canvasRefs = {
-    atasan: useRef<HTMLCanvasElement>(null),
-    karyawan: useRef<HTMLCanvasElement>(null),
-    pjo: useRef<HTMLCanvasElement>(null),
-    hcga: useRef<HTMLCanvasElement>(null),
-  }
-
-  const [isDrawing, setIsDrawing] = useState({
-    atasan: false,
-    karyawan: false,
-    pjo: false,
-    hcga: false,
-  })
-
   const companyLogos = {
     pt_sss: "/sss-logo.png",
     pt_gsm: "/gsm-logo.png",
@@ -64,259 +54,276 @@ export default function LeadershipActivityPage() {
       pjo: { ...prev.pjo, tanggal: today },
       hcga: { ...prev.hcga, tanggal: today },
     }))
-
-    // Initialize all canvases with high resolution
-    Object.values(canvasRefs).forEach((ref) => {
-      const canvas = ref.current
-      if (!canvas) return
-
-      const ctx = canvas.getContext("2d")
-      if (!ctx) return
-
-      // Set high resolution for better quality
-      const rect = canvas.getBoundingClientRect()
-      const dpr = window.devicePixelRatio || 1
-      canvas.width = rect.width * dpr
-      canvas.height = rect.height * dpr
-      ctx.scale(dpr, dpr)
-
-      // Set drawing style
-      ctx.strokeStyle = "#000"
-      ctx.lineWidth = 2
-      ctx.lineCap = "round"
-      ctx.lineJoin = "round"
-    })
   }, [])
 
-  const getCoordinates = (
-    canvas: HTMLCanvasElement,
-    e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>,
-  ) => {
-    const rect = canvas.getBoundingClientRect()
-    const x = "touches" in e ? e.touches[0].clientX - rect.left : e.clientX - rect.left
-    const y = "touches" in e ? e.touches[0].clientY - rect.top : e.clientY - rect.top
-    return { x, y }
+  const openSignatureModal = (key: string) => {
+    setCurrentSignatureKey(key)
+    setSignatureModalOpen(true)
   }
 
-  const startDrawing = (
-    key: keyof typeof canvasRefs,
-    e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>,
-  ) => {
-    e.preventDefault()
-    const canvas = canvasRefs[key].current
-    if (!canvas) return
-
-    const ctx = canvas.getContext("2d")
-    if (!ctx) return
-
-    setIsDrawing((prev) => ({ ...prev, [key]: true }))
-
-    const { x, y } = getCoordinates(canvas, e)
-    ctx.beginPath()
-    ctx.moveTo(x, y)
-  }
-
-  const draw = (
-    key: keyof typeof canvasRefs,
-    e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>,
-  ) => {
-    e.preventDefault()
-    if (!isDrawing[key]) return
-
-    const canvas = canvasRefs[key].current
-    if (!canvas) return
-
-    const ctx = canvas.getContext("2d")
-    if (!ctx) return
-
-    const { x, y } = getCoordinates(canvas, e)
-    ctx.lineTo(x, y)
-    ctx.stroke()
-  }
-
-  const stopDrawing = (key: keyof typeof canvasRefs) => {
-    setIsDrawing((prev) => ({ ...prev, [key]: false }))
-  }
-
-  const clearSignature = (key: keyof typeof canvasRefs) => {
-    const canvas = canvasRefs[key].current
-    if (!canvas) return
-
-    const ctx = canvas.getContext("2d")
-    if (!ctx) return
-
-    ctx.clearRect(0, 0, canvas.width, canvas.height)
+  const handleSaveSignature = (signatureData: string) => {
     setSignatures((prev) => ({
       ...prev,
-      [key]: { ...prev[key], data: null },
+      [currentSignatureKey]: {
+        ...prev[currentSignatureKey as keyof typeof signatures],
+        data: signatureData,
+      },
     }))
   }
 
-  const saveSignature = (key: keyof typeof canvasRefs) => {
-    const canvas = canvasRefs[key].current
-    if (!canvas) return
-
-    const dataUrl = canvas.toDataURL()
+  const clearSignature = (key: string) => {
     setSignatures((prev) => ({
       ...prev,
-      [key]: { ...prev[key], data: dataUrl },
+      [key]: {
+        ...prev[key as keyof typeof signatures],
+        data: null,
+      },
     }))
-    alert(`Tanda tangan ${key} disimpan!`)
-  }
-
-  // Photo upload handler
-  const handlePhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
-    if (!file) return
-
-    const validTypes = ["image/jpeg", "image/jpg", "image/png", "image/gif"]
-    if (!validTypes.includes(file.type)) {
-      setPhotoError("Format file tidak didukung. Harap pilih file gambar (JPEG, PNG, atau GIF).")
-      return
-    }
-
-    const maxSize = 5 * 1024 * 1024
-    if (file.size > maxSize) {
-      setPhotoError("Ukuran file terlalu besar. Maksimal 5MB.")
-      return
-    }
-
-    setPhotoError("")
-    const reader = new FileReader()
-    reader.onload = (e) => {
-      setPhotoData(e.target?.result as string)
-    }
-    reader.readAsDataURL(file)
   }
 
   // Export to print/PDF
-  const handleExport = () => {
-    const printContent = createPrintContent()
-    const printWindow = window.open("", "_blank")
-    if (!printWindow) {
-      alert("Tidak dapat membuka jendela print. Pastikan popup tidak diblokir.")
+  const handleExport = async () => {
+    if (isExporting) {
+      console.log("[v0] Export already in progress, ignoring duplicate request")
       return
     }
 
-    printWindow.document.write(printContent)
-    printWindow.document.close()
-
-    setTimeout(() => {
-      printWindow.print()
-    }, 500)
-  }
-
-  const createPrintContent = () => {
-    const logoSrc = selectedCompany ? companyLogos[selectedCompany as keyof typeof companyLogos] : ""
-
-    return `
-<!DOCTYPE html>
-<html lang="id">
-<head>
-    <meta charset="UTF-8">
-    <title>Leadership Activity - ${formData.nama || "Karyawan"}</title>
-    <style>
-        @media print { @page { margin: 15mm; } body { margin: 0; font-size: 12px; } }
-        body { font-family: Arial, sans-serif; line-height: 1.4; margin: 20px; color: #000; }
-        .header { display: flex; align-items: center; margin-bottom: 20px; border-bottom: 2px solid #3498db; padding-bottom: 15px; }
-        .logo { margin-right: 20px; max-width: 80px; max-height: 80px; }
-        .title { text-align: center; font-size: 18px; font-weight: bold; color: #2c3e50; flex: 1; }
-        .section { margin-bottom: 15px; }
-        .section-title { background: #e0e0e0; padding: 8px; font-weight: bold; border: 1px solid #000; }
-        .section-content { border: 1px solid #000; padding: 8px; border-top: none; min-height: 60px; }
-        .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1px; background: #000; }
-        .grid-item { background: white; padding: 8px; border: 1px solid #000; }
-        .signatures { display: flex; justify-content: space-between; margin-top: 30px; }
-        .signature-box { text-align: center; width: 23%; }
-        .signature-img { max-width: 150px; max-height: 60px; margin: 10px 0; }
-        .photo-section { text-align: center; margin-top: 30px; page-break-inside: avoid; }
-        .photo-img { max-width: 500px; max-height: 400px; border: 1px solid #ddd; }
-    </style>
-</head>
-<body>
-    <div class="header">
-        ${logoSrc ? `<img src="${logoSrc}" class="logo" alt="Logo">` : ""}
-        <div class="title">FORMULIR LEADERSHIP ACTIVITY</div>
-    </div>
-    
-    <div class="section">
-        <div class="section-title">ACTIVITY</div>
-        <div class="section-content">
-            ${activities.length > 0 ? activities.map((a) => `☑ ${a}`).join(" ") : "□ Coaching □ Directing □ Mentoring □ Motivating/Counseling"}
-        </div>
-    </div>
-    
-    <div class="section">
-        <div class="section-title">DATA KARYAWAN</div>
-        <div class="grid">
-            <div class="grid-item"><strong>NIK:</strong> ${formData.nik}</div>
-            <div class="grid-item"><strong>Departemen:</strong> ${formData.departemen}</div>
-            <div class="grid-item"><strong>Nama:</strong> ${formData.nama}</div>
-            <div class="grid-item"><strong>Lokasi Kerja:</strong> ${formData.lokasi}</div>
-            <div class="grid-item"><strong>Jabatan:</strong> ${formData.jabatan}</div>
-            <div class="grid-item"><strong>Tanggal Masuk:</strong> ${formData.tanggal_masuk}</div>
-        </div>
-    </div>
-    
-    <div class="section">
-        <div class="section-title">MASALAH</div>
-        <div class="section-content">${formData.masalah}</div>
-    </div>
-    
-    <div class="section">
-        <div class="section-title">TINDAK LANJUT / SOLUSI</div>
-        <div class="section-content">${formData.tindak_lanjut}</div>
-    </div>
-    
-    <div class="section">
-        <div class="section-title">KOMITMEN</div>
-        <div class="section-content">${formData.komitmen}</div>
-    </div>
-    
-    <div class="section">
-        <div class="section-title">CATATAN</div>
-        <div class="section-content">${formData.catatan}</div>
-    </div>
-    
-    <div class="signatures">
-        ${Object.entries(signatures)
-          .map(([key, sig]) => {
-            const titles = {
-              atasan: { title: "Dibuat oleh,", subtitle: "Atasan Langsung" },
-              karyawan: { title: "Diterima oleh,", subtitle: "Karyawan" },
-              pjo: { title: "Diketahui oleh,", subtitle: "PJO / Mgr. / GM / Dir." },
-              hcga: { title: "HCGA", subtitle: "Dic / Pic" },
-            }
-            return `
-            <div class="signature-box">
-                <p><strong>${titles[key as keyof typeof titles].title}</strong></p>
-                <p>${titles[key as keyof typeof titles].subtitle}</p>
-                ${sig.data ? `<img src="${sig.data}" class="signature-img" alt="Signature">` : '<div style="height: 60px;"></div>'}
-                <p style="border-top: 1px solid #000; padding-top: 5px;">${sig.nama}</p>
-                <p>${sig.tanggal}</p>
-            </div>
-          `
-          })
-          .join("")}
-    </div>
-    
-    ${
-      photoData
-        ? `
-    <div class="photo-section">
-        <h2>BUKTI PERTEMUAN (FOTO)</h2>
-        <img src="${photoData}" class="photo-img" alt="Bukti Foto">
-    </div>
-    `
-        : ""
+    if (!selectedCompany) {
+      alert("Silakan pilih perusahaan terlebih dahulu")
+      return
     }
-</body>
-</html>
-    `
+
+    if (!formData.nama?.trim()) {
+      alert("Nama harus diisi")
+      return
+    }
+
+    if (!formData.nik?.trim()) {
+      alert("NIK harus diisi")
+      return
+    }
+
+    if (activities.length === 0) {
+      alert("Silakan pilih minimal 1 activity")
+      return
+    }
+
+    if (!formData.masalah?.trim()) {
+      alert("Masalah harus diisi")
+      return
+    }
+
+    if (!formData.tindak_lanjut?.trim()) {
+      alert("Tindak lanjut/solusi harus diisi")
+      return
+    }
+
+    if (!formData.komitmen?.trim()) {
+      alert("Komitmen harus diisi")
+      return
+    }
+
+    const hasSignature = Object.values(signatures).some(sig => sig.data !== null)
+    if (!hasSignature) {
+      alert("Minimal harus ada 1 tanda tangan")
+      return
+    }
+
+    const capturedSignatures: Record<string, string | null> = {
+      atasan: signatures.atasan.data,
+      karyawan: signatures.karyawan.data,
+      pjo: signatures.pjo.data,
+      hcga: signatures.hcga.data,
+    }
+
+    setIsExporting(true)
+    let objectUrl: string | null = null
+
+    try {
+      console.log("[v0] Starting PDF generation...")
+      
+      let logoDataURL = null
+      const logoSrc = companyLogos[selectedCompany as keyof typeof companyLogos]
+      if (logoSrc) {
+        try {
+          const response = await fetch(logoSrc)
+          if (!response.ok) throw new Error('Logo fetch failed')
+          
+          const blob = await response.blob()
+          
+          if (blob.size > 100 * 1024) {
+            console.warn('[v0] Logo size large:', blob.size, 'bytes')
+          }
+          
+          logoDataURL = await new Promise<string>((resolve, reject) => {
+            const reader = new FileReader()
+            reader.onloadend = () => resolve(reader.result as string)
+            reader.onerror = reject
+            reader.readAsDataURL(blob)
+          })
+        } catch (e) {
+          console.error("[v0] Error loading logo:", e)
+          // Continue without logo
+        }
+      }
+
+      let processedPhotoData = photoData
+      if (photoData && photoData.length > 500 * 1024) {
+        console.warn('[v0] Photo size large, may affect performance on mobile')
+      }
+
+      console.log("[v0] Sending PDF generation request...")
+      
+      const response = await fetch("/api/pdf/leadership-activity", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          activities,
+          formData,
+          signatures,
+          capturedSignatures,
+          photoData: processedPhotoData,
+          logoDataURL,
+        }),
+      })
+
+      console.log("[v0] PDF response status:", response.status)
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ message: 'Server error' }))
+        throw new Error(errorData.message || "Failed to generate PDF")
+      }
+
+      const contentDisposition = response.headers.get("Content-Disposition")
+      const filenameMatch = contentDisposition?.match(/filename="(.+)"/)
+      const filename = filenameMatch ? filenameMatch[1] : `Leadership_Activity_${formData.nama.replace(/[^a-zA-Z0-9]/g, '_')}_${new Date().toISOString().split('T')[0]}.pdf`
+
+      const blob = await response.blob()
+      console.log("[v0] PDF blob size:", blob.size, "bytes")
+      
+      if (blob.size === 0) {
+        throw new Error('Generated PDF is empty')
+      }
+      
+      objectUrl = window.URL.createObjectURL(blob)
+      const a = document.createElement("a")
+      a.style.display = "none"
+      a.href = objectUrl
+      a.download = filename
+      
+      document.body.appendChild(a)
+      
+      // Try modern download first
+      try {
+        a.click()
+        console.log("[v0] PDF download initiated successfully")
+      } catch (e) {
+        console.error("[v0] Click download failed, trying alternative:", e)
+        // Fallback: open in new tab for manual download
+        window.open(objectUrl, '_blank')
+        console.log("[v0] PDF opened in new tab for manual download")
+      }
+      
+      // Clean up
+      setTimeout(() => {
+        if (objectUrl) {
+          window.URL.revokeObjectURL(objectUrl)
+        }
+        document.body.removeChild(a)
+      }, 100)
+
+      alert("PDF berhasil didownload! Cek folder Download Anda.")
+    } catch (error) {
+      console.error("[v0] Error exporting PDF:", error)
+      
+      let errorMessage = 'Terjadi kesalahan saat membuat PDF'
+      if (error instanceof Error) {
+        if (error.message.includes('fetch')) {
+          errorMessage = 'Koneksi ke server gagal. Periksa koneksi internet Anda.'
+        } else if (error.message.includes('empty')) {
+          errorMessage = 'PDF yang dihasilkan kosong. Silakan coba lagi.'
+        } else {
+          errorMessage = error.message
+        }
+      }
+      
+      alert(`Gagal export ke PDF: ${errorMessage}`)
+      
+      // Clean up on error
+      if (objectUrl) {
+        window.URL.revokeObjectURL(objectUrl)
+      }
+    } finally {
+      setIsExporting(false)
+    }
   }
 
+  // Activity change handler
   const handleActivityChange = (activity: string) => {
     setActivities((prev) => (prev.includes(activity) ? prev.filter((a) => a !== activity) : [...prev, activity]))
+  }
+
+  const handlePhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) {
+      setPhotoError("Tidak ada file yang dipilih")
+      setPhotoData(null)
+      return
+    }
+
+    if (!file.type.startsWith("image/")) {
+      setPhotoError("File yang dipilih bukan gambar")
+      setPhotoData(null)
+      return
+    }
+
+    const maxSize = 5 * 1024 * 1024 // 5MB
+    if (file.size > maxSize) {
+      setPhotoError("Ukuran file terlalu besar (maksimal 5MB)")
+      setPhotoData(null)
+      return
+    }
+
+    const reader = new FileReader()
+    reader.onload = (event) => {
+      const dataUrl = event.target?.result as string
+      
+      const img = document.createElement('img')
+      img.onload = () => {
+        const canvas = document.createElement('canvas')
+        let width = img.width
+        let height = img.height
+        
+        const maxDimension = 1920
+        if (width > maxDimension || height > maxDimension) {
+          if (width > height) {
+            height = (height / width) * maxDimension
+            width = maxDimension
+          } else {
+            width = (width / height) * maxDimension
+            height = maxDimension
+          }
+        }
+        
+        canvas.width = width
+        canvas.height = height
+        const ctx = canvas.getContext('2d')
+        if (ctx) {
+          ctx.drawImage(img, 0, 0, width, height)
+          const compressedDataUrl = canvas.toDataURL('image/jpeg', 0.8)
+          setPhotoData(compressedDataUrl)
+          setPhotoError("")
+        }
+      }
+      img.src = dataUrl
+    }
+    reader.onerror = () => {
+      setPhotoError("Gagal membaca file")
+      setPhotoData(null)
+    }
+    reader.readAsDataURL(file)
   }
 
   return (
@@ -480,7 +487,7 @@ export default function LeadershipActivityPage() {
         </div>
 
         {/* Signatures */}
-        <div className="grid grid-cols-2 gap-4 mb-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
           {Object.entries({
             atasan: { title: "Dibuat oleh,", subtitle: "Atasan Langsung" },
             karyawan: { title: "Diterima oleh,", subtitle: "Karyawan" },
@@ -489,40 +496,52 @@ export default function LeadershipActivityPage() {
           }).map(([key, info]) => (
             <div key={key} className="bg-[#2a2a2a] p-4 rounded-lg border border-[#3a3a3a]">
               <p className="font-semibold text-[#D4AF37]">{info.title}</p>
-              <p className="text-sm text-slate-400 mb-2">{info.subtitle}</p>
+              <p className="text-sm text-slate-400 mb-3">{info.subtitle}</p>
 
-              <canvas
-                ref={canvasRefs[key as keyof typeof canvasRefs]}
-                className="border border-[#3a3a3a] bg-white rounded mb-2 w-full touch-none cursor-crosshair"
-                style={{ width: "100%", height: "100px" }}
-                onMouseDown={(e) => startDrawing(key as keyof typeof canvasRefs, e)}
-                onMouseMove={(e) => draw(key as keyof typeof canvasRefs, e)}
-                onMouseUp={() => stopDrawing(key as keyof typeof canvasRefs)}
-                onMouseLeave={() => stopDrawing(key as keyof typeof canvasRefs)}
-                onTouchStart={(e) => startDrawing(key as keyof typeof canvasRefs, e)}
-                onTouchMove={(e) => draw(key as keyof typeof canvasRefs, e)}
-                onTouchEnd={() => stopDrawing(key as keyof typeof canvasRefs)}
-              />
-
-              <div className="flex gap-2 mb-2">
+              {/* Signature preview or button */}
+              {signatures[key as keyof typeof signatures].data ? (
+                <div className="mb-3">
+                  <div className="border-2 border-[#D4AF37] rounded-lg bg-white p-2 mb-2">
+                    <Image
+                      src={signatures[key as keyof typeof signatures].data || "/placeholder.svg"}
+                      alt="Signature"
+                      width={300}
+                      height={100}
+                      className="w-full h-24 object-contain"
+                    />
+                  </div>
+                  <div className="flex gap-2">
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      onClick={() => openSignatureModal(key)}
+                      className="flex-1 border-[#D4AF37] text-[#D4AF37] hover:bg-[#D4AF37] hover:text-black"
+                    >
+                      <Edit className="h-4 w-4 mr-2" />
+                      Edit
+                    </Button>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      onClick={() => clearSignature(key)}
+                      className="flex-1 border-red-500 text-red-500 hover:bg-red-500 hover:text-white"
+                    >
+                      <X className="h-4 w-4 mr-2" />
+                      Hapus
+                    </Button>
+                  </div>
+                </div>
+              ) : (
                 <Button
                   type="button"
-                  size="sm"
-                  variant="outline"
-                  onClick={() => clearSignature(key as keyof typeof canvasRefs)}
-                  className="flex-1 border-[#D4AF37] text-[#D4AF37] hover:bg-[#D4AF37] hover:text-black"
+                  onClick={() => openSignatureModal(key)}
+                  className="w-full mb-3 bg-[#D4AF37] hover:bg-[#c49d2f] text-black"
                 >
-                  Hapus
+                  ✍️ Tanda Tangan
                 </Button>
-                <Button
-                  type="button"
-                  size="sm"
-                  onClick={() => saveSignature(key as keyof typeof canvasRefs)}
-                  className="flex-1 bg-[#D4AF37] text-black hover:bg-[#c49d2f]"
-                >
-                  Simpan
-                </Button>
-              </div>
+              )}
 
               <input
                 type="text"
@@ -593,9 +612,19 @@ export default function LeadershipActivityPage() {
         <div className="text-center">
           <Button
             onClick={handleExport}
-            className="bg-[#D4AF37] hover:bg-[#c49d2f] text-black px-8 py-3 text-lg font-semibold"
+            disabled={isExporting}
+            className="bg-[#D4AF37] hover:bg-[#c49d2f] text-black px-8 py-3 text-lg font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            📄 Simpan sebagai PDF
+            {isExporting ? (
+              <>
+                <Loader2 className="h-5 w-5 mr-2 animate-spin" />
+                Membuat PDF...
+              </>
+            ) : (
+              <>
+                📄 Simpan sebagai PDF
+              </>
+            )}
           </Button>
         </div>
 
@@ -604,6 +633,21 @@ export default function LeadershipActivityPage() {
           <p>- Yan -</p>
         </div>
       </div>
+
+      <SignatureModal
+        isOpen={signatureModalOpen}
+        onClose={() => setSignatureModalOpen(false)}
+        onSave={handleSaveSignature}
+        title={`Tanda Tangan - ${
+          currentSignatureKey === "atasan"
+            ? "Atasan Langsung"
+            : currentSignatureKey === "karyawan"
+              ? "Karyawan"
+              : currentSignatureKey === "pjo"
+                ? "PJO / Mgr. / GM / Dir."
+                : "HCGA"
+        }`}
+      />
     </div>
   )
 }

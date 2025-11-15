@@ -5,18 +5,21 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { Badge } from "@/components/ui/badge"
 import type { LeaveRequest, ApprovalHistory } from "@/lib/types"
 import { formatDate, getStatusLabel, getStatusColor } from "@/lib/utils"
-import { Calendar, FileText, Clock, MapPin, Plane, User } from "lucide-react"
+import { Calendar, FileText, Clock, MapPin, Plane, User, Download } from "lucide-react"
 import { ApprovalTimeline } from "@/components/approval-timeline"
 import { ApprovalProgress } from "@/components/approval-progress"
+import { Button } from "@/components/ui/button"
+import { downloadTicketPDF } from "@/components/ticket-pdf-generator"
 
 interface LeaveRequestDetailDialogProps {
   request: LeaveRequest
   open: boolean
   onOpenChange: (open: boolean) => void
   onUpdate?: () => void
+  isUserRole?: boolean
 }
 
-export function LeaveRequestDetailDialog({ request, open, onOpenChange }: LeaveRequestDetailDialogProps) {
+export function LeaveRequestDetailDialog({ request, open, onOpenChange, isUserRole }: LeaveRequestDetailDialogProps) {
   const [history, setHistory] = useState<ApprovalHistory[]>([])
   const [loading, setLoading] = useState(false)
 
@@ -49,8 +52,23 @@ export function LeaveRequestDetailDialog({ request, open, onOpenChange }: LeaveR
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Detail Pengajuan Cuti</DialogTitle>
-          <DialogDescription>Informasi lengkap dan riwayat persetujuan</DialogDescription>
+          <div className="flex items-center justify-between">
+            <div>
+              <DialogTitle>Detail Pengajuan Cuti</DialogTitle>
+              <DialogDescription>Informasi lengkap dan riwayat persetujuan</DialogDescription>
+            </div>
+            {isUserRole && request.status === "tiket_issued" && request.bookingCode && (
+              <Button
+                onClick={() => downloadTicketPDF(request)}
+                className="gap-2 bg-green-600 hover:bg-green-700 whitespace-nowrap"
+                size="sm"
+              >
+                <Download className="h-4 w-4" />
+                <span className="hidden sm:inline">Download Tiket</span>
+                <span className="sm:hidden">Tiket</span>
+              </Button>
+            )}
+          </div>
         </DialogHeader>
 
         <div className="space-y-6">
@@ -149,7 +167,11 @@ export function LeaveRequestDetailDialog({ request, open, onOpenChange }: LeaveR
                 <div>
                   <p className="text-xs text-slate-500">Periode Cuti</p>
                   <p className="font-medium">
-                    {formatDate(request.tanggalMulai)} - {formatDate(request.tanggalSelesai)}
+                    {request.periodeAwal && request.periodeAkhir
+                      ? `${formatDate(request.periodeAwal)} - ${formatDate(request.periodeAkhir)}`
+                      : request.tanggalMulai && request.tanggalSelesai
+                        ? `${formatDate(request.tanggalMulai)} - ${formatDate(request.tanggalSelesai)}`
+                        : "-"}
                   </p>
                   <p className="text-sm text-slate-600">{request.jumlahHari} hari</p>
                 </div>
@@ -179,6 +201,16 @@ export function LeaveRequestDetailDialog({ request, open, onOpenChange }: LeaveR
                 </div>
               </div>
 
+              {request.lamaOnsite && (
+                <div className="flex items-start gap-2">
+                  <Clock className="h-4 w-4 text-slate-500 mt-0.5" />
+                  <div>
+                    <p className="text-xs text-slate-500">Lama Onsite</p>
+                    <p className="font-medium">{request.lamaOnsite} hari</p>
+                  </div>
+                </div>
+              )}
+
               {request.tanggalCutiPeriodikBerikutnya && (
                 <div className="flex items-start gap-2">
                   <Calendar className="h-4 w-4 text-slate-500 mt-0.5" />
@@ -195,6 +227,29 @@ export function LeaveRequestDetailDialog({ request, open, onOpenChange }: LeaveR
             <div className="bg-amber-50 border border-amber-200 p-4 rounded-lg">
               <p className="text-sm font-semibold text-amber-900 mb-2">Catatan:</p>
               <p className="text-sm text-amber-800">{request.catatan}</p>
+            </div>
+          )}
+
+          {(request.namaPesawat || request.jamKeberangkatan) && (
+            <div className="bg-blue-50 border border-blue-200 p-4 rounded-lg">
+              <div className="flex items-center gap-2 mb-3">
+                <Plane className="h-5 w-5 text-blue-700" />
+                <h3 className="font-semibold text-blue-900">Informasi Tiket & Perjalanan</h3>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {request.namaPesawat && (
+                  <div>
+                    <p className="text-xs text-blue-600 font-medium">Nama Pesawat</p>
+                    <p className="font-semibold text-blue-900">{request.namaPesawat}</p>
+                  </div>
+                )}
+                {request.jamKeberangkatan && (
+                  <div>
+                    <p className="text-xs text-blue-600 font-medium">Jam Keberangkatan</p>
+                    <p className="font-semibold text-blue-900">{request.jamKeberangkatan}</p>
+                  </div>
+                )}
+              </div>
             </div>
           )}
 

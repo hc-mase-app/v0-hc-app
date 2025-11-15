@@ -47,30 +47,46 @@ export function SignaturePad({ onSignatureChange, value }: SignaturePadProps) {
     }
   }, [value])
 
-  const startDrawing = (e: React.MouseEvent<HTMLCanvasElement>) => {
+  const getCoordinates = (canvas: HTMLCanvasElement, e: React.MouseEvent | React.TouchEvent) => {
+    const rect = canvas.getBoundingClientRect()
+    const scaleX = canvas.width / rect.width
+    const scaleY = canvas.height / rect.height
+
+    const clientX = "touches" in e ? e.touches[0].clientX : e.clientX
+    const clientY = "touches" in e ? e.touches[0].clientY : e.clientY
+
+    const x = (clientX - rect.left) * scaleX
+    const y = (clientY - rect.top) * scaleY
+
+    return { x, y }
+  }
+
+  const startDrawing = (e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>) => {
+    e.preventDefault()
     const canvas = canvasRef.current
     if (!canvas) return
 
-    const rect = canvas.getBoundingClientRect()
     const ctx = canvas.getContext("2d")
     if (!ctx) return
 
     setIsDrawing(true)
+    const { x, y } = getCoordinates(canvas, e)
     ctx.beginPath()
-    ctx.moveTo(e.clientX - rect.left, e.clientY - rect.top)
+    ctx.moveTo(x, y)
   }
 
-  const draw = (e: React.MouseEvent<HTMLCanvasElement>) => {
+  const draw = (e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>) => {
+    e.preventDefault()
     if (!isDrawing) return
 
     const canvas = canvasRef.current
     if (!canvas) return
 
-    const rect = canvas.getBoundingClientRect()
     const ctx = canvas.getContext("2d")
     if (!ctx) return
 
-    ctx.lineTo(e.clientX - rect.left, e.clientY - rect.top)
+    const { x, y } = getCoordinates(canvas, e)
+    ctx.lineTo(x, y)
     ctx.strokeStyle = "#000"
     ctx.lineWidth = 2
     ctx.lineCap = "round"
@@ -119,6 +135,9 @@ export function SignaturePad({ onSignatureChange, value }: SignaturePadProps) {
             onMouseMove={draw}
             onMouseUp={stopDrawing}
             onMouseLeave={stopDrawing}
+            onTouchStart={startDrawing}
+            onTouchMove={draw}
+            onTouchEnd={stopDrawing}
             className="w-full border-2 border-gray-300 rounded cursor-crosshair bg-white"
             style={{ touchAction: "none" }}
           />

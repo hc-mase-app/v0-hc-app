@@ -7,9 +7,24 @@ import { AuthProvider } from "@/lib/auth-context"
 const inter = Inter({ subsets: ["latin"] })
 
 export const metadata: Metadata = {
-  title: "Sistem Manajemen Izin",
-  description: "Multi-level approval system for leave management",
-    generator: 'v0.app'
+  title: "HC App - Sistem Manajemen HR",
+  description: "Multi-level approval system for leave management and employee assessment",
+  generator: "v0.app",
+  manifest: "/manifest.json",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "default",
+    title: "HC App",
+  },
+  formatDetection: {
+    telephone: false,
+  },
+  openGraph: {
+    type: "website",
+    siteName: "HC App",
+    title: "HC App - Sistem Manajemen HR",
+    description: "Multi-level approval system for leave management",
+  },
 }
 
 export default function RootLayout({
@@ -19,6 +34,11 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="id">
+      <head>
+        <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+        <meta name="theme-color" content="#0f172a" />
+        <link rel="apple-touch-icon" href="/icon-192.jpg" />
+      </head>
       <body className={inter.className}>
         <AuthProvider>{children}</AuthProvider>
       </body>
