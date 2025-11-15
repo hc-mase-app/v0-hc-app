@@ -3,7 +3,7 @@
 import { useEffect } from "react"
 import { useRouter } from 'next/navigation'
 import { initializeMockData } from "@/lib/mock-data"
-import { Users, Presentation, UserCheck, CalendarCheck, Lock } from 'lucide-react'
+import { Users, Presentation, UserCheck, CalendarCheck, Lock, BrainCircuit } from 'lucide-react'
 
 export default function Home() {
   const router = useRouter()
@@ -27,6 +27,13 @@ export default function Home() {
       requiresLogin: false,
     },
     {
+      title: "Psikotest",
+      icon: BrainCircuit,
+      href: "https://psikotest-nine.vercel.app",
+      requiresLogin: false,
+      isExternal: true,
+    },
+    {
       title: "Assessment Karyawan",
       icon: UserCheck,
       href: "/login",
@@ -39,6 +46,14 @@ export default function Home() {
       requiresLogin: true,
     },
   ]
+
+  const handleCardClick = (feature: typeof features[0]) => {
+    if (feature.isExternal) {
+      window.open(feature.href, '_blank', 'noopener,noreferrer')
+    } else {
+      router.push(feature.href)
+    }
+  }
 
   return (
     <div className="min-h-screen bg-[#0a0a0a] dark flex flex-col">
@@ -57,7 +72,7 @@ export default function Home() {
             return (
               <button
                 key={feature.title}
-                onClick={() => router.push(feature.href)}
+                onClick={() => handleCardClick(feature)}
                 className="group flex flex-col items-center gap-3 transition-all duration-300 active:scale-95"
               >
                 <div className="relative">
