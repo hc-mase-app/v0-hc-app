@@ -3,7 +3,11 @@
 import { useEffect } from "react"
 import { useRouter } from 'next/navigation'
 import { initializeMockData } from "@/lib/mock-data"
+<<<<<<< HEAD
 import { Users, Presentation, UserCheck, CalendarCheck, Lock, ClipboardList } from 'lucide-react'
+=======
+import { Users, Presentation, UserCheck, CalendarCheck, Lock } from 'lucide-react'
+>>>>>>> 4630c40f0b9317cc0d1301e8785cd41016922fdc
 
 export default function Home() {
   const router = useRouter()
@@ -41,7 +45,10 @@ export default function Home() {
       icon: UserCheck,
       href: "/login",
       requiresLogin: true,
+<<<<<<< HEAD
       external: false,
+=======
+>>>>>>> 4630c40f0b9317cc0d1301e8785cd41016922fdc
     },
     {
       title: "Pengajuan Cuti",
@@ -71,13 +78,21 @@ export default function Home() {
           </div>
         </div>
 
+<<<<<<< HEAD
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-6 md:gap-8 max-w-6xl w-full px-4">
+=======
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-6 md:gap-8 max-w-5xl w-full px-4">
+>>>>>>> 4630c40f0b9317cc0d1301e8785cd41016922fdc
           {features.map((feature) => {
             const Icon = feature.icon
             return (
               <button
                 key={feature.title}
+<<<<<<< HEAD
                 onClick={() => handleFeatureClick(feature)}
+=======
+                onClick={() => router.push(feature.href)}
+>>>>>>> 4630c40f0b9317cc0d1301e8785cd41016922fdc
                 className="group flex flex-col items-center gap-3 transition-all duration-300 active:scale-95"
               >
                 <div className="relative">
