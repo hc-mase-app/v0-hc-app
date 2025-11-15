@@ -3,15 +3,7 @@
 import { useEffect } from "react"
 import { useRouter } from 'next/navigation'
 import { initializeMockData } from "@/lib/mock-data"
-<<<<<<< HEAD
-import { Users, Presentation, UserCheck, CalendarCheck, Lock, ClipboardList } from 'lucide-react'
-=======
-<<<<<<< HEAD
-import { Users, Presentation, UserCheck, CalendarCheck, Lock, ClipboardList } from 'lucide-react'
-=======
 import { Users, Presentation, UserCheck, CalendarCheck, Lock } from 'lucide-react'
->>>>>>> 4630c40f0b9317cc0d1301e8785cd41016922fdc
->>>>>>> 2d6a580aed5e02ea0e8c2830f99a4b0f3c3d5a85
 
 export default function Home() {
   const router = useRouter()
@@ -27,53 +19,26 @@ export default function Home() {
       icon: Users,
       href: "/leadership-activity",
       requiresLogin: false,
-      external: false,
     },
     {
       title: "Penilaian Presentasi",
       icon: Presentation,
       href: "/penilaian-presentasi",
       requiresLogin: false,
-      external: false,
     },
-    {
-      title: "Psikotest",
-      icon: ClipboardList,
-      href: "https://psikotest-nine.vercel.app/",
-      requiresLogin: false,
-      external: true,
-    },
-    // Locked cards at the end
     {
       title: "Assessment Karyawan",
       icon: UserCheck,
       href: "/login",
       requiresLogin: true,
-<<<<<<< HEAD
-      external: false,
-=======
-<<<<<<< HEAD
-      external: false,
-=======
->>>>>>> 4630c40f0b9317cc0d1301e8785cd41016922fdc
->>>>>>> 2d6a580aed5e02ea0e8c2830f99a4b0f3c3d5a85
     },
     {
       title: "Pengajuan Cuti",
       icon: CalendarCheck,
       href: "/login",
       requiresLogin: true,
-      external: false,
     },
   ]
-
-  const handleFeatureClick = (feature: typeof features[0]) => {
-    if (feature.external) {
-      window.open(feature.href, '_blank', 'noopener,noreferrer')
-    } else {
-      router.push(feature.href)
-    }
-  }
 
   return (
     <div className="min-h-screen bg-[#0a0a0a] dark flex flex-col">
@@ -86,29 +51,13 @@ export default function Home() {
           </div>
         </div>
 
-<<<<<<< HEAD
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-6 md:gap-8 max-w-6xl w-full px-4">
-=======
-<<<<<<< HEAD
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-6 md:gap-8 max-w-6xl w-full px-4">
-=======
         <div className="grid grid-cols-2 md:grid-cols-4 gap-6 md:gap-8 max-w-5xl w-full px-4">
->>>>>>> 4630c40f0b9317cc0d1301e8785cd41016922fdc
->>>>>>> 2d6a580aed5e02ea0e8c2830f99a4b0f3c3d5a85
           {features.map((feature) => {
             const Icon = feature.icon
             return (
               <button
                 key={feature.title}
-<<<<<<< HEAD
-                onClick={() => handleFeatureClick(feature)}
-=======
-<<<<<<< HEAD
-                onClick={() => handleFeatureClick(feature)}
-=======
                 onClick={() => router.push(feature.href)}
->>>>>>> 4630c40f0b9317cc0d1301e8785cd41016922fdc
->>>>>>> 2d6a580aed5e02ea0e8c2830f99a4b0f3c3d5a85
                 className="group flex flex-col items-center gap-3 transition-all duration-300 active:scale-95"
               >
                 <div className="relative">
