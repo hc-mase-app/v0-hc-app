@@ -319,16 +319,18 @@ export async function addUser(user: any) {
 
 export async function updateUser(id: string, updates: any) {
   try {
+    console.log("[v0] updateUser called with id:", id, "updates:", updates)
+
     const fields = Object.keys(updates)
     const values = Object.values(updates)
 
     // Convert camelCase to snake_case for database columns
     const dbFields = fields.map((key) => key.replace(/([A-Z])/g, "_$1").toLowerCase())
 
-    // Build SET clause parts
+    // Build SET clause dynamically
     const setClauses = dbFields.map((field, index) => `${field} = $${index + 1}`).join(", ")
 
-    // Use sql.query for dynamic queries with placeholders
+    // Execute update query with proper Neon syntax
     const queryText = `
       UPDATE users 
       SET ${setClauses}, updated_at = CURRENT_TIMESTAMP 
@@ -336,10 +338,20 @@ export async function updateUser(id: string, updates: any) {
       RETURNING *
     `
 
-    const result = await sql.query(queryText, [...values, id])
-    return transformUserData(result.rows[0])
+    console.log("[v0] Executing query:", queryText, "with values:", [...values, id])
+
+    const result = await sql(queryText, [...values, id])
+
+    console.log("[v0] Update result:", result)
+
+    if (!result || result.length === 0) {
+      throw new Error(`No user found with id: ${id}`)
+    }
+
+    console.log("[v0] Update successful, result:", result[0])
+    return transformUserData(result[0])
   } catch (error) {
-    console.error("Error updating user:", error)
+    console.error("[v0] Error updating user:", error)
     throw error
   }
 }
@@ -636,27 +648,34 @@ export async function updateLeaveRequest(id: string, updates: any) {
   try {
     console.log("[v0] updateLeaveRequest called with id:", id, "updates:", updates)
 
-    const fields = Object.keys(updates)
-    const values = Object.values(updates)
-
-    // Convert camelCase to snake_case for database columns
-    const dbFields = fields.map((key) => key.replace(/([A-Z])/g, "_$1").toLowerCase())
-
-    // Build SET clause parts
-    const setClauses = dbFields.map((field, index) => `${field} = $${index + 1}`).join(", ")
-
-    // Use sql.query for dynamic queries with placeholders
-    const queryText = `
+    const result = await sql`
       UPDATE leave_requests 
-      SET ${setClauses}, updated_at = CURRENT_TIMESTAMP 
-      WHERE id = $${values.length + 1}
+      SET 
+        jenis_cuti = ${updates.jenisCuti},
+        jenis_pengajuan = ${updates.jenisPengajuan || null},
+        tanggal_pengajuan = ${updates.tanggalPengajuan},
+        periode_awal = ${updates.periodeAwal},
+        periode_akhir = ${updates.periodeAkhir},
+        jumlah_hari = ${updates.jumlahHari},
+        berangkat_dari = ${updates.berangkatDari || null},
+        tujuan = ${updates.tujuan || null},
+        tanggal_keberangkatan = ${updates.tanggalKeberangkatan || null},
+        cuti_periodik_berikutnya = ${updates.cutiPeriodikBerikutnya || null},
+        catatan = ${updates.catatan || null},
+        lama_onsite = ${updates.lamaOnsite !== undefined ? updates.lamaOnsite : null},
+        updated_at = CURRENT_TIMESTAMP 
+      WHERE id = ${id}
       RETURNING *
     `
 
-    console.log("[v0] Executing query:", queryText, "with values:", [...values, id])
-    const result = await sql.query(queryText, [...values, id])
-    console.log("[v0] Update successful, result:", result.rows[0])
-    return result.rows[0]
+    console.log("[v0] Update result:", result.length, "rows")
+
+    if (!result || result.length === 0) {
+      throw new Error(`No leave request found with id: ${id}`)
+    }
+
+    console.log("[v0] Update successful")
+    return result[0]
   } catch (error) {
     console.error("[v0] Error updating leave request:", error)
     throw error

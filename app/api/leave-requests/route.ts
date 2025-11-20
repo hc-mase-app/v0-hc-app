@@ -103,7 +103,7 @@ export async function PUT(request: NextRequest) {
     }
 
     const result = await updateLeaveRequest(id, updates)
-    return NextResponse.json(result)
+    return NextResponse.json({ success: true, data: result })
   } catch (error) {
     console.error("Error updating leave request:", error)
     return NextResponse.json({ error: "Terjadi kesalahan saat update pengajuan cuti" }, { status: 500 })

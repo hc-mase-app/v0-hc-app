@@ -1,12 +1,14 @@
 "use client"
 
+import type React from "react"
+
 import { useState, useEffect, useCallback } from "react"
 import { useAuth } from "@/lib/auth-context"
 import { useRouter } from "next/navigation"
 import { DashboardLayout } from "@/components/dashboard-layout"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Plus, FileText, Clock, CheckCircle, XCircle, Search, Calendar, ArrowLeft } from "lucide-react"
+import { Plus, FileText, Clock, CheckCircle, XCircle, Search, Calendar, ArrowLeft, Edit } from "lucide-react"
 import type { LeaveRequest } from "@/lib/types"
 import { formatDate, getStatusLabel, getStatusColor } from "@/lib/utils"
 import { Badge } from "@/components/ui/badge"
@@ -14,6 +16,7 @@ import { Input } from "@/components/ui/input"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { NewLeaveRequestDialog } from "@/components/new-leave-request-dialog"
 import { LeaveRequestDetailDialog } from "@/components/leave-request-detail-dialog"
+import { EditLeaveRequestDialog } from "@/components/edit-leave-request-dialog"
 import Link from "next/link"
 
 export default function AdminSiteCutiPage() {
@@ -27,6 +30,7 @@ export default function AdminSiteCutiPage() {
   const [activeTab, setActiveTab] = useState("all")
   const [showNewRequestDialog, setShowNewRequestDialog] = useState(false)
   const [selectedRequest, setSelectedRequest] = useState<LeaveRequest | null>(null)
+  const [editingRequest, setEditingRequest] = useState<LeaveRequest | null>(null)
 
   const loadData = useCallback(async () => {
     if (!user?.site) return
@@ -246,7 +250,15 @@ export default function AdminSiteCutiPage() {
                 ) : (
                   <div className="space-y-3">
                     {filteredRequests.map((request) => (
-                      <RequestCard key={request.id} request={request} onSelect={() => setSelectedRequest(request)} />
+                      <RequestCard
+                        key={request.id}
+                        request={request}
+                        onSelect={() => setSelectedRequest(request)}
+                        onEdit={(e) => {
+                          e.stopPropagation()
+                          setEditingRequest(request)
+                        }}
+                      />
                     ))}
                   </div>
                 )}
@@ -273,11 +285,33 @@ export default function AdminSiteCutiPage() {
           onUpdate={loadData}
         />
       )}
+
+      {editingRequest && (
+        <EditLeaveRequestDialog
+          open={!!editingRequest}
+          onOpenChange={(open) => !open && setEditingRequest(null)}
+          onSuccess={() => {
+            setEditingRequest(null)
+            loadData()
+          }}
+          leaveRequest={editingRequest}
+        />
+      )}
     </DashboardLayout>
   )
 }
 
-function RequestCard({ request, onSelect }: { request: LeaveRequest; onSelect: () => void }) {
+function RequestCard({
+  request,
+  onSelect,
+  onEdit,
+}: {
+  request: LeaveRequest
+  onSelect: () => void
+  onEdit: (e: React.MouseEvent) => void
+}) {
+  const canEdit = !request.bookingCode && !request.bookingCodeBalik
+
   return (
     <div
       className="border border-slate-200 rounded-lg p-4 hover:bg-slate-50 cursor-pointer transition-colors"
@@ -309,7 +343,15 @@ function RequestCard({ request, onSelect }: { request: LeaveRequest; onSelect: (
             </span>
           </div>
         </div>
-        <Badge className={getStatusColor(request.status)}>{getStatusLabel(request.status)}</Badge>
+        <div className="flex flex-col items-end gap-2">
+          <Badge className={getStatusColor(request.status)}>{getStatusLabel(request.status)}</Badge>
+          {canEdit && (
+            <Button variant="outline" size="sm" onClick={onEdit}>
+              <Edit className="h-3 w-3 mr-1" />
+              Edit
+            </Button>
+          )}
+        </div>
       </div>
     </div>
   )
