@@ -10,6 +10,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { LEAVE_TYPES } from "@/lib/mock-data"
 import { calculateDaysBetween } from "@/lib/utils"
 import { Alert, AlertDescription } from "@/components/ui/alert"
@@ -29,6 +30,7 @@ export function NewLeaveRequestDialog({ open, onOpenChange, onSuccess }: NewLeav
   const [nikError, setNikError] = useState("")
   const [isLoadingUser, setIsLoadingUser] = useState(false)
   const [jenisPengajuanCuti, setJenisPengajuanCuti] = useState("")
+  const [jenisPengajuan, setJenisPengajuan] = useState<"dengan_tiket" | "lokal">("dengan_tiket")
   const [tanggalPengajuan, setTanggalPengajuan] = useState(new Date().toISOString().split("T")[0])
   const [tanggalMulai, setTanggalMulai] = useState("")
   const [tanggalSelesai, setTanggalSelesai] = useState("")
@@ -81,7 +83,6 @@ export function NewLeaveRequestDialog({ open, onOpenChange, onSuccess }: NewLeav
         setNikError("")
 
         try {
-          // Try to find user in the fetched list first (case-insensitive)
           const trimmedNik = nik.trim().toUpperCase()
           const foundUser = allUsers.find((u) => u.nik.trim().toUpperCase() === trimmedNik)
 
@@ -89,7 +90,6 @@ export function NewLeaveRequestDialog({ open, onOpenChange, onSuccess }: NewLeav
             setSelectedUser(foundUser)
             setNikError("")
           } else {
-            // If not found in list, try API lookup
             const response = await fetch(`/api/users?nik=${encodeURIComponent(nik.trim())}`)
             if (response.ok) {
               const users = await response.json()
@@ -118,7 +118,6 @@ export function NewLeaveRequestDialog({ open, onOpenChange, onSuccess }: NewLeav
       }
     }
 
-    // Debounce the lookup
     const timeoutId = setTimeout(lookupUser, 500)
     return () => clearTimeout(timeoutId)
   }, [nik, allUsers])
@@ -153,18 +152,16 @@ export function NewLeaveRequestDialog({ open, onOpenChange, onSuccess }: NewLeav
       return
     }
 
-    if (
-      !nik ||
-      !jenisPengajuanCuti ||
-      !tanggalPengajuan ||
-      !tanggalMulai ||
-      !tanggalSelesai ||
-      !berangkatDari ||
-      !tujuan ||
-      !tanggalKeberangkatan
-    ) {
+    if (!nik || !jenisPengajuanCuti || !tanggalPengajuan || !tanggalMulai || !tanggalSelesai) {
       setError("Semua field wajib harus diisi")
       return
+    }
+
+    if (jenisPengajuan === "dengan_tiket") {
+      if (!berangkatDari || !tujuan || !tanggalKeberangkatan) {
+        setError("Untuk pengajuan dengan tiket, field berangkat dari, tujuan, dan tanggal keberangkatan wajib diisi")
+        return
+      }
     }
 
     if (selectedUser.site !== user.site) {
@@ -196,13 +193,14 @@ export function NewLeaveRequestDialog({ open, onOpenChange, onSuccess }: NewLeav
           action: "create",
           nik: selectedUser.nik,
           jenisCuti: jenisPengajuanCuti,
+          jenisPengajuan,
           tanggalPengajuan,
           periodeAwal: tanggalMulai,
           periodeAkhir: tanggalSelesai,
           jumlahHari,
-          berangkatDari,
-          tujuan,
-          tanggalKeberangkatan,
+          berangkatDari: jenisPengajuan === "dengan_tiket" ? berangkatDari : null,
+          tujuan: jenisPengajuan === "dengan_tiket" ? tujuan : null,
+          tanggalKeberangkatan: jenisPengajuan === "dengan_tiket" ? tanggalKeberangkatan : null,
           cutiPeriodikBerikutnya: tanggalCutiPeriodikBerikutnya || null,
           catatan: catatan || null,
           lamaOnsite: lamaOnsite ? Number.parseInt(lamaOnsite) : null,
@@ -225,11 +223,11 @@ export function NewLeaveRequestDialog({ open, onOpenChange, onSuccess }: NewLeav
 
       console.log("[v0] Leave request created successfully:", result.data)
 
-      // Reset form
       setNik("")
       setSelectedUser(null)
       setNikError("")
       setJenisPengajuanCuti("")
+      setJenisPengajuan("dengan_tiket")
       setTanggalPengajuan(new Date().toISOString().split("T")[0])
       setTanggalMulai("")
       setTanggalSelesai("")
@@ -331,10 +329,10 @@ export function NewLeaveRequestDialog({ open, onOpenChange, onSuccess }: NewLeav
 
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label htmlFor="jenisPengajuanCuti">Jenis Pengajuan Cuti</Label>
+              <Label htmlFor="jenisPengajuanCuti">Jenis Cuti</Label>
               <Select value={jenisPengajuanCuti} onValueChange={setJenisPengajuanCuti}>
                 <SelectTrigger>
-                  <SelectValue placeholder="Pilih jenis pengajuan cuti" />
+                  <SelectValue placeholder="Pilih jenis cuti" />
                 </SelectTrigger>
                 <SelectContent>
                   {LEAVE_TYPES.map((type) => (
@@ -356,6 +354,19 @@ export function NewLeaveRequestDialog({ open, onOpenChange, onSuccess }: NewLeav
                 required
               />
             </div>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="jenisTiket">Jenis Pengajuan</Label>
+            <Select value={jenisPengajuan} onValueChange={(value) => setJenisPengajuan(value as "dengan_tiket" | "lokal")}>
+              <SelectTrigger id="jenisTiket">
+                <SelectValue placeholder="Pilih jenis pengajuan" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="dengan_tiket">Dengan Tiket Perjalanan</SelectItem>
+                <SelectItem value="lokal">Cuti Lokal (Tanpa Tiket)</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
 
           <div className="grid grid-cols-2 gap-4">
@@ -388,71 +399,72 @@ export function NewLeaveRequestDialog({ open, onOpenChange, onSuccess }: NewLeav
             </div>
           )}
 
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="berangkatDari">Berangkat dari</Label>
-              <Input
-                id="berangkatDari"
-                type="text"
-                placeholder="Lokasi keberangkatan"
-                value={berangkatDari}
-                onChange={(e) => setBerangkatDari(e.target.value)}
-                required
-              />
-            </div>
+          {jenisPengajuan === "dengan_tiket" && (
+            <>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="berangkatDari">Berangkat dari</Label>
+                  <Input
+                    id="berangkatDari"
+                    type="text"
+                    placeholder="Lokasi keberangkatan"
+                    value={berangkatDari}
+                    onChange={(e) => setBerangkatDari(e.target.value)}
+                  />
+                </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="tujuan">Tujuan</Label>
-              <Input
-                id="tujuan"
-                type="text"
-                placeholder="Lokasi tujuan"
-                value={tujuan}
-                onChange={(e) => setTujuan(e.target.value)}
-                required
-              />
-            </div>
-          </div>
+                <div className="space-y-2">
+                  <Label htmlFor="tujuan">Tujuan</Label>
+                  <Input
+                    id="tujuan"
+                    type="text"
+                    placeholder="Lokasi tujuan"
+                    value={tujuan}
+                    onChange={(e) => setTujuan(e.target.value)}
+                  />
+                </div>
+              </div>
 
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="tanggalKeberangkatan" className="font-bold uppercase">
-                Tanggal Keberangkatan
-              </Label>
-              <Input
-                id="tanggalKeberangkatan"
-                type="date"
-                value={tanggalKeberangkatan}
-                onChange={(e) => setTanggalKeberangkatan(e.target.value)}
-                required
-              />
-            </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="tanggalKeberangkatan" className="font-bold uppercase">
+                    Tanggal Keberangkatan
+                  </Label>
+                  <Input
+                    id="tanggalKeberangkatan"
+                    type="date"
+                    value={tanggalKeberangkatan}
+                    onChange={(e) => setTanggalKeberangkatan(e.target.value)}
+                  />
+                </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="tanggalCutiPeriodikBerikutnya">Tanggal Cuti Periodik Berikutnya</Label>
-              <Input
-                id="tanggalCutiPeriodikBerikutnya"
-                type="date"
-                value={tanggalCutiPeriodikBerikutnya}
-                onChange={(e) => setTanggalCutiPeriodikBerikutnya(e.target.value)}
-              />
-              {daysUntilNextLeave !== null && (
-                <p className="text-sm text-slate-600 mt-1">
-                  {daysUntilNextLeave > 0 ? (
-                    <span className="font-medium text-blue-600">
-                      {daysUntilNextLeave} hari lagi menjelang cuti berikutnya
-                    </span>
-                  ) : daysUntilNextLeave === 0 ? (
-                    <span className="font-medium text-green-600">Cuti periodik hari ini</span>
-                  ) : (
-                    <span className="font-medium text-orange-600">
-                      Tanggal cuti periodik sudah terlewat ({Math.abs(daysUntilNextLeave)} hari yang lalu)
-                    </span>
+                <div className="space-y-2">
+                  <Label htmlFor="tanggalCutiPeriodikBerikutnya">Tanggal Cuti Periodik Berikutnya</Label>
+                  <Input
+                    id="tanggalCutiPeriodikBerikutnya"
+                    type="date"
+                    value={tanggalCutiPeriodikBerikutnya}
+                    onChange={(e) => setTanggalCutiPeriodikBerikutnya(e.target.value)}
+                  />
+                  {daysUntilNextLeave !== null && (
+                    <p className="text-sm text-slate-600 mt-1">
+                      {daysUntilNextLeave > 0 ? (
+                        <span className="font-medium text-blue-600">
+                          {daysUntilNextLeave} hari lagi menjelang cuti berikutnya
+                        </span>
+                      ) : daysUntilNextLeave === 0 ? (
+                        <span className="font-medium text-green-600">Cuti periodik hari ini</span>
+                      ) : (
+                        <span className="font-medium text-orange-600">
+                          Tanggal cuti periodik sudah terlewat ({Math.abs(daysUntilNextLeave)} hari yang lalu)
+                        </span>
+                      )}
+                    </p>
                   )}
-                </p>
-              )}
-            </div>
-          </div>
+                </div>
+              </div>
+            </>
+          )}
 
           <div className="space-y-2">
             <Label htmlFor="lamaOnsite">Lama Onsite (dalam hari)</Label>

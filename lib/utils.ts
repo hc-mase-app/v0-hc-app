@@ -60,6 +60,7 @@ export function getStatusLabel(status: string): string {
     pending_pjo: "Menunggu PJO",
     pending_hr_ho: "Menunggu HR HO",
     di_proses: "Diproses",
+    tiket_partial_issued: "Tiket Sebagian Terbit",
     tiket_issued: "Tiket Diterbitkan",
     ditolak_dic: "Ditolak DIC",
     ditolak_pjo: "Ditolak PJO",
@@ -76,6 +77,7 @@ export function getStatusColor(status: string): string {
     pending_pjo: "bg-blue-100 text-blue-800",
     pending_hr_ho: "bg-purple-100 text-purple-800",
     di_proses: "bg-indigo-100 text-indigo-800",
+    tiket_partial_issued: "bg-green-100 text-green-800",
     tiket_issued: "bg-green-100 text-green-800",
     ditolak_dic: "bg-red-100 text-red-800",
     ditolak_pjo: "bg-red-100 text-red-800",
@@ -97,4 +99,28 @@ export function getRoleLabel(role: string): string {
     super_admin: "Super Admin",
   }
   return labels[role] || role
+}
+
+export function getDetailedTicketStatus(
+  status: string,
+  statusTiketBerangkat?: string,
+  statusTiketPulang?: string,
+): string {
+  // Cek apakah ada tiket yang sudah issued
+  const tiketBerangkatIssued = statusTiketBerangkat === "issued"
+  const tiketPulangIssued = statusTiketPulang === "issued"
+
+  // Jika minimal satu tiket sudah issued, tampilkan status detail
+  if (tiketBerangkatIssued || tiketPulangIssued) {
+    if (tiketBerangkatIssued && tiketPulangIssued) {
+      return "Tiket Lengkap"
+    } else if (tiketBerangkatIssued) {
+      return "Tiket Berangkat Terbit"
+    } else if (tiketPulangIssued) {
+      return "Tiket Balik Terbit"
+    }
+  }
+
+  // Jika tidak ada tiket yang issued, return label biasa
+  return getStatusLabel(status)
 }

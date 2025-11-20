@@ -6,9 +6,14 @@ export type LeaveStatus =
   | "pending_hr_ho"
   | "di_proses"
   | "tiket_issued"
+  | "approved"
   | "ditolak_dic"
   | "ditolak_pjo"
   | "ditolak_hr_ho"
+
+export type JenisPengajuan = "dengan_tiket" | "lokal"
+
+export type StatusTiket = "belum_issued" | "issued"
 
 export interface User {
   id: string
@@ -45,6 +50,7 @@ export interface LeaveRequest {
   tanggalLahir: string
   jenisKelamin: "Laki-laki" | "Perempuan"
   jenisPengajuanCuti: string
+  jenisPengajuan?: JenisPengajuan
   tanggalPengajuan: string
   tanggalKeberangkatan: string
   tanggalMulai: string
@@ -66,6 +72,16 @@ export interface LeaveRequest {
   namaPesawat?: string // Airline name (HR Ticketing input)
   jamKeberangkatan?: string // Departure time (HR Ticketing input)
   bookingCodeIssuedAt?: string // Date when booking code was issued
+  statusTiketBerangkat?: StatusTiket
+  statusTiketBalik?: StatusTiket
+  tanggalIssueTiketBerangkat?: string
+  tanggalIssueTiketBalik?: string
+  bookingCodeBalik?: string
+  namaPesawatBalik?: string
+  jamKeberangkatanBalik?: string
+  tanggalBerangkatBalik?: string // Added return ticket departure date field
+  berangkatDariBalik?: string // Return departure city (can be different from tujuan)
+  tujuanBalik?: string // Return destination (can be different from berangkatDari)
 }
 
 export interface ApprovalHistory {
@@ -74,7 +90,7 @@ export interface ApprovalHistory {
   approverUserId: string
   approverName: string
   approverRole: UserRole
-  action: "approved" | "rejected"
+  action: "approved" | "rejected" | "tiket_berangkat_issued" | "tiket_balik_issued" | "tiket_issued"
   notes: string
   timestamp: string
 }

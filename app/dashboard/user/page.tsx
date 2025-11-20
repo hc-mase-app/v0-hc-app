@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { useRouter } from "next/navigation"
+import { useRouter } from 'next/navigation'
 import { useAuth } from "@/lib/auth-context"
 import { DashboardLayout } from "@/components/dashboard-layout"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -9,8 +9,8 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { LeaveRequestDetailDialog } from "@/components/leave-request-detail-dialog"
 import type { LeaveRequest } from "@/lib/types"
-import { Calendar, User, Briefcase, Building2, FileText } from "lucide-react"
-import { formatDate, formatMonthYear, getStatusColor, getStatusLabel } from "@/lib/utils"
+import { Calendar, User, Briefcase, Building2, FileText } from 'lucide-react'
+import { formatDate, formatMonthYear, getStatusColor, getDetailedTicketStatus } from "@/lib/utils"
 
 export default function UserDashboard() {
   const { user, isAuthenticated } = useAuth()
@@ -65,60 +65,68 @@ export default function UserDashboard() {
           </Card>
         ) : (
           <div className="grid gap-4">
-            {requests.map((request) => (
-              <Card key={request.id} className="hover:shadow-md transition-shadow">
-                <CardHeader>
-                  <div className="flex flex-col sm:flex-row items-start justify-between gap-2">
-                    <CardTitle className="text-base md:text-lg whitespace-normal leading-tight">
-                      {request.jenisPengajuanCuti}
-                    </CardTitle>
-                    <Badge className={getStatusColor(request.status)}>{getStatusLabel(request.status)}</Badge>
-                  </div>
-                </CardHeader>
-                <CardContent>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm mb-4">
-                    <div className="flex items-center gap-2">
-                      <User className="h-4 w-4 text-muted-foreground flex-shrink-0" />
-                      <div>
-                        <p className="text-muted-foreground text-xs">Tanggal Pengajuan</p>
-                        <p className="font-medium text-xs md:text-sm">{formatDate(request.tanggalPengajuan)}</p>
+            {requests.map((request) => {
+              const { label: statusLabel, color: statusColor } = getDetailedTicketStatus(
+                request.status,
+                request.statusTiketBerangkat,
+                request.statusTiketPulang
+              )
+              
+              return (
+                <Card key={request.id} className="hover:shadow-md transition-shadow">
+                  <CardHeader>
+                    <div className="flex flex-col sm:flex-row items-start justify-between gap-2">
+                      <CardTitle className="text-base md:text-lg whitespace-normal leading-tight">
+                        {request.jenisPengajuanCuti}
+                      </CardTitle>
+                      <Badge className={statusColor}>{statusLabel}</Badge>
+                    </div>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm mb-4">
+                      <div className="flex items-center gap-2">
+                        <User className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                        <div>
+                          <p className="text-muted-foreground text-xs">Tanggal Pengajuan</p>
+                          <p className="font-medium text-xs md:text-sm">{formatDate(request.tanggalPengajuan)}</p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Calendar className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                        <div>
+                          <p className="text-muted-foreground text-xs">Periode</p>
+                          <p className="font-medium text-xs md:text-sm">
+                            {request.tanggalKeberangkatan ? formatMonthYear(request.tanggalKeberangkatan) : "-"}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Briefcase className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                        <div>
+                          <p className="text-muted-foreground text-xs">Jabatan</p>
+                          <p className="font-medium text-xs md:text-sm">{request.jabatan}</p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Building2 className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                        <div>
+                          <p className="text-muted-foreground text-xs">Departemen</p>
+                          <p className="font-medium text-xs md:text-sm">{request.departemen}</p>
+                        </div>
                       </div>
                     </div>
-                    <div className="flex items-center gap-2">
-                      <Calendar className="h-4 w-4 text-muted-foreground flex-shrink-0" />
-                      <div>
-                        <p className="text-muted-foreground text-xs">Periode</p>
-                        <p className="font-medium text-xs md:text-sm">
-                          {request.tanggalKeberangkatan ? formatMonthYear(request.tanggalKeberangkatan) : "-"}
-                        </p>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <Briefcase className="h-4 w-4 text-muted-foreground flex-shrink-0" />
-                      <div>
-                        <p className="text-muted-foreground text-xs">Jabatan</p>
-                        <p className="font-medium text-xs md:text-sm">{request.jabatan}</p>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <Building2 className="h-4 w-4 text-muted-foreground flex-shrink-0" />
-                      <div>
-                        <p className="text-muted-foreground text-xs">Departemen</p>
-                        <p className="font-medium text-xs md:text-sm">{request.departemen}</p>
-                      </div>
-                    </div>
-                  </div>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setSelectedRequest(request)}
-                    className="w-full text-xs md:text-sm"
-                  >
-                    Lihat Detail Lengkap
-                  </Button>
-                </CardContent>
-              </Card>
-            ))}
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setSelectedRequest(request)}
+                      className="w-full text-xs md:text-sm"
+                    >
+                      Lihat Detail Lengkap
+                    </Button>
+                  </CardContent>
+                </Card>
+              )
+            })}
           </div>
         )}
       </div>

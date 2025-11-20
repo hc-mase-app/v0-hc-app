@@ -29,6 +29,7 @@ export interface LeaveRequestInput {
   submittedBy?: string
   site?: string
   departemen?: string
+  jenisPengajuan?: string // Added for conditional validation
 }
 
 /**
@@ -137,6 +138,10 @@ function validateSiteAndDepartemen(site: string | undefined, departemen: string 
 export function validateLeaveRequestCreate(input: LeaveRequestInput): ValidationResult {
   const errors: string[] = []
 
+  console.log("[v0] validateLeaveRequestCreate - jenisPengajuan:", input.jenisPengajuan)
+  console.log("[v0] validateLeaveRequestCreate - berangkatDari:", input.berangkatDari)
+  console.log("[v0] validateLeaveRequestCreate - tujuan:", input.tujuan)
+
   // Required field validations
   const nik = input.userNik || input.nik
   const nikError = validateNik(nik)
@@ -172,6 +177,26 @@ export function validateLeaveRequestCreate(input: LeaveRequestInput): Validation
 
   if (!input.submittedBy || input.submittedBy.trim() === "") {
     errors.push("submittedBy diperlukan")
+  }
+
+  // Note: jenisPengajuan is passed as part of the input, default to 'dengan_tiket' if not specified
+  const jenisPengajuan = input.jenisPengajuan || 'dengan_tiket'
+  
+  // Only validate travel fields if jenisPengajuan is 'dengan_tiket'
+  // For 'lokal', these fields are optional and can be null
+  if (jenisPengajuan === 'dengan_tiket') {
+    console.log("[v0] Checking travel fields for 'dengan_tiket'")
+    if (!input.berangkatDari || input.berangkatDari.trim() === "") {
+      errors.push("Berangkat dari diperlukan")
+    }
+    if (!input.tujuan || input.tujuan.trim() === "") {
+      errors.push("Tujuan diperlukan")
+    }
+    if (!input.tanggalKeberangkatan || input.tanggalKeberangkatan.trim() === "") {
+      errors.push("Tanggal keberangkatan diperlukan")
+    }
+  } else {
+    console.log("[v0] Skipping travel fields validation for 'lokal'")
   }
 
   // Optional field validations (only if provided)

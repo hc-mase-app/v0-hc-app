@@ -1,7 +1,7 @@
 "use client"
 
 import type { LeaveRequest, ApprovalHistory } from "@/lib/types"
-import { CheckCircle, XCircle, Clock, ChevronRight } from "lucide-react"
+import { CheckCircle, XCircle, Clock, ChevronRight } from 'lucide-react'
 
 interface ApprovalProgressProps {
   request: LeaveRequest
@@ -9,12 +9,18 @@ interface ApprovalProgressProps {
 }
 
 export function ApprovalProgress({ request, history }: ApprovalProgressProps) {
-  const stages = [
-    { status: "pending_dic", label: "DIC", order: 1 },
-    { status: "pending_pjo", label: "PJO Site", order: 2 },
-    { status: "pending_hr_ho", label: "HR HO", order: 3 },
-    { status: "approved", label: "Selesai", order: 4 },
-  ]
+  const stages = request.jenisPengajuan === "lokal"
+    ? [
+        { status: "pending_dic", label: "DIC", order: 1 },
+        { status: "pending_pjo", label: "PJO Site", order: 2 },
+        { status: "approved", label: "Selesai", order: 3 },
+      ]
+    : [
+        { status: "pending_dic", label: "DIC", order: 1 },
+        { status: "pending_pjo", label: "PJO Site", order: 2 },
+        { status: "pending_hr_ho", label: "HR HO", order: 3 },
+        { status: "approved", label: "Selesai", order: 4 },
+      ]
 
   const getStageStatus = (stageStatus: string) => {
     if (request.status === "rejected") return "rejected"

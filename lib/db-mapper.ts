@@ -1,19 +1,11 @@
 import type { LeaveRequest } from "./types"
 
-/**
- * Centralized mapper to transform database rows to LeaveRequest objects
- * Handles both snake_case DB columns and camelCase application fields
- * Provides consistent mapping across all modules
- */
 export function mapDbRowToLeaveRequest(row: any): LeaveRequest {
   if (!row) return {} as LeaveRequest
 
   return {
-    // Core identifiers
     id: row.id?.toString() || "",
     userId: row.user_id?.toString() || row.nik?.toString() || "",
-
-    // User information (from joined users table or leave_requests table)
     userName: row.user_name || row.name || "",
     userNik: row.nik || "",
     site: row.site || "",
@@ -26,54 +18,46 @@ export function mapDbRowToLeaveRequest(row: any): LeaveRequest {
     email: row.email || "",
     tanggalLahir: row.tanggal_lahir || "",
     jenisKelamin: row.jenis_kelamin || "",
-
-    // Leave request details - support both naming conventions
     jenisPengajuanCuti: row.jenis_cuti || row.jenis_pengajuan_cuti || "",
-    jenisCuti: row.jenis_cuti || row.jenis_pengajuan_cuti || "", // Alias
+    jenisCuti: row.jenis_cuti || row.jenis_pengajuan_cuti || "",
+    jenisPengajuan: row.jenis_pengajuan || "dengan_tiket",
     tanggalPengajuan: row.tanggal_pengajuan || "",
     tanggalKeberangkatan: row.tanggal_keberangkatan || "",
-
-    // Date ranges - support both naming conventions
     tanggalMulai: row.periode_awal || row.tanggal_mulai || "",
     tanggalSelesai: row.periode_akhir || row.tanggal_selesai || "",
-    periodeAwal: row.periode_awal || row.tanggal_mulai || "", // Alias
-    periodeAkhir: row.periode_akhir || row.tanggal_selesai || "", // Alias
-
-    // Travel details
+    periodeAwal: row.periode_awal || row.tanggal_mulai || "",
+    periodeAkhir: row.periode_akhir || row.tanggal_selesai || "",
     jumlahHari: Number(row.jumlah_hari) || 0,
     berangkatDari: row.berangkat_dari || "",
     tujuan: row.tujuan || "",
     lamaOnsite: row.lama_onsite ? Number(row.lama_onsite) : undefined,
-
-    // Additional fields
-    sisaCutiTahunan: 0, // Calculated field, not from DB
+    sisaCutiTahunan: 0,
     tanggalCutiPeriodikBerikutnya: row.cuti_periodik_berikutnya || row.tanggal_cuti_periodik_berikutnya || "",
-    cutiPeriodikBerikutnya: row.cuti_periodik_berikutnya || row.tanggal_cuti_periodik_berikutnya || "", // Alias
+    cutiPeriodikBerikutnya: row.cuti_periodik_berikutnya || row.tanggal_cuti_periodik_berikutnya || "",
     catatan: row.catatan || "",
-    alasan: row.catatan || row.alasan || "", // Alias for catatan
-
-    // Workflow status
+    alasan: row.catatan || row.alasan || "",
     status: row.status || "pending_dic",
-
-    // Timestamps
     createdAt: row.created_at || "",
     updatedAt: row.updated_at || "",
-
-    // Booking information (HR Ticketing)
     bookingCode: row.booking_code || undefined,
     namaPesawat: row.nama_pesawat || undefined,
     jamKeberangkatan: row.jam_keberangkatan || undefined,
     bookingCodeIssuedAt: row.booking_code_issued_at || undefined,
-
-    // Submission tracking
+    statusTiketBerangkat: row.status_tiket_berangkat || 'belum_issued',
+    tanggalIssueTiketBerangkat: row.tanggal_issue_tiket_berangkat || undefined,
+    statusTiketBalik: row.status_tiket_balik || 'belum_issued',
+    tanggalIssueTiketBalik: row.tanggal_issue_tiket_balik || undefined,
+    bookingCodeBalik: row.booking_code_balik || undefined,
+    namaPesawatBalik: row.nama_pesawat_balik || undefined,
+    jamKeberangkatanBalik: row.jam_keberangkatan_balik || undefined,
+    tanggalBerangkatBalik: row.tanggal_berangkat_balik || undefined,
+    berangkatDariBalik: row.berangkat_dari_balik || undefined,
+    tujuanBalik: row.tujuan_balik || undefined,
     submittedBy: row.submitted_by || "",
     submittedByName: row.submitted_by_name || "",
   }
 }
 
-/**
- * Map array of database rows to LeaveRequest objects
- */
 export function mapDbRowsToLeaveRequests(rows: any[]): LeaveRequest[] {
   if (!Array.isArray(rows)) {
     console.warn("[v0] mapDbRowsToLeaveRequests: input is not an array", typeof rows)
@@ -82,14 +66,9 @@ export function mapDbRowsToLeaveRequests(rows: any[]): LeaveRequest[] {
   return rows.map(mapDbRowToLeaveRequest)
 }
 
-/**
- * Map LeaveRequest object to database columns for INSERT/UPDATE operations
- * Converts camelCase to snake_case for database compatibility
- */
 export function mapLeaveRequestToDbRow(request: Partial<LeaveRequest>): Record<string, any> {
   const dbRow: Record<string, any> = {}
 
-  // Map all fields to snake_case
   if (request.userNik !== undefined) dbRow.nik = request.userNik
   if (request.jenisCuti !== undefined) dbRow.jenis_cuti = request.jenisCuti
   if (request.jenisPengajuanCuti !== undefined) dbRow.jenis_cuti = request.jenisPengajuanCuti
@@ -106,7 +85,7 @@ export function mapLeaveRequestToDbRow(request: Partial<LeaveRequest>): Record<s
   if (request.tanggalCutiPeriodikBerikutnya !== undefined)
     dbRow.cuti_periodik_berikutnya = request.tanggalCutiPeriodikBerikutnya
   if (request.catatan !== undefined) dbRow.catatan = request.catatan
-  if (request.alasan !== undefined) dbRow.catatan = request.alasan // Map alasan to catatan
+  if (request.alasan !== undefined) dbRow.catatan = request.alasan
   if (request.status !== undefined) dbRow.status = request.status
   if (request.submittedBy !== undefined) dbRow.submitted_by = request.submittedBy
   if (request.bookingCode !== undefined) dbRow.booking_code = request.bookingCode
@@ -115,6 +94,17 @@ export function mapLeaveRequestToDbRow(request: Partial<LeaveRequest>): Record<s
   if (request.lamaOnsite !== undefined) dbRow.lama_onsite = request.lamaOnsite
   if (request.site !== undefined) dbRow.site = request.site
   if (request.departemen !== undefined) dbRow.departemen = request.departemen
+  if (request.jenisPengajuan !== undefined) dbRow.jenis_pengajuan = request.jenisPengajuan
+  if (request.statusTiketBerangkat !== undefined) dbRow.status_tiket_berangkat = request.statusTiketBerangkat
+  if (request.tanggalIssueTiketBerangkat !== undefined) dbRow.tanggal_issue_tiket_berangkat = request.tanggalIssueTiketBerangkat
+  if (request.statusTiketBalik !== undefined) dbRow.status_tiket_balik = request.statusTiketBalik
+  if (request.tanggalIssueTiketBalik !== undefined) dbRow.tanggal_issue_tiket_balik = request.tanggalIssueTiketBalik
+  if (request.bookingCodeBalik !== undefined) dbRow.booking_code_balik = request.bookingCodeBalik
+  if (request.namaPesawatBalik !== undefined) dbRow.nama_pesawat_balik = request.namaPesawatBalik
+  if (request.jamKeberangkatanBalik !== undefined) dbRow.jam_keberangkatan_balik = request.jamKeberangkatanBalik
+  if (request.tanggalBerangkatBalik !== undefined) dbRow.tanggal_berangkat_balik = request.tanggalBerangkatBalik
+  if (request.berangkatDariBalik !== undefined) dbRow.berangkat_dari_balik = request.berangkatDariBalik
+  if (request.tujuanBalik !== undefined) dbRow.tujuan_balik = request.tujuanBalik
 
   return dbRow
 }

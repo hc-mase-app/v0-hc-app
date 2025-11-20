@@ -4,24 +4,27 @@ import { useEffect, useState } from "react"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Badge } from "@/components/ui/badge"
 import type { LeaveRequest, ApprovalHistory } from "@/lib/types"
-import { formatDate, getStatusLabel, getStatusColor } from "@/lib/utils"
-import { Calendar, FileText, Clock, MapPin, Plane, User, Download } from "lucide-react"
+import { formatDate, getStatusLabel, getStatusColor, getDetailedTicketStatus } from "@/lib/utils"
+import { Calendar, FileText, Clock, MapPin, Plane, User, Download } from 'lucide-react'
 import { ApprovalTimeline } from "@/components/approval-timeline"
 import { ApprovalProgress } from "@/components/approval-progress"
 import { Button } from "@/components/ui/button"
-import { downloadTicketPDF } from "@/components/ticket-pdf-generator"
+import { downloadDepartureTicketPDF, downloadReturnTicketPDF } from "@/components/ticket-pdf-generator"
+import { useAuth } from "@/lib/auth-context"
 
 interface LeaveRequestDetailDialogProps {
   request: LeaveRequest
   open: boolean
-  onOpenChange: (open: boolean) => void
+  onOpenChange?: (open: boolean) => void
+  onClose?: () => void
   onUpdate?: () => void
   isUserRole?: boolean
 }
 
-export function LeaveRequestDetailDialog({ request, open, onOpenChange, isUserRole }: LeaveRequestDetailDialogProps) {
+export function LeaveRequestDetailDialog({ request, open, onOpenChange, onClose, isUserRole }: LeaveRequestDetailDialogProps) {
   const [history, setHistory] = useState<ApprovalHistory[]>([])
   const [loading, setLoading] = useState(false)
+  const { user } = useAuth()
 
   useEffect(() => {
     if (open && request.id) {
@@ -48,8 +51,17 @@ export function LeaveRequestDetailDialog({ request, open, onOpenChange, isUserRo
     }
   }
 
+  const handleOpenChange = (newOpen: boolean) => {
+    if (!newOpen) {
+      onClose?.()
+    }
+    onOpenChange?.(newOpen)
+  }
+
+  const canDownloadTickets = isUserRole || user?.role === 'admin_site'
+
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <div className="flex items-center justify-between">
@@ -57,16 +69,31 @@ export function LeaveRequestDetailDialog({ request, open, onOpenChange, isUserRo
               <DialogTitle>Detail Pengajuan Cuti</DialogTitle>
               <DialogDescription>Informasi lengkap dan riwayat persetujuan</DialogDescription>
             </div>
-            {isUserRole && request.status === "tiket_issued" && request.bookingCode && (
-              <Button
-                onClick={() => downloadTicketPDF(request)}
-                className="gap-2 bg-green-600 hover:bg-green-700 whitespace-nowrap"
-                size="sm"
-              >
-                <Download className="h-4 w-4" />
-                <span className="hidden sm:inline">Download Tiket</span>
-                <span className="sm:hidden">Tiket</span>
-              </Button>
+            {canDownloadTickets && (
+              <div className="flex gap-2">
+                {request.bookingCode && request.statusTiketBerangkat === "issued" && (
+                  <Button
+                    onClick={() => downloadDepartureTicketPDF(request)}
+                    className="gap-2 bg-blue-600 hover:bg-blue-700 whitespace-nowrap"
+                    size="sm"
+                  >
+                    <Download className="h-4 w-4" />
+                    <span className="hidden sm:inline">Tiket Berangkat</span>
+                    <span className="sm:hidden">Berangkat</span>
+                  </Button>
+                )}
+                {request.bookingCodeBalik && request.statusTiketBalik === "issued" && (
+                  <Button
+                    onClick={() => downloadReturnTicketPDF(request)}
+                    className="gap-2 bg-green-600 hover:bg-green-700 whitespace-nowrap"
+                    size="sm"
+                  >
+                    <Download className="h-4 w-4" />
+                    <span className="hidden sm:inline">Tiket Balik</span>
+                    <span className="sm:hidden">Balik</span>
+                  </Button>
+                )}
+              </div>
             )}
           </div>
         </DialogHeader>
@@ -74,7 +101,7 @@ export function LeaveRequestDetailDialog({ request, open, onOpenChange, isUserRo
         <div className="space-y-6">
           <div>
             <Badge className={`${getStatusColor(request.status)} text-base px-3 py-1`}>
-              {getStatusLabel(request.status)}
+              {getDetailedTicketStatus(request.status, request.statusTiketBerangkat, request.statusTiketBalik)}
             </Badge>
           </div>
 
@@ -149,8 +176,18 @@ export function LeaveRequestDetailDialog({ request, open, onOpenChange, isUserRo
               <div className="flex items-start gap-2">
                 <FileText className="h-4 w-4 text-slate-500 mt-0.5" />
                 <div>
-                  <p className="text-xs text-slate-500">Jenis Pengajuan Cuti</p>
+                  <p className="text-xs text-slate-500">Jenis Cuti</p>
                   <p className="font-medium">{request.jenisPengajuanCuti}</p>
+                </div>
+              </div>
+
+              <div className="flex items-start gap-2">
+                <FileText className="h-4 w-4 text-slate-500 mt-0.5" />
+                <div>
+                  <p className="text-xs text-slate-500">Jenis Pengajuan</p>
+                  <Badge variant={request.jenisPengajuan === "lokal" ? "secondary" : "default"} className="mt-1">
+                    {request.jenisPengajuan === "lokal" ? "Cuti Lokal (Tanpa Tiket)" : "Dengan Tiket Perjalanan"}
+                  </Badge>
                 </div>
               </div>
 
@@ -177,29 +214,33 @@ export function LeaveRequestDetailDialog({ request, open, onOpenChange, isUserRo
                 </div>
               </div>
 
-              <div className="flex items-start gap-2">
-                <MapPin className="h-4 w-4 text-slate-500 mt-0.5" />
-                <div>
-                  <p className="text-xs text-slate-500">Berangkat dari</p>
-                  <p className="font-medium">{request.berangkatDari}</p>
-                </div>
-              </div>
+              {request.jenisPengajuan === "dengan_tiket" && (
+                <>
+                  <div className="flex items-start gap-2">
+                    <MapPin className="h-4 w-4 text-slate-500 mt-0.5" />
+                    <div>
+                      <p className="text-xs text-slate-500">Berangkat dari</p>
+                      <p className="font-medium">{request.berangkatDari || "-"}</p>
+                    </div>
+                  </div>
 
-              <div className="flex items-start gap-2">
-                <Plane className="h-4 w-4 text-slate-500 mt-0.5" />
-                <div>
-                  <p className="text-xs text-slate-500">Tujuan</p>
-                  <p className="font-medium">{request.tujuan}</p>
-                </div>
-              </div>
+                  <div className="flex items-start gap-2">
+                    <Plane className="h-4 w-4 text-slate-500 mt-0.5" />
+                    <div>
+                      <p className="text-xs text-slate-500">Tujuan</p>
+                      <p className="font-medium">{request.tujuan || "-"}</p>
+                    </div>
+                  </div>
 
-              <div className="flex items-start gap-2">
-                <Calendar className="h-4 w-4 text-slate-500 mt-0.5" />
-                <div>
-                  <p className="text-xs text-slate-500 font-bold uppercase">Tanggal Keberangkatan</p>
-                  <p className="font-medium">{formatDate(request.tanggalKeberangkatan)}</p>
-                </div>
-              </div>
+                  <div className="flex items-start gap-2">
+                    <Calendar className="h-4 w-4 text-slate-500 mt-0.5" />
+                    <div>
+                      <p className="text-xs text-slate-500 font-bold uppercase">Tanggal Keberangkatan</p>
+                      <p className="font-medium">{request.tanggalKeberangkatan ? formatDate(request.tanggalKeberangkatan) : "-"}</p>
+                    </div>
+                  </div>
+                </>
+              )}
 
               {request.lamaOnsite && (
                 <div className="flex items-start gap-2">
@@ -230,33 +271,83 @@ export function LeaveRequestDetailDialog({ request, open, onOpenChange, isUserRo
             </div>
           )}
 
-          {(request.namaPesawat || request.jamKeberangkatan) && (
+          {(request.namaPesawat || request.jamKeberangkatan || request.bookingCode) && (
             <div className="bg-blue-50 border border-blue-200 p-4 rounded-lg">
               <div className="flex items-center gap-2 mb-3">
                 <Plane className="h-5 w-5 text-blue-700" />
-                <h3 className="font-semibold text-blue-900">Informasi Tiket & Perjalanan</h3>
+                <h3 className="font-semibold text-blue-900">Informasi Tiket Berangkat</h3>
               </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {request.namaPesawat && (
-                  <div>
-                    <p className="text-xs text-blue-600 font-medium">Nama Pesawat</p>
-                    <p className="font-semibold text-blue-900">{request.namaPesawat}</p>
-                  </div>
-                )}
-                {request.jamKeberangkatan && (
-                  <div>
-                    <p className="text-xs text-blue-600 font-medium">Jam Keberangkatan</p>
-                    <p className="font-semibold text-blue-900">{request.jamKeberangkatan}</p>
+              <div className="space-y-3">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {request.namaPesawat && (
+                    <div>
+                      <p className="text-xs text-blue-600 font-medium">Nama Pesawat</p>
+                      <p className="font-semibold text-blue-900">{request.namaPesawat}</p>
+                    </div>
+                  )}
+                  {request.jamKeberangkatan && (
+                    <div>
+                      <p className="text-xs text-blue-600 font-medium">Jam Keberangkatan</p>
+                      <p className="font-semibold text-blue-900">{request.jamKeberangkatan}</p>
+                    </div>
+                  )}
+                </div>
+                {request.bookingCode && (
+                  <div className="pt-2 border-t border-blue-300">
+                    <p className="text-xs text-blue-600 font-medium mb-1">Kode Booking Berangkat:</p>
+                    <p className="text-lg font-bold text-blue-900">{request.bookingCode}</p>
                   </div>
                 )}
               </div>
             </div>
           )}
 
-          {request.bookingCode && (
-            <div className="bg-green-50 border border-green-200 rounded-lg p-4">
-              <p className="text-sm font-semibold text-green-900 mb-1">Kode Booking:</p>
-              <p className="text-base font-medium text-green-800">{request.bookingCode}</p>
+          {(request.namaPesawatBalik || request.jamKeberangkatanBalik || request.bookingCodeBalik) && (
+            <div className="bg-green-50 border border-green-200 p-4 rounded-lg">
+              <div className="flex items-center gap-2 mb-3">
+                <Plane className="h-5 w-5 text-green-700 rotate-180" />
+                <h3 className="font-semibold text-green-900">Informasi Tiket Balik</h3>
+              </div>
+              <div className="space-y-3">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {request.namaPesawatBalik && (
+                    <div>
+                      <p className="text-xs text-green-600 font-medium">Nama Pesawat</p>
+                      <p className="font-semibold text-green-900">{request.namaPesawatBalik}</p>
+                    </div>
+                  )}
+                  {request.jamKeberangkatanBalik && (
+                    <div>
+                      <p className="text-xs text-green-600 font-medium">Jam Keberangkatan</p>
+                      <p className="font-semibold text-green-900">{request.jamKeberangkatanBalik}</p>
+                    </div>
+                  )}
+                  {request.tanggalBerangkatBalik && (
+                    <div>
+                      <p className="text-xs text-green-600 font-medium">Tanggal Keberangkatan</p>
+                      <p className="font-semibold text-green-900">{formatDate(request.tanggalBerangkatBalik)}</p>
+                    </div>
+                  )}
+                  {request.berangkatDariBalik && (
+                    <div>
+                      <p className="text-xs text-green-600 font-medium">Berangkat Dari</p>
+                      <p className="font-semibold text-green-900">{request.berangkatDariBalik}</p>
+                    </div>
+                  )}
+                  {request.tujuanBalik && (
+                    <div>
+                      <p className="text-xs text-green-600 font-medium">Tujuan</p>
+                      <p className="font-semibold text-green-900">{request.tujuanBalik}</p>
+                    </div>
+                  )}
+                </div>
+                {request.bookingCodeBalik && (
+                  <div className="pt-2 border-t border-green-300">
+                    <p className="text-xs text-green-600 font-medium mb-1">Kode Booking Balik:</p>
+                    <p className="text-lg font-bold text-green-900">{request.bookingCodeBalik}</p>
+                  </div>
+                )}
+              </div>
             </div>
           )}
 
@@ -265,7 +356,12 @@ export function LeaveRequestDetailDialog({ request, open, onOpenChange, isUserRo
           ) : (
             <>
               <ApprovalProgress request={request} history={history} />
-              <ApprovalTimeline history={history} currentStatus={request.status} />
+              <ApprovalTimeline 
+                history={history} 
+                currentStatus={request.status} 
+                statusTiketBerangkat={request.statusTiketBerangkat}
+                statusTiketBalik={request.statusTiketBalik}
+              />
             </>
           )}
         </div>

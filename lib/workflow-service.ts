@@ -12,6 +12,7 @@ export type LeaveStatus =
   | "pending_hr_ho"
   | "di_proses"
   | "tiket_issued"
+  | "approved" // Added approved status for cuti lokal
   | "ditolak_dic"
   | "ditolak_pjo"
   | "ditolak_hr_ho"

@@ -1,13 +1,13 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useMemo, useRef } from "react"
 import { useAuth } from "@/lib/auth-context"
 import { useRouter } from "next/navigation"
 import { DashboardLayout } from "@/components/dashboard-layout"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { FileText, Clock, CheckCircle, Search, Calendar, Ticket, Download, Edit } from "lucide-react"
 import type { LeaveRequest } from "@/lib/types"
-import { formatDate, getStatusLabel, getStatusColor } from "@/lib/utils"
+import { formatDate, getStatusColor, getDetailedTicketStatus } from "@/lib/utils"
 import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
@@ -17,6 +17,9 @@ import { Label } from "@/components/ui/label"
 import { useToast } from "@/hooks/use-toast"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { exportToExcel } from "@/lib/excel-export"
+import { Checkbox } from "@/components/ui/checkbox"
+import { ExcelColumnSelectorDialog } from "@/components/excel-column-selector-dialog"
+import { exportToExcelCustom } from "@/lib/excel-export-custom"
 
 export default function HRTicketingDashboard() {
   const { user, isAuthenticated } = useAuth()
@@ -24,19 +27,28 @@ export default function HRTicketingDashboard() {
   const { toast } = useToast()
   const [pendingRequests, setpendingRequests] = useState<LeaveRequest[]>([])
   const [allRequests, setAllRequests] = useState<LeaveRequest[]>([])
-  const [filteredRequests, setFilteredRequests] = useState<LeaveRequest[]>([])
   const [searchQuery, setSearchQuery] = useState("")
   const [selectedRequest, setSelectedRequest] = useState<LeaveRequest | null>(null)
   const [bookingDialogOpen, setBookingDialogOpen] = useState(false)
   const [bookingRequest, setBookingRequest] = useState<LeaveRequest | null>(null)
-  const [bookingCode, setBookingCode] = useState("")
-  const [namaPesawat, setNamaPesawat] = useState("")
-  const [jamKeberangkatan, setJamKeberangkatan] = useState("")
   const [isProcessing, setIsProcessing] = useState(false)
   const [activeTab, setActiveTab] = useState("pending")
   const [isEditMode, setIsEditMode] = useState(false)
   const [startDate, setStartDate] = useState("")
   const [endDate, setEndDate] = useState("")
+  const [tiketBerangkatChecked, setTiketBerangkatChecked] = useState(false)
+  const [tiketPulangChecked, setTiketPulangChecked] = useState(false)
+  const [columnSelectorOpen, setColumnSelectorOpen] = useState(false)
+  const [isExportingCustom, setIsExportingCustom] = useState(false)
+  const bookingCodeRef = useRef<HTMLInputElement>(null)
+  const namaPesawatRef = useRef<HTMLInputElement>(null)
+  const jamKeberangkatanRef = useRef<HTMLInputElement>(null)
+  const bookingCodeBalikRef = useRef<HTMLInputElement>(null)
+  const namaPesawatBalikRef = useRef<HTMLInputElement>(null)
+  const jamKeberangkatanBalikRef = useRef<HTMLInputElement>(null)
+  const tanggalBerangkatBalikRef = useRef<HTMLInputElement>(null)
+  const berangkatDariBalikRef = useRef<HTMLInputElement>(null)
+  const tujuanBalikRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
     if (!isAuthenticated || !user) {
@@ -57,15 +69,12 @@ export default function HRTicketingDashboard() {
       const pendingRes = await fetch("/api/workflow?action=pending&role=hr_ticketing&site=all")
       const pending = await pendingRes.json()
       const pendingData = Array.isArray(pending) ? pending : pending?.data || []
-      const enhancedPending = await enrichRequestsWithBookingDate(pendingData)
-      setpendingRequests(enhancedPending)
-      setFilteredRequests(enhancedPending)
+      setpendingRequests(pendingData)
 
       const allRes = await fetch("/api/workflow?action=all&role=hr_ticketing&site=all")
       const all = await allRes.json()
       const allData = Array.isArray(all) ? all : all?.data || []
-      const enhancedAll = await enrichRequestsWithBookingDate(allData)
-      setAllRequests(enhancedAll)
+      setAllRequests(allData)
     } catch (error) {
       console.error("Error loading data:", error)
       toast({
@@ -76,38 +85,15 @@ export default function HRTicketingDashboard() {
     }
   }
 
-  const enrichRequestsWithBookingDate = async (requests: LeaveRequest[]) => {
-    return Promise.all(
-      requests.map(async (request) => {
-        try {
-          const res = await fetch(`/api/approvals?requestId=${request.id}`)
-          const history = await res.json()
-          const bookingIssueEntry = Array.isArray(history)
-            ? history.find((entry: any) => entry.action === "tiket_issued")
-            : null
-          return {
-            ...request,
-            bookingCodeIssuedAt: bookingIssueEntry?.timestamp || request.updatedAt,
-          }
-        } catch {
-          return {
-            ...request,
-            bookingCodeIssuedAt: request.updatedAt,
-          }
-        }
-      }),
-    )
-  }
+  const filteredRequests = useMemo(() => {
+    const source = activeTab === "pending" ? pendingRequests : allRequests
 
-  useEffect(() => {
     if (!searchQuery.trim()) {
-      setFilteredRequests(activeTab === "pending" ? pendingRequests : allRequests)
-      return
+      return source
     }
 
     const query = searchQuery.toLowerCase()
-    const source = activeTab === "pending" ? pendingRequests : allRequests
-    const filtered = source.filter((request) => {
+    return source.filter((request) => {
       return (
         (request.userNik?.toLowerCase() || "").includes(query) ||
         (request.userName?.toLowerCase() || "").includes(query) ||
@@ -116,18 +102,36 @@ export default function HRTicketingDashboard() {
         (request.jenisPengajuanCuti?.toLowerCase() || "").includes(query)
       )
     })
-    setFilteredRequests(filtered)
   }, [searchQuery, pendingRequests, allRequests, activeTab])
 
   const handleProcessTicket = async () => {
-    if (!bookingRequest || !bookingCode.trim()) {
+    if (!bookingRequest) return
+
+    if (!tiketBerangkatChecked && !tiketPulangChecked) {
       toast({
         title: "Error",
-        description: "Kode booking harus diisi",
+        description: "Pilih minimal satu tiket (berangkat atau balik)",
         variant: "destructive",
       })
       return
     }
+
+    const bookingCode = bookingCodeRef.current?.value.trim() || undefined
+    const namaPesawat = namaPesawatRef.current?.value.trim() || null
+    const jamKeberangkatan = jamKeberangkatanRef.current?.value || null
+    const bookingCodeBalik = bookingCodeBalikRef.current?.value.trim() || undefined
+    const namaPesawatBalik = namaPesawatBalikRef.current?.value.trim() || null
+    const jamKeberangkatanBalik = jamKeberangkatanBalikRef.current?.value || null
+    const tanggalBerangkatBalik = tanggalBerangkatBalikRef.current?.value || null
+    const berangkatDariBalik = berangkatDariBalikRef.current?.value.trim() || null
+    const tujuanBalik = tujuanBalikRef.current?.value.trim() || null
+
+    console.log("[v0] Data yang akan dikirim:", {
+      tiketBerangkat: tiketBerangkatChecked,
+      tiketBalik: tiketPulangChecked,
+      bookingCode,
+      bookingCodeBalik,
+    })
 
     setIsProcessing(true)
     try {
@@ -137,9 +141,17 @@ export default function HRTicketingDashboard() {
         body: JSON.stringify({
           action: "update-booking",
           requestId: bookingRequest.id,
-          bookingCode: bookingCode.trim(),
-          namaPesawat: namaPesawat.trim() || null,
-          jamKeberangkatan: jamKeberangkatan || null,
+          tiketBerangkat: tiketBerangkatChecked,
+          tiketBalik: tiketPulangChecked, // Memastikan tiketBalik dikirim dengan benar
+          bookingCode,
+          namaPesawat,
+          jamKeberangkatan,
+          bookingCodeBalik,
+          namaPesawatBalik,
+          jamKeberangkatanBalik,
+          tanggalBerangkatBalik,
+          berangkatDariBalik,
+          tujuanBalik,
           updatedBy: user?.nik,
         }),
       })
@@ -157,11 +169,7 @@ export default function HRTicketingDashboard() {
       })
 
       setBookingDialogOpen(false)
-      setBookingRequest(null)
-      setBookingCode("")
-      setNamaPesawat("")
-      setJamKeberangkatan("")
-      setIsEditMode(false)
+      resetBookingForm()
       loadData()
     } catch (error) {
       toast({
@@ -174,11 +182,17 @@ export default function HRTicketingDashboard() {
     }
   }
 
+  const resetBookingForm = () => {
+    setBookingRequest(null)
+    setIsEditMode(false)
+    setTiketBerangkatChecked(false)
+    setTiketPulangChecked(false)
+  }
+
   const handleEditTicket = (request: LeaveRequest) => {
     setBookingRequest(request)
-    setBookingCode(request.bookingCode || "")
-    setNamaPesawat(request.namaPesawat || "")
-    setJamKeberangkatan(request.jamKeberangkatan || "")
+    setTiketBerangkatChecked(request.statusTiketBerangkat === "issued")
+    setTiketPulangChecked(request.statusTiketBalik === "issued")
     setIsEditMode(true)
     setBookingDialogOpen(true)
   }
@@ -196,9 +210,9 @@ export default function HRTicketingDashboard() {
       if (startDate || endDate) {
         console.log("[v0] Applying date filter...")
         dataToExport = allRequests.filter((request) => {
-          if (!request.bookingCodeIssuedAt) return false
+          if (!request.updatedAt) return false
 
-          const issuedDate = new Date(request.bookingCodeIssuedAt)
+          const issuedDate = new Date(request.updatedAt)
           issuedDate.setHours(0, 0, 0, 0)
 
           if (startDate && endDate) {
@@ -247,8 +261,8 @@ export default function HRTicketingDashboard() {
       const employeeDataMap = new Map<string, { namaPesawat?: string; lamaOnsite?: number }>()
 
       const sortedRequests = [...allRequests].sort((a, b) => {
-        const dateA = new Date(a.bookingCodeIssuedAt || a.updatedAt || 0).getTime()
-        const dateB = new Date(b.bookingCodeIssuedAt || b.updatedAt || 0).getTime()
+        const dateA = new Date(a.updatedAt || 0).getTime()
+        const dateB = new Date(b.updatedAt || 0).getTime()
         return dateB - dateA
       })
 
@@ -317,12 +331,96 @@ export default function HRTicketingDashboard() {
     }
   }
 
+  const handleExportCustomColumns = async (selectedColumns: string[]) => {
+    setIsExportingCustom(true)
+    try {
+      console.log("[v0] Starting custom export with columns:", selectedColumns)
+
+      let dataToExport = allRequests
+
+      if (startDate || endDate) {
+        dataToExport = allRequests.filter((request) => {
+          if (!request.updatedAt) return false
+
+          const issuedDate = new Date(request.updatedAt)
+          issuedDate.setHours(0, 0, 0, 0)
+
+          if (startDate && endDate) {
+            const start = new Date(startDate)
+            start.setHours(0, 0, 0, 0)
+            const end = new Date(endDate)
+            end.setHours(23, 59, 59, 999)
+            return issuedDate >= start && issuedDate <= end
+          } else if (startDate) {
+            const start = new Date(startDate)
+            start.setHours(0, 0, 0, 0)
+            return issuedDate >= start
+          } else if (endDate) {
+            const end = new Date(endDate)
+            end.setHours(23, 59, 59, 999)
+            return issuedDate <= end
+          }
+          return true
+        })
+      }
+
+      if (dataToExport.length === 0) {
+        toast({
+          title: "Tidak Ada Data",
+          description: "Tidak ada data untuk di-export dengan filter yang dipilih",
+          variant: "destructive",
+        })
+        setIsExportingCustom(false)
+        setColumnSelectorOpen(false)
+        return
+      }
+
+      const dateRangeText =
+        startDate && endDate
+          ? `${startDate}_sampai_${endDate}`
+          : startDate
+            ? `dari_${startDate}`
+            : endDate
+              ? `sampai_${endDate}`
+              : new Date().toISOString().split("T")[0]
+
+      const fileName = `Pengajuan_Cuti_Custom_${dateRangeText}`
+
+      await exportToExcelCustom(dataToExport, fileName, selectedColumns)
+
+      toast({
+        title: "Berhasil",
+        description: `${dataToExport.length} data berhasil di-export dengan ${selectedColumns.length} kolom`,
+      })
+
+      setColumnSelectorOpen(false)
+    } catch (error) {
+      console.error("[v0] Error in handleExportCustomColumns:", error)
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : "Gagal export Excel",
+        variant: "destructive",
+      })
+    } finally {
+      setIsExportingCustom(false)
+    }
+  }
+
+  const getTicketStatusBadge = (request: LeaveRequest) => {
+    const statusText = getDetailedTicketStatus(request.status, request.statusTiketBerangkat, request.statusTiketBalik)
+
+    if (statusText.includes("Terbit") || statusText.includes("Lengkap")) {
+      return <Badge className="bg-green-100 text-green-800 border-green-300">{statusText}</Badge>
+    }
+
+    return <Badge className={getStatusColor(request.status)}>{statusText}</Badge>
+  }
+
   if (!user) return null
 
   return (
     <DashboardLayout title="Dashboard HR Ticketing">
       <div className="space-y-6">
-        {/* Stats Cards */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -358,48 +456,15 @@ export default function HRTicketingDashboard() {
           </Card>
         </div>
 
-        {/* Main Content */}
         <div>
           <h2 className="text-2xl font-bold text-slate-900 mb-2">Proses Tiket & Input Booking</h2>
-          <p className="text-sm text-slate-600">
-            Tambahkan kode booking untuk pengajuan yang sudah disetujui (status: Di Proses)
-          </p>
         </div>
-
-        <Card className="bg-blue-50 border-blue-200">
-          <CardContent className="pt-6">
-            <div className="flex gap-3">
-              <div className="flex-shrink-0">
-                <svg className="h-5 w-5 text-blue-600" fill="currentColor" viewBox="0 0 20 20">
-                  <path
-                    fillRule="evenodd"
-                    d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z"
-                    clipRule="evenodd"
-                  />
-                </svg>
-              </div>
-              <div className="flex-1">
-                <h3 className="text-sm font-semibold text-blue-900 mb-1">Informasi Export Excel</h3>
-                <p className="text-sm text-blue-800">
-                  Kolom <strong>NAMA PESAWAT</strong> dan <strong>LAMA ONSITE</strong> akan menampilkan data dari
-                  database jika tersedia. Untuk record lama yang belum memiliki data ini, gunakan tombol{" "}
-                  <strong>"Edit Tiket"</strong> di tab Riwayat untuk melengkapi informasi.
-                </p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
 
         <Card>
           <CardHeader>
             <div className="flex justify-between items-start">
               <div>
                 <CardTitle>Pengajuan Cuti</CardTitle>
-                <CardDescription>
-                  {activeTab === "pending"
-                    ? 'Klik "Proses Tiket" untuk menambahkan kode booking'
-                    : "Riwayat semua pengajuan cuti yang sudah diproses"}
-                </CardDescription>
               </div>
               <div className="flex flex-col gap-2">
                 <div className="flex gap-2 items-end">
@@ -427,9 +492,25 @@ export default function HRTicketingDashboard() {
                       className="w-40"
                     />
                   </div>
-                  <Button variant="outline" size="sm" onClick={handleExportToExcel} className="gap-2 bg-transparent">
+                </div>
+                <div className="flex flex-col gap-2">
+                  <Button
+                    variant="default"
+                    size="sm"
+                    onClick={() => setColumnSelectorOpen(true)}
+                    className="gap-2 w-full"
+                  >
                     <Download className="h-4 w-4" />
-                    Export Excel
+                    Export Excel (Pilih Kolom)
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleExportToExcel}
+                    className="gap-2 w-full bg-transparent"
+                  >
+                    <Download className="h-4 w-4" />
+                    Export Excel (Default)
                   </Button>
                 </div>
                 {(startDate || endDate) && (
@@ -481,7 +562,7 @@ export default function HRTicketingDashboard() {
                           <div className="space-y-3 flex-1">
                             <div className="flex items-center gap-2">
                               <h3 className="font-semibold text-slate-900">{request.jenisPengajuanCuti}</h3>
-                              <Badge className={getStatusColor(request.status)}>{getStatusLabel(request.status)}</Badge>
+                              {getTicketStatusBadge(request)}
                             </div>
 
                             <div className="grid grid-cols-2 md:grid-cols-5 gap-4 text-sm">
@@ -529,6 +610,9 @@ export default function HRTicketingDashboard() {
                             size="sm"
                             onClick={() => {
                               setBookingRequest(request)
+                              setTiketBerangkatChecked(request.statusTiketBerangkat === "issued")
+                              setTiketPulangChecked(request.statusTiketBalik === "issued")
+                              setIsEditMode(false)
                               setBookingDialogOpen(true)
                             }}
                             className="flex-1"
@@ -562,7 +646,7 @@ export default function HRTicketingDashboard() {
                           <div className="space-y-3 flex-1">
                             <div className="flex items-center gap-2">
                               <h3 className="font-semibold text-slate-900">{request.jenisPengajuanCuti}</h3>
-                              <Badge className={getStatusColor(request.status)}>{getStatusLabel(request.status)}</Badge>
+                              {getTicketStatusBadge(request)}
                               {request.status === "tiket_issued" && (!request.namaPesawat || !request.lamaOnsite) && (
                                 <Badge variant="outline" className="bg-yellow-50 text-yellow-700 border-yellow-300">
                                   Data Belum Lengkap
@@ -633,19 +717,8 @@ export default function HRTicketingDashboard() {
         </Card>
       </div>
 
-      {/* Detail Dialog */}
-      {selectedRequest && (
-        <LeaveRequestDetailDialog
-          request={selectedRequest}
-          open={!!selectedRequest}
-          onOpenChange={(open) => !open && setSelectedRequest(null)}
-          onUpdate={loadData}
-        />
-      )}
-
-      {/* Booking Code Dialog */}
       <Dialog open={bookingDialogOpen} onOpenChange={setBookingDialogOpen}>
-        <DialogContent>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>{isEditMode ? "Edit Informasi Tiket" : "Input Informasi Tiket"}</DialogTitle>
             <DialogDescription>
@@ -677,73 +750,197 @@ export default function HRTicketingDashboard() {
               </div>
             )}
 
-            <div className="space-y-2">
-              <Label htmlFor="bookingCode">Kode Booking *</Label>
-              <Input
-                id="bookingCode"
-                placeholder="Masukkan kode booking"
-                value={bookingCode}
-                onChange={(e) => setBookingCode(e.target.value)}
-                disabled={isProcessing}
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="namaPesawat">
-                Nama Pesawat
-                <span className="text-xs text-slate-500 ml-2">(akan muncul di Excel)</span>
-              </Label>
-              <Input
-                id="namaPesawat"
-                placeholder="Contoh: Garuda Indonesia, Lion Air, dll"
-                value={namaPesawat}
-                onChange={(e) => setNamaPesawat(e.target.value)}
-                disabled={isProcessing}
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="jamKeberangkatan">Jam Keberangkatan</Label>
-              <Input
-                id="jamKeberangkatan"
-                type="time"
-                value={jamKeberangkatan}
-                onChange={(e) => setJamKeberangkatan(e.target.value)}
-                disabled={isProcessing}
-              />
-            </div>
-
-            {isEditMode && (
-              <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
-                <p className="text-xs text-blue-800">
-                  <strong>Catatan:</strong> Data yang Anda input di sini akan otomatis muncul di kolom NAMA PESAWAT pada
-                  export Excel.
-                </p>
+            <div className="border rounded-lg p-4 space-y-3">
+              <div className="flex items-center space-x-2">
+                <Checkbox
+                  id="tiketBerangkat"
+                  checked={tiketBerangkatChecked}
+                  onCheckedChange={(checked) => setTiketBerangkatChecked(!!checked)}
+                />
+                <Label htmlFor="tiketBerangkat" className="text-base font-semibold cursor-pointer">
+                  Tiket Berangkat
+                </Label>
+                {tiketBerangkatChecked && (
+                  <Badge className="bg-green-100 text-green-800 border-green-300">Sudah Issued</Badge>
+                )}
               </div>
-            )}
+
+              {tiketBerangkatChecked && (
+                <div className="space-y-3 pl-6 border-l-2 border-blue-200">
+                  <div className="space-y-2">
+                    <Label htmlFor="bookingCode">Kode Booking Berangkat *</Label>
+                    <Input
+                      id="bookingCode"
+                      ref={bookingCodeRef}
+                      placeholder="Masukkan kode booking"
+                      defaultValue={bookingRequest?.bookingCode || ""}
+                      disabled={isProcessing}
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="namaPesawat">Nama Pesawat</Label>
+                    <Input
+                      id="namaPesawat"
+                      ref={namaPesawatRef}
+                      placeholder="Contoh: Garuda Indonesia, Lion Air"
+                      defaultValue={bookingRequest?.namaPesawat || ""}
+                      disabled={isProcessing}
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="jamKeberangkatan">Jam Keberangkatan</Label>
+                    <Input
+                      id="jamKeberangkatan"
+                      ref={jamKeberangkatanRef}
+                      type="time"
+                      defaultValue={bookingRequest?.jamKeberangkatan || ""}
+                      disabled={isProcessing}
+                    />
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <div className="border rounded-lg p-4 space-y-3">
+              <div className="flex items-center space-x-2">
+                <Checkbox
+                  id="tiketPulang"
+                  checked={tiketPulangChecked}
+                  onCheckedChange={(checked) => setTiketPulangChecked(!!checked)}
+                />
+                <Label htmlFor="tiketPulang" className="text-base font-semibold cursor-pointer">
+                  Tiket Balik
+                </Label>
+                {tiketPulangChecked && (
+                  <Badge className="bg-green-100 text-green-800 border-green-300">Sudah Issued</Badge>
+                )}
+              </div>
+
+              {tiketPulangChecked && (
+                <div className="space-y-3 pl-6 border-l-2 border-green-200">
+                  <div className="space-y-2">
+                    <Label htmlFor="bookingCodeBalik">Kode Booking Balik *</Label>
+                    <Input
+                      id="bookingCodeBalik"
+                      ref={bookingCodeBalikRef}
+                      placeholder="Masukkan kode booking balik"
+                      defaultValue={bookingRequest?.bookingCodeBalik || ""}
+                      disabled={isProcessing}
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="namaPesawatBalik">Nama Pesawat</Label>
+                    <Input
+                      id="namaPesawatBalik"
+                      ref={namaPesawatBalikRef}
+                      placeholder="Contoh: Garuda Indonesia, Lion Air"
+                      defaultValue={bookingRequest?.namaPesawatBalik || ""}
+                      disabled={isProcessing}
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="jamKeberangkatanBalik">Jam Keberangkatan Balik</Label>
+                    <Input
+                      id="jamKeberangkatanBalik"
+                      ref={jamKeberangkatanBalikRef}
+                      type="time"
+                      defaultValue={bookingRequest?.jamKeberangkatanBalik || ""}
+                      disabled={isProcessing}
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="tanggalBerangkatBalik">Tanggal Keberangkatan Balik</Label>
+                    <Input
+                      id="tanggalBerangkatBalik"
+                      ref={tanggalBerangkatBalikRef}
+                      type="date"
+                      defaultValue={bookingRequest?.tanggalBerangkatBalik || ""}
+                      disabled={isProcessing}
+                    />
+                  </div>
+
+                  <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg space-y-3">
+                    <p className="text-xs font-semibold text-amber-900">Rute Penerbangan Balik</p>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="berangkatDariBalik">Berangkat Dari (Balik)</Label>
+                      <Input
+                        id="berangkatDariBalik"
+                        ref={berangkatDariBalikRef}
+                        placeholder="Contoh: Surabaya, Jakarta"
+                        defaultValue={bookingRequest?.berangkatDariBalik || bookingRequest?.tujuan || ""}
+                        disabled={isProcessing}
+                      />
+                      <p className="text-xs text-amber-700">
+                        Kota keberangkatan balik (bisa berbeda dari kota tujuan awal)
+                      </p>
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="tujuanBalik">Tujuan (Balik)</Label>
+                      <Input
+                        id="tujuanBalik"
+                        ref={tujuanBalikRef}
+                        placeholder="Contoh: Ternate, Jakarta"
+                        defaultValue={bookingRequest?.tujuanBalik || bookingRequest?.berangkatDari || ""}
+                        disabled={isProcessing}
+                      />
+                      <p className="text-xs text-amber-700">Kota tujuan balik (biasanya kembali ke kota asal kerja)</p>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
+              <p className="text-xs text-blue-800">
+                <strong>Catatan:</strong> Anda bisa issue tiket berangkat dan balik secara terpisah. Centang tiket mana
+                yang akan di-issue, lalu lengkapi informasinya. Rute balik bisa berbeda dari rute berangkat (misalnya:
+                Berangkat Ternate→Jakarta, Balik Surabaya→Ternate).
+              </p>
+            </div>
 
             <div className="flex justify-end gap-2">
               <Button
                 variant="outline"
                 onClick={() => {
                   setBookingDialogOpen(false)
-                  setBookingRequest(null)
-                  setBookingCode("")
-                  setNamaPesawat("")
-                  setJamKeberangkatan("")
-                  setIsEditMode(false)
+                  resetBookingForm()
                 }}
                 disabled={isProcessing}
               >
                 Batal
               </Button>
-              <Button onClick={handleProcessTicket} disabled={isProcessing || !bookingCode.trim()}>
+              <Button
+                onClick={handleProcessTicket}
+                disabled={isProcessing || (!tiketBerangkatChecked && !tiketPulangChecked)}
+              >
                 {isProcessing ? "Memproses..." : isEditMode ? "Perbarui Informasi Tiket" : "Simpan Informasi Tiket"}
               </Button>
             </div>
           </div>
         </DialogContent>
       </Dialog>
+
+      {selectedRequest && (
+        <LeaveRequestDetailDialog
+          request={selectedRequest}
+          open={!!selectedRequest}
+          onClose={() => setSelectedRequest(null)}
+        />
+      )}
+
+      <ExcelColumnSelectorDialog
+        open={columnSelectorOpen}
+        onClose={() => setColumnSelectorOpen(false)}
+        onExport={handleExportCustomColumns}
+        isExporting={isExportingCustom}
+      />
     </DashboardLayout>
   )
 }

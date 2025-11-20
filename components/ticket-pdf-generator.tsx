@@ -274,6 +274,345 @@ export async function downloadTicketPDF(request: LeaveRequest) {
   }
 }
 
+export async function downloadDepartureTicketPDF(request: LeaveRequest) {
+  try {
+    console.log("[v0] Starting departure ticket PDF generation for booking code:", request.bookingCode)
+
+    const container = document.createElement("div")
+    container.style.position = "fixed"
+    container.style.left = "-9999px"
+    container.style.top = "-9999px"
+    container.style.width = "448px"
+    container.style.margin = "0"
+    container.style.padding = "0"
+
+    const formatDate = (date: string | null | undefined) => {
+      if (!date) return "-"
+      return new Date(date).toLocaleDateString("id-ID", {
+        weekday: "short",
+        day: "numeric",
+        month: "short",
+        year: "numeric",
+      })
+    }
+
+    const formatDateOfBirth = (date: string | null | undefined) => {
+      if (!date) return "-"
+      return new Date(date).toLocaleDateString("id-ID", {
+        day: "numeric",
+        month: "long",
+        year: "numeric",
+      })
+    }
+
+    const berangkat = (request.berangkatDari || "-").toUpperCase()
+    const tujuan = (request.tujuan || "-").toUpperCase()
+
+    container.innerHTML = `
+      <div style="width: 448px; margin: 0; padding: 0; background: #ffffff; min-height: 900px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Helvetica Neue', sans-serif; display: flex; flex-direction: column; box-sizing: border-box; color: #000000; font-size: 16px;">
+        <div style="background: #2563eb; color: #ffffff; padding: 16px; position: relative; flex-shrink: 0; display: flex; align-items: flex-start; gap: 12px;">
+          <div style="flex: 1; display: flex; flex-direction: column; min-width: 0;">
+            <div style="font-size: 12px; opacity: 0.9; margin: 0; word-break: break-word;">PT 3S GSM Indonesia</div>
+            <div style="font-size: 24px; font-weight: bold; margin-top: 8px; margin-bottom: 0; line-height: 1.2; word-break: break-word;">TIKET BERANGKAT</div>
+            <div style="font-size: 13px; margin-top: 4px; margin-bottom: 0;">PERJALANAN DINAS</div>
+          </div>
+          <div style="background: #facc15; color: #000000; padding: 12px; border-radius: 4px; width: 140px; box-sizing: border-box; flex-shrink: 0; text-align: center;">
+            <div style="font-size: 11px; font-weight: bold; margin: 0;">KODE BOOKING</div>
+            <div style="font-size: 28px; font-weight: bold; margin-top: 4px; margin-bottom: 0; word-break: break-all;">${request.bookingCode || "-----"}</div>
+          </div>
+        </div>
+        <div style="background: #f3f4f6; padding: 16px; border-bottom: 2px solid #e5e7eb; flex-shrink: 0;">
+          <div style="font-size: 14px; font-weight: bold; margin-bottom: 12px; margin-top: 0;">DATA PENUMPANG</div>
+          <div style="display: flex; flex-direction: column; gap: 8px; margin: 0;">
+            <div style="display: flex; justify-content: space-between; font-size: 12px; margin: 0; gap: 8px;">
+              <span style="font-weight: bold; margin: 0; flex-shrink: 0;">Nama:</span>
+              <span style="margin: 0; text-align: right; flex: 1; word-break: break-word;">${request.userName || "-"}</span>
+            </div>
+            <div style="display: flex; justify-content: space-between; font-size: 12px; margin: 0; gap: 8px;">
+              <span style="font-weight: bold; margin: 0; flex-shrink: 0;">Nomor KTP:</span>
+              <span style="margin: 0; text-align: right; flex: 1; word-break: break-word;">${request.noKtp || "-"}</span>
+            </div>
+            <div style="display: flex; justify-content: space-between; font-size: 12px; margin: 0; gap: 8px;">
+              <span style="font-weight: bold; margin: 0; flex-shrink: 0;">Tanggal Lahir:</span>
+              <span style="margin: 0; text-align: right; flex: 1; word-break: break-word;">${formatDateOfBirth(request.tanggalLahir)}</span>
+            </div>
+            <div style="display: flex; justify-content: space-between; font-size: 12px; margin: 0; gap: 8px;">
+              <span style="font-weight: bold; margin: 0; flex-shrink: 0;">Jenis Kelamin:</span>
+              <span style="margin: 0; text-align: right; flex: 1; word-break: break-word;">${request.jenisKelamin || "-"}</span>
+            </div>
+          </div>
+        </div>
+        <div style="background: #f3f4f6; padding: 16px; flex: 1; display: flex; flex-direction: column;">
+          <div style="font-size: 14px; font-weight: bold; margin-bottom: 14px; margin-top: 0;">INFORMASI PENERBANGAN</div>
+          <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; flex-wrap: nowrap; margin-top: 0; gap: 8px;">
+            <div style="font-size: 18px; font-weight: bold; color: #2563eb; flex: 1; text-align: center; word-break: break-word; margin: 0; min-width: 0;">${berangkat}</div>
+            <div style="font-size: 32px; color: #9ca3af; margin: 0; flex-shrink: 0; line-height: 1; text-align: center;">→</div>
+            <div style="font-size: 18px; font-weight: bold; color: #2563eb; flex: 1; text-align: center; word-break: break-word; margin: 0; min-width: 0;">${tujuan}</div>
+          </div>
+          <div style="display: flex; flex-direction: column; gap: 8px; margin-bottom: 14px; margin-top: 0;">
+            <div style="display: flex; justify-content: space-between; font-size: 12px; margin: 0; gap: 8px;">
+              <span style="font-weight: bold; margin: 0; flex-shrink: 0;">Nama Pesawat:</span>
+              <span style="margin: 0; text-align: right; flex: 1; word-break: break-word;">${request.namaPesawat || "-"}</span>
+            </div>
+            <div style="display: flex; justify-content: space-between; font-size: 12px; margin: 0; gap: 8px;">
+              <span style="font-weight: bold; margin: 0; flex-shrink: 0;">Tanggal Keberangkatan:</span>
+              <span style="margin: 0; text-align: right; flex: 1; word-break: break-word;">${formatDate(request.tanggalKeberangkatan)}</span>
+            </div>
+            <div style="display: flex; justify-content: space-between; font-size: 12px; margin: 0; gap: 8px;">
+              <span style="font-weight: bold; margin: 0; flex-shrink: 0;">Jam Keberangkatan:</span>
+              <span style="margin: 0; text-align: right; flex: 1; word-break: break-word;">${request.jamKeberangkatan || "-"}</span>
+            </div>
+          </div>
+          <div style="background: #fef3c7; border: 2px solid #fcd34d; padding: 12px; margin-top: auto;">
+            <div style="font-size: 12px; font-weight: bold; margin-bottom: 8px; margin-top: 0;">PANDUAN CHECK-IN</div>
+            <ul style="font-size: 12px; margin: 0; padding-left: 16px; display: flex; flex-direction: column; gap: 8px; list-style: disc; line-height: 1.5;">
+              <li style="margin: 0; word-break: break-word;">Tiba di bandara minimal 90 menit sebelum keberangkatan</li>
+              <li style="margin: 0; word-break: break-word;">Lakukan web check-in 12-24 jam sebelum keberangkatan</li>
+              <li style="margin: 0; word-break: break-word;">Siapkan KTP asli dan kode booking ini</li>
+              <li style="margin: 0; word-break: break-word;">Pastikan nama sesuai dengan identitas</li>
+            </ul>
+          </div>
+        </div>
+        <div style="border-top: 1px solid #d1d5db; padding: 10px; text-align: center; flex-shrink: 0; margin-top: 0;">
+          <div style="font-size: 12px; color: #4b5563; margin-bottom: 4px; margin-top: 0; word-break: break-word;">Tunjukkan tiket ini di counter check-in bandara</div>
+          <div style="font-size: 11px; color: #6b7280; margin: 0;">Dicetak: ${new Date().toLocaleDateString("id-ID")}</div>
+        </div>
+      </div>
+    `
+    document.body.appendChild(container)
+
+    const canvas = await html2canvas(container, {
+      scale: 2,
+      backgroundColor: "#ffffff",
+      allowTaint: true,
+      useCORS: false,
+      logging: false,
+      ignoreElements: (element) => {
+        return element.tagName === "STYLE" || element.tagName === "LINK"
+      },
+      windowHeight: 1200,
+      windowWidth: 448,
+    })
+
+    document.body.removeChild(container)
+
+    const imgData = canvas.toDataURL("image/png")
+    const pdf = new jsPDF({
+      orientation: "portrait",
+      unit: "mm",
+      format: "a4",
+    })
+
+    const pdfWidth = pdf.internal.pageSize.getWidth()
+    const imgHeight = (canvas.height * pdfWidth) / canvas.width
+
+    pdf.addImage(imgData, "PNG", 0, 0, pdfWidth, imgHeight)
+
+    const filename = `Tiket-Berangkat-${request.bookingCode || request.userNik}-${new Date().toISOString().split("T")[0]}.pdf`
+
+    if (isCapacitorAvailable()) {
+      try {
+        await downloadPDFCapacitor(pdf.output("datauristring"), filename)
+      } catch (error) {
+        const link = document.createElement("a")
+        link.href = pdf.output("datauristring")
+        link.download = filename
+        document.body.appendChild(link)
+        link.click()
+        document.body.removeChild(link)
+      }
+    } else if (isCordovaAvailable()) {
+      await downloadPDFViaCordova(pdf.output("datauristring"), filename)
+    } else {
+      const link = document.createElement("a")
+      link.href = pdf.output("datauristring")
+      link.download = filename
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
+    }
+
+    console.log("[v0] Departure ticket PDF downloaded successfully")
+  } catch (error) {
+    console.error("[v0] PDF generation error:", error instanceof Error ? error.message : String(error))
+    alert("Gagal mengunduh tiket berangkat. Silakan coba lagi.")
+  }
+}
+
+export async function downloadReturnTicketPDF(request: LeaveRequest) {
+  try {
+    console.log("[v0] Starting return ticket PDF generation for booking code:", request.bookingCodeBalik)
+
+    const container = document.createElement("div")
+    container.style.position = "fixed"
+    container.style.left = "-9999px"
+    container.style.top = "-9999px"
+    container.style.width = "448px"
+    container.style.margin = "0"
+    container.style.padding = "0"
+
+    const formatDate = (date: string | null | undefined) => {
+      if (!date) return "-"
+      return new Date(date).toLocaleDateString("id-ID", {
+        weekday: "short",
+        day: "numeric",
+        month: "short",
+        year: "numeric",
+      })
+    }
+
+    const formatDateOfBirth = (date: string | null | undefined) => {
+      if (!date) return "-"
+      return new Date(date).toLocaleDateString("id-ID", {
+        day: "numeric",
+        month: "long",
+        year: "numeric",
+      })
+    }
+
+    const berangkat = (request.berangkatDariBalik || request.tujuan || "-").toUpperCase()
+    const tujuan = (request.tujuanBalik || request.berangkatDari || "-").toUpperCase()
+    const tanggalKeberangkatanBalik = request.tanggalBerangkatBalik || request.tanggalSelesai
+
+    container.innerHTML = `
+      <div style="width: 448px; margin: 0; padding: 0; background: #ffffff; min-height: 900px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Helvetica Neue', sans-serif; display: flex; flex-direction: column; box-sizing: border-box; color: #000000; font-size: 16px;">
+        <div style="background: #16a34a; color: #ffffff; padding: 16px; position: relative; flex-shrink: 0; display: flex; align-items: flex-start; gap: 12px;">
+          <div style="flex: 1; display: flex; flex-direction: column; min-width: 0;">
+            <div style="font-size: 12px; opacity: 0.9; margin: 0; word-break: break-word;">PT 3S GSM Indonesia</div>
+            <div style="font-size: 24px; font-weight: bold; margin-top: 8px; margin-bottom: 0; line-height: 1.2; word-break: break-word;">TIKET BALIK</div>
+            <div style="font-size: 13px; margin-top: 4px; margin-bottom: 0;">PERJALANAN DINAS</div>
+          </div>
+          <div style="background: #facc15; color: #000000; padding: 12px; border-radius: 4px; width: 140px; box-sizing: border-box; flex-shrink: 0; text-align: center;">
+            <div style="font-size: 11px; font-weight: bold; margin: 0;">KODE BOOKING</div>
+            <div style="font-size: 28px; font-weight: bold; margin-top: 4px; margin-bottom: 0; word-break: break-all;">${request.bookingCodeBalik || "-----"}</div>
+          </div>
+        </div>
+        <div style="background: #f3f4f6; padding: 16px; border-bottom: 2px solid #e5e7eb; flex-shrink: 0;">
+          <div style="font-size: 14px; font-weight: bold; margin-bottom: 12px; margin-top: 0;">DATA PENUMPANG</div>
+          <div style="display: flex; flex-direction: column; gap: 8px; margin: 0;">
+            <div style="display: flex; justify-content: space-between; font-size: 12px; margin: 0; gap: 8px;">
+              <span style="font-weight: bold; margin: 0; flex-shrink: 0;">Nama:</span>
+              <span style="margin: 0; text-align: right; flex: 1; word-break: break-word;">${request.userName || "-"}</span>
+            </div>
+            <div style="display: flex; justify-content: space-between; font-size: 12px; margin: 0; gap: 8px;">
+              <span style="font-weight: bold; margin: 0; flex-shrink: 0;">Nomor KTP:</span>
+              <span style="margin: 0; text-align: right; flex: 1; word-break: break-word;">${request.noKtp || "-"}</span>
+            </div>
+            <div style="display: flex; justify-content: space-between; font-size: 12px; margin: 0; gap: 8px;">
+              <span style="font-weight: bold; margin: 0; flex-shrink: 0;">Tanggal Lahir:</span>
+              <span style="margin: 0; text-align: right; flex: 1; word-break: break-word;">${formatDateOfBirth(request.tanggalLahir)}</span>
+            </div>
+            <div style="display: flex; justify-content: space-between; font-size: 12px; margin: 0; gap: 8px;">
+              <span style="font-weight: bold; margin: 0; flex-shrink: 0;">Jenis Kelamin:</span>
+              <span style="margin: 0; text-align: right; flex: 1; word-break: break-word;">${request.jenisKelamin || "-"}</span>
+            </div>
+          </div>
+        </div>
+        <div style="background: #f3f4f6; padding: 16px; flex: 1; display: flex; flex-direction: column;">
+          <div style="font-size: 14px; font-weight: bold; margin-bottom: 14px; margin-top: 0;">INFORMASI PENERBANGAN</div>
+          <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; flex-wrap: nowrap; margin-top: 0; gap: 8px;">
+            <div style="font-size: 18px; font-weight: bold; color: #16a34a; flex: 1; text-align: center; word-break: break-word; margin: 0; min-width: 0;">${berangkat}</div>
+            <div style="font-size: 32px; color: #9ca3af; margin: 0; flex-shrink: 0; line-height: 1; text-align: center;">→</div>
+            <div style="font-size: 18px; font-weight: bold; color: #16a34a; flex: 1; text-align: center; word-break: break-word; margin: 0; min-width: 0;">${tujuan}</div>
+          </div>
+          <div style="display: flex; flex-direction: column; gap: 8px; margin-bottom: 14px; margin-top: 0;">
+            <div style="display: flex; justify-content: space-between; font-size: 12px; margin: 0; gap: 8px;">
+              <span style="font-weight: bold; margin: 0; flex-shrink: 0;">Nama Pesawat:</span>
+              <span style="margin: 0; text-align: right; flex: 1; word-break: break-word;">${request.namaPesawatBalik || "-"}</span>
+            </div>
+            <div style="display: flex; justify-content: space-between; font-size: 12px; margin: 0; gap: 8px;">
+              <span style="font-weight: bold; margin: 0; flex-shrink: 0;">Tanggal Keberangkatan:</span>
+              <span style="margin: 0; text-align: right; flex: 1; word-break: break-word;">${formatDate(tanggalKeberangkatanBalik)}</span>
+            </div>
+            <div style="display: flex; justify-content: space-between; font-size: 12px; margin: 0; gap: 8px;">
+              <span style="font-weight: bold; margin: 0; flex-shrink: 0;">Jam Keberangkatan:</span>
+              <span style="margin: 0; text-align: right; flex: 1; word-break: break-word;">${request.jamKeberangkatanBalik || "-"}</span>
+            </div>
+            <div style="display: flex; justify-content: space-between; font-size: 12px; margin: 0; gap: 8px;">
+              <span style="font-weight: bold; margin: 0; flex-shrink: 0;">Berangkat dari:</span>
+              <span style="margin: 0; text-align: right; flex: 1; word-break: break-word;">${berangkat}</span>
+            </div>
+            <div style="display: flex; justify-content: space-between; font-size: 12px; margin: 0; gap: 8px;">
+              <span style="font-weight: bold; margin: 0; flex-shrink: 0;">Tujuan:</span>
+              <span style="margin: 0; text-align: right; flex: 1; word-break: break-word;">${tujuan}</span>
+            </div>
+          </div>
+          <div style="background: #fef3c7; border: 2px solid #fcd34d; padding: 12px; margin-top: auto;">
+            <div style="font-size: 12px; font-weight: bold; margin-bottom: 8px; margin-top: 0;">PANDUAN CHECK-IN</div>
+            <ul style="font-size: 12px; margin: 0; padding-left: 16px; display: flex; flex-direction: column; gap: 8px; list-style: disc; line-height: 1.5;">
+              <li style="margin: 0; word-break: break-word;">Tiba di bandara minimal 90 menit sebelum keberangkatan</li>
+              <li style="margin: 0; word-break: break-word;">Lakukan web check-in 12-24 jam sebelum keberangkatan</li>
+              <li style="margin: 0; word-break: break-word;">Siapkan KTP asli dan kode booking ini</li>
+              <li style="margin: 0; word-break: break-word;">Pastikan nama sesuai dengan identitas</li>
+            </ul>
+          </div>
+        </div>
+        <div style="border-top: 1px solid #d1d5db; padding: 10px; text-align: center; flex-shrink: 0; margin-top: 0;">
+          <div style="font-size: 12px; color: #4b5563; margin-bottom: 4px; margin-top: 0; word-break: break-word;">Tunjukkan tiket ini di counter check-in bandara</div>
+          <div style="font-size: 11px; color: #6b7280; margin: 0;">Dicetak: ${new Date().toLocaleDateString("id-ID")}</div>
+        </div>
+      </div>
+    `
+    document.body.appendChild(container)
+
+    const canvas = await html2canvas(container, {
+      scale: 2,
+      backgroundColor: "#ffffff",
+      allowTaint: true,
+      useCORS: false,
+      logging: false,
+      ignoreElements: (element) => {
+        return element.tagName === "STYLE" || element.tagName === "LINK"
+      },
+      windowHeight: 1200,
+      windowWidth: 448,
+    })
+
+    document.body.removeChild(container)
+
+    const imgData = canvas.toDataURL("image/png")
+    const pdf = new jsPDF({
+      orientation: "portrait",
+      unit: "mm",
+      format: "a4",
+    })
+
+    const pdfWidth = pdf.internal.pageSize.getWidth()
+    const imgHeight = (canvas.height * pdfWidth) / canvas.width
+
+    pdf.addImage(imgData, "PNG", 0, 0, pdfWidth, imgHeight)
+
+    const filename = `Tiket-Balik-${request.bookingCodeBalik || request.userNik}-${new Date().toISOString().split("T")[0]}.pdf`
+
+    if (isCapacitorAvailable()) {
+      try {
+        await downloadPDFCapacitor(pdf.output("datauristring"), filename)
+      } catch (error) {
+        const link = document.createElement("a")
+        link.href = pdf.output("datauristring")
+        link.download = filename
+        document.body.appendChild(link)
+        link.click()
+        document.body.removeChild(link)
+      }
+    } else if (isCordovaAvailable()) {
+      await downloadPDFViaCordova(pdf.output("datauristring"), filename)
+    } else {
+      const link = document.createElement("a")
+      link.href = pdf.output("datauristring")
+      link.download = filename
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
+    }
+
+    console.log("[v0] Return ticket PDF downloaded successfully")
+  } catch (error) {
+    console.error("[v0] PDF generation error:", error instanceof Error ? error.message : String(error))
+    alert("Gagal mengunduh tiket balik. Silakan coba lagi.")
+  }
+}
+
 export function TicketPDFDownloadButton({ request }: { request: LeaveRequest }) {
   const handleDownload = async () => {
     await downloadTicketPDF(request)
@@ -285,6 +624,36 @@ export function TicketPDFDownloadButton({ request }: { request: LeaveRequest }) 
       className="w-full px-4 py-2 bg-blue-600 text-white font-semibold rounded hover:bg-blue-700 transition-colors"
     >
       📥 Download Tiket PDF
+    </button>
+  )
+}
+
+export function DepartureTicketPDFDownloadButton({ request }: { request: LeaveRequest }) {
+  const handleDownload = async () => {
+    await downloadDepartureTicketPDF(request)
+  }
+
+  return (
+    <button
+      onClick={handleDownload}
+      className="w-full px-4 py-2 bg-green-600 text-white font-semibold rounded hover:bg-green-700 transition-colors"
+    >
+      📥 Download Tiket Berangkat PDF
+    </button>
+  )
+}
+
+export function ReturnTicketPDFDownloadButton({ request }: { request: LeaveRequest }) {
+  const handleDownload = async () => {
+    await downloadReturnTicketPDF(request)
+  }
+
+  return (
+    <button
+      onClick={handleDownload}
+      className="w-full px-4 py-2 bg-red-600 text-white font-semibold rounded hover:bg-red-700 transition-colors"
+    >
+      📥 Download Tiket Balik PDF
     </button>
   )
 }

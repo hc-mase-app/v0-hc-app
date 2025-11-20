@@ -8,6 +8,7 @@ import {
   rejectRequest,
   createLeaveRequest,
   updateBookingCode,
+  updateBookingCodeSeparate, // Menambahkan import fungsi baru
   getApprovalHistory,
   getStatisticsForRole,
   type UserRole,
@@ -150,6 +151,7 @@ export async function POST(request: NextRequest) {
         const {
           nik,
           jenisCuti,
+          jenisPengajuan,
           tanggalPengajuan,
           periodeAwal,
           periodeAkhir,
@@ -173,6 +175,7 @@ export async function POST(request: NextRequest) {
           createLeaveRequest({
             nik,
             jenisCuti,
+            jenisPengajuan,
             tanggalPengajuan,
             periodeAwal,
             periodeAkhir,
@@ -225,13 +228,52 @@ export async function POST(request: NextRequest) {
       }
 
       case "update-booking": {
-        const { requestId, bookingCode, namaPesawat, jamKeberangkatan, updatedBy } = data
-        if (!bookingCode || bookingCode.trim() === "") {
-          return errorResponse("Booking code required", 400)
+        const { 
+          requestId, 
+          tiketBerangkat,
+          tiketBalik,
+          bookingCode, 
+          namaPesawat, 
+          jamKeberangkatan,
+          bookingCodeBalik,
+          namaPesawatBalik,
+          jamKeberangkatanBalik,
+          tanggalBerangkatBalik,
+          berangkatDariBalik,
+          tujuanBalik,
+          updatedBy 
+        } = data
+        
+        if (!tiketBerangkat && !tiketBalik) {
+          return errorResponse("Pilih minimal satu tiket (berangkat atau balik)", 400)
+        }
+        
+        if (tiketBerangkat && (!bookingCode || bookingCode.trim() === "")) {
+          return errorResponse("Kode booking tiket berangkat harus diisi", 400)
+        }
+        
+        if (tiketBalik && (!bookingCodeBalik || bookingCodeBalik.trim() === "")) {
+          return errorResponse("Kode booking tiket balik harus diisi", 400)
         }
 
         const [result, error] = await withErrorHandling(() =>
-          updateBookingCode(requestId, bookingCode, namaPesawat, jamKeberangkatan, updatedBy),
+          updateBookingCodeSeparate(
+            requestId, 
+            {
+              tiketBerangkat,
+              tiketBalik,
+              bookingCode,
+              namaPesawat,
+              jamKeberangkatan,
+              bookingCodeBalik,
+              namaPesawatBalik,
+              jamKeberangkatanBalik,
+              tanggalBerangkatBalik,
+              berangkatDariBalik,
+              tujuanBalik,
+            },
+            updatedBy
+          ),
         )
 
         if (error) return errorResponse(error)

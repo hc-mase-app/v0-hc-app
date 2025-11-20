@@ -1,17 +1,40 @@
 "use client"
 
 import type { ApprovalHistory } from "@/lib/types"
-import { formatDate, getStatusColor } from "@/lib/utils"
-import { CheckCircle, XCircle, Clock } from "lucide-react"
+import { formatDate, getStatusColor, getDetailedTicketStatus } from "@/lib/utils"
+import { CheckCircle, XCircle, Clock } from 'lucide-react'
 import { Badge } from "@/components/ui/badge"
 
 interface ApprovalTimelineProps {
   history: ApprovalHistory[]
   currentStatus: string
+  statusTiketBerangkat?: string
+  statusTiketBalik?: string
 }
 
-export function ApprovalTimeline({ history, currentStatus }: ApprovalTimelineProps) {
+export function ApprovalTimeline({ history, currentStatus, statusTiketBerangkat, statusTiketBalik }: ApprovalTimelineProps) {
+  console.log("[v0] ApprovalTimeline - Raw history:", history)
+  console.log("[v0] ApprovalTimeline - statusTiketBerangkat:", statusTiketBerangkat)
+  console.log("[v0] ApprovalTimeline - statusTiketBalik:", statusTiketBalik)
+  
   const sortedHistory = [...history].sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime())
+
+  const filteredHistory = sortedHistory.filter((entry, index, arr) => {
+    // Selalu tampilkan non-ticket actions
+    if (entry.action !== 'tiket_berangkat_issued' && entry.action !== 'tiket_balik_issued') {
+      return true
+    }
+    
+    // Untuk ticket actions, ambil entry terakhir untuk SETIAP tipe
+    const lastIndexOfSameAction = arr.map(e => e.action).lastIndexOf(entry.action)
+    const shouldShow = index === lastIndexOfSameAction
+    
+    console.log(`[v0] Filter check - action: ${entry.action}, index: ${index}, lastIndex: ${lastIndexOfSameAction}, show: ${shouldShow}`)
+    
+    return shouldShow
+  })
+
+  console.log("[v0] ApprovalTimeline - Filtered history:", filteredHistory)
 
   const getActionIcon = (action: string) => {
     if (action === "approved") return <CheckCircle className="h-5 w-5 text-green-600" />
@@ -22,7 +45,10 @@ export function ApprovalTimeline({ history, currentStatus }: ApprovalTimelinePro
   const getActionLabel = (action: string) => {
     if (action === "approved") return "Disetujui"
     if (action === "rejected") return "Ditolak"
-    if (action === "tiket_issued") return "Tiket Sudah Di Terbitkan"
+    if (action === "tiket_berangkat_issued") return "Tiket Berangkat Terbit"
+    if (action === "tiket_balik_issued") return "Tiket Balik Terbit"
+    if (action === "tiket_issued") return "Tiket Lengkap"
+    if (action === "tiket_partial_issued") return "Tiket Sebagian Terbit"
     return "Pending"
   }
 
@@ -36,23 +62,27 @@ export function ApprovalTimeline({ history, currentStatus }: ApprovalTimelinePro
     return roleMap[role] || role
   }
 
+  const getCurrentStatusLabel = () => {
+    return getDetailedTicketStatus(currentStatus, statusTiketBerangkat, statusTiketBalik)
+  }
+
   return (
     <div className="space-y-4">
       <h3 className="font-semibold text-slate-900">Riwayat Persetujuan</h3>
 
-      {sortedHistory.length === 0 ? (
+      {filteredHistory.length === 0 ? (
         <div className="text-center py-8 text-slate-500">
           <Clock className="h-8 w-8 mx-auto mb-2 opacity-50" />
           <p>Belum ada riwayat persetujuan</p>
         </div>
       ) : (
         <div className="space-y-4">
-          {sortedHistory.map((entry, index) => (
+          {filteredHistory.map((entry, index) => (
             <div key={entry.id} className="flex gap-4">
               {/* Timeline line */}
               <div className="flex flex-col items-center">
                 <div className="flex items-center justify-center">{getActionIcon(entry.action)}</div>
-                {index < sortedHistory.length - 1 && <div className="w-0.5 h-12 bg-slate-200 mt-2" />}
+                {index < filteredHistory.length - 1 && <div className="w-0.5 h-12 bg-slate-200 mt-2" />}
               </div>
 
               {/* Content */}
@@ -63,7 +93,17 @@ export function ApprovalTimeline({ history, currentStatus }: ApprovalTimelinePro
                     {getRoleLabel(entry.approverRole)}
                   </Badge>
                   <Badge
-                    className={`text-xs ${entry.action === "approved" ? "bg-green-100 text-green-800" : "bg-red-100 text-red-800"}`}
+                    className={`text-xs ${
+                      entry.action === "approved" || 
+                      entry.action === "tiket_berangkat_issued" || 
+                      entry.action === "tiket_balik_issued" || 
+                      entry.action === "tiket_issued" ||
+                      entry.action === "tiket_partial_issued"
+                        ? "bg-green-100 text-green-800 hover:bg-green-100" 
+                        : entry.action === "rejected"
+                          ? "bg-red-100 text-red-800 hover:bg-red-100"
+                          : "bg-amber-100 text-amber-800 hover:bg-amber-100"
+                    }`}
                   >
                     {getActionLabel(entry.action)}
                   </Badge>
@@ -81,19 +121,7 @@ export function ApprovalTimeline({ history, currentStatus }: ApprovalTimelinePro
         <p className="text-sm text-slate-600">
           <span className="font-medium">Status Saat Ini:</span>{" "}
           <Badge className={getStatusColor(currentStatus)}>
-            {currentStatus === "pending_dic"
-              ? "Menunggu DIC"
-              : currentStatus === "pending_pjo"
-                ? "Menunggu PJO Site"
-                : currentStatus === "pending_hr_ho"
-                  ? "Menunggu HR HO"
-                  : currentStatus === "di_proses"
-                    ? "Sedang Diproses"
-                    : currentStatus === "tiket_issued"
-                      ? "Tiket Sudah Di Terbitkan"
-                      : currentStatus === "approved"
-                        ? "Disetujui"
-                        : "Ditolak"}
+            {getCurrentStatusLabel()}
           </Badge>
         </p>
       </div>
