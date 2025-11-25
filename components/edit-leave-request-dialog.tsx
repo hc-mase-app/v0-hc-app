@@ -24,6 +24,8 @@ interface EditLeaveRequestDialogProps {
 
 export function EditLeaveRequestDialog({ open, onOpenChange, onSuccess, leaveRequest }: EditLeaveRequestDialogProps) {
   const { user } = useAuth()
+  const [previousPeriodicLeave, setPreviousPeriodicLeave] = useState<LeaveRequest | null>(null)
+  const [isLoadingPreviousLeave, setIsLoadingPreviousLeave] = useState(false)
   const [jenisPengajuanCuti, setJenisPengajuanCuti] = useState(leaveRequest.jenisCuti)
   const [jenisPengajuan, setJenisPengajuan] = useState<"dengan_tiket" | "lokal">(leaveRequest.jenisPengajuan)
   const [tanggalPengajuan, setTanggalPengajuan] = useState(leaveRequest.tanggalPengajuan.split("T")[0])
@@ -38,10 +40,80 @@ export function EditLeaveRequestDialog({ open, onOpenChange, onSuccess, leaveReq
     leaveRequest.cutiPeriodikBerikutnya ? leaveRequest.cutiPeriodikBerikutnya.split("T")[0] : "",
   )
   const [daysUntilNextLeave, setDaysUntilNextLeave] = useState<number | null>(null)
+  const [calculatedLamaOnsite, setCalculatedLamaOnsite] = useState<number | null>(null)
   const [catatan, setCatatan] = useState(leaveRequest.catatan || "")
   const [lamaOnsite, setLamaOnsite] = useState(leaveRequest.lamaOnsite?.toString() || "")
   const [error, setError] = useState("")
   const [isSubmitting, setIsSubmitting] = useState(false)
+
+  useEffect(() => {
+    const fetchPreviousLeave = async () => {
+      if (leaveRequest && jenisPengajuanCuti === "Cuti Periodik") {
+        setIsLoadingPreviousLeave(true)
+        try {
+          const response = await fetch(`/api/leave-requests/previous?nik=${encodeURIComponent(leaveRequest.nik)}`)
+          if (response.ok) {
+            const result = await response.json()
+            if (result.data && result.data.id !== leaveRequest.id) {
+              setPreviousPeriodicLeave(result.data)
+            } else {
+              setPreviousPeriodicLeave(null)
+            }
+          } else {
+            setPreviousPeriodicLeave(null)
+          }
+        } catch (error) {
+          console.error("Error fetching previous leave:", error)
+          setPreviousPeriodicLeave(null)
+        } finally {
+          setIsLoadingPreviousLeave(false)
+        }
+      } else {
+        setPreviousPeriodicLeave(null)
+      }
+    }
+
+    fetchPreviousLeave()
+  }, [leaveRequest, jenisPengajuanCuti])
+
+  useEffect(() => {
+    if (previousPeriodicLeave && tanggalMulai) {
+      const previousEndDate = new Date(previousPeriodicLeave.periodeAkhir)
+      const currentStartDate = new Date(tanggalMulai)
+
+      const diffTime = currentStartDate.getTime() - previousEndDate.getTime()
+      const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24))
+
+      if (diffDays > 0) {
+        setCalculatedLamaOnsite(diffDays)
+        setLamaOnsite(diffDays.toString())
+      } else {
+        setCalculatedLamaOnsite(null)
+        setLamaOnsite("")
+      }
+    } else {
+      setCalculatedLamaOnsite(null)
+    }
+  }, [previousPeriodicLeave, tanggalMulai])
+
+  useEffect(() => {
+    if (previousPeriodicLeave && leaveRequest && jenisPengajuanCuti === "Cuti Periodik") {
+      const previousEndDate = new Date(previousPeriodicLeave.periodeAkhir)
+      const jabatan = leaveRequest.jabatan.toLowerCase()
+
+      let daysToAdd = 70
+
+      if (jabatan.includes("head") || jabatan.includes("pjo")) {
+        daysToAdd = 56
+      }
+
+      const nextLeaveDate = new Date(previousEndDate)
+      nextLeaveDate.setDate(nextLeaveDate.getDate() + daysToAdd)
+
+      const formattedDate = nextLeaveDate.toISOString().split("T")[0]
+      setTanggalCutiPeriodikBerikutnya(formattedDate)
+    }
+  }, [previousPeriodicLeave, leaveRequest, jenisPengajuanCuti])
 
   useEffect(() => {
     if (tanggalCutiPeriodikBerikutnya) {
@@ -101,7 +173,7 @@ export function EditLeaveRequestDialog({ open, onOpenChange, onSuccess, leaveReq
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          id: leaveRequest.id, // ID dikirim dalam body
+          id: leaveRequest.id,
           jenisCuti: jenisPengajuanCuti,
           jenisPengajuan,
           tanggalPengajuan,
@@ -247,8 +319,42 @@ export function EditLeaveRequestDialog({ open, onOpenChange, onSuccess, leaveReq
           </div>
 
           {tanggalMulai && tanggalSelesai && new Date(tanggalSelesai) >= new Date(tanggalMulai) && (
-            <div className="text-sm text-slate-600">
-              Durasi: {calculateDaysBetween(tanggalMulai, tanggalSelesai)} hari
+            <div className="space-y-1">
+              <div className="text-sm text-slate-600">
+                Durasi: {calculateDaysBetween(tanggalMulai, tanggalSelesai)} hari
+              </div>
+              {jenisPengajuanCuti === "Cuti Periodik" && calculatedLamaOnsite !== null && (
+                <div className="text-sm text-slate-600">Lama Onsite: {calculatedLamaOnsite} hari</div>
+              )}
+            </div>
+          )}
+
+          {jenisPengajuanCuti === "Cuti Periodik" && leaveRequest && (
+            <div className="p-4 bg-blue-50 border-2 border-blue-200 rounded-lg space-y-2">
+              <h3 className="font-semibold text-blue-900">Informasi Cuti Periodik</h3>
+
+              {isLoadingPreviousLeave ? (
+                <p className="text-sm text-blue-700">Memuat data cuti sebelumnya...</p>
+              ) : previousPeriodicLeave ? (
+                <div className="text-sm">
+                  <p className="text-blue-700">
+                    <span className="font-medium">Cuti Periodik Terakhir:</span>{" "}
+                    {new Date(previousPeriodicLeave.periodeAwal).toLocaleDateString("id-ID", {
+                      day: "2-digit",
+                      month: "long",
+                      year: "numeric",
+                    })}{" "}
+                    -{" "}
+                    {new Date(previousPeriodicLeave.periodeAkhir).toLocaleDateString("id-ID", {
+                      day: "2-digit",
+                      month: "long",
+                      year: "numeric",
+                    })}
+                  </p>
+                </div>
+              ) : (
+                <p className="text-sm text-blue-700">Tidak ada data cuti periodik sebelumnya.</p>
+              )}
             </div>
           )}
 
@@ -319,18 +425,20 @@ export function EditLeaveRequestDialog({ open, onOpenChange, onSuccess, leaveReq
             </>
           )}
 
-          <div className="space-y-2">
-            <Label htmlFor="lamaOnsite">Lama Onsite (dalam hari)</Label>
-            <Input
-              id="lamaOnsite"
-              type="number"
-              min="0"
-              placeholder="Masukkan lama onsite dalam hari"
-              value={lamaOnsite}
-              onChange={(e) => setLamaOnsite(e.target.value)}
-            />
-            <p className="text-xs text-slate-500">Opsional: Isi jika karyawan akan onsite</p>
-          </div>
+          {jenisPengajuanCuti !== "Cuti Periodik" && (
+            <div className="space-y-2">
+              <Label htmlFor="lamaOnsite">Lama Onsite (dalam hari)</Label>
+              <Input
+                id="lamaOnsite"
+                type="number"
+                min="0"
+                placeholder="Masukkan lama onsite dalam hari"
+                value={lamaOnsite}
+                onChange={(e) => setLamaOnsite(e.target.value)}
+              />
+              <p className="text-xs text-slate-500">Opsional: Isi jika karyawan akan onsite</p>
+            </div>
+          )}
 
           <div className="space-y-2">
             <Label htmlFor="catatan">Catatan Khusus (Bila Pengajuan tidak sesuai Roster atau tidak sesuai POH)</Label>

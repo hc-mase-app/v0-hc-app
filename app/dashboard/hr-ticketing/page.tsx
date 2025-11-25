@@ -20,6 +20,8 @@ import { exportToExcel } from "@/lib/excel-export"
 import { Checkbox } from "@/components/ui/checkbox"
 import { ExcelColumnSelectorDialog } from "@/components/excel-column-selector-dialog"
 import { exportToExcelCustom } from "@/lib/excel-export-custom"
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
+import { ChevronDown } from "lucide-react"
 
 export default function HRTicketingDashboard() {
   const { user, isAuthenticated } = useAuth()
@@ -494,24 +496,25 @@ export default function HRTicketingDashboard() {
                   </div>
                 </div>
                 <div className="flex flex-col gap-2">
-                  <Button
-                    variant="default"
-                    size="sm"
-                    onClick={() => setColumnSelectorOpen(true)}
-                    className="gap-2 w-full"
-                  >
-                    <Download className="h-4 w-4" />
-                    Export Excel (Pilih Kolom)
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={handleExportToExcel}
-                    className="gap-2 w-full bg-transparent"
-                  >
-                    <Download className="h-4 w-4" />
-                    Export Excel (Default)
-                  </Button>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="outline" size="sm" className="gap-2 w-full bg-transparent">
+                        <Download className="h-4 w-4" />
+                        Export Excel
+                        <ChevronDown className="h-4 w-4 ml-2" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end" className="w-56">
+                      <DropdownMenuItem onClick={() => setColumnSelectorOpen(true)} className="cursor-pointer">
+                        <Download className="h-4 w-4 mr-2" />
+                        Export Excel Custom (Pilih Kolom)
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={handleExportToExcel} className="cursor-pointer">
+                        <Download className="h-4 w-4 mr-2" />
+                        Export Excel Finance
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
                 </div>
                 {(startDate || endDate) && (
                   <p className="text-xs text-slate-500 text-right">

@@ -1,7 +1,6 @@
 "use client"
 
 import type React from "react"
-
 import { useState, useEffect } from "react"
 import { useAuth } from "@/lib/auth-context"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
@@ -10,11 +9,11 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { LEAVE_TYPES } from "@/lib/mock-data"
 import { calculateDaysBetween } from "@/lib/utils"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import type { User } from "@/lib/types"
+import type { LeaveRequest } from "@/lib/types"
 
 interface NewLeaveRequestDialogProps {
   open: boolean
@@ -29,6 +28,8 @@ export function NewLeaveRequestDialog({ open, onOpenChange, onSuccess }: NewLeav
   const [allUsers, setAllUsers] = useState<User[]>([])
   const [nikError, setNikError] = useState("")
   const [isLoadingUser, setIsLoadingUser] = useState(false)
+  const [previousPeriodicLeave, setPreviousPeriodicLeave] = useState<LeaveRequest | null>(null)
+  const [isLoadingPreviousLeave, setIsLoadingPreviousLeave] = useState(false)
   const [jenisPengajuanCuti, setJenisPengajuanCuti] = useState("")
   const [jenisPengajuan, setJenisPengajuan] = useState<"dengan_tiket" | "lokal">("dengan_tiket")
   const [tanggalPengajuan, setTanggalPengajuan] = useState(new Date().toISOString().split("T")[0])
@@ -39,6 +40,7 @@ export function NewLeaveRequestDialog({ open, onOpenChange, onSuccess }: NewLeav
   const [tanggalKeberangkatan, setTanggalKeberangkatan] = useState("")
   const [tanggalCutiPeriodikBerikutnya, setTanggalCutiPeriodikBerikutnya] = useState("")
   const [daysUntilNextLeave, setDaysUntilNextLeave] = useState<number | null>(null)
+  const [calculatedLamaOnsite, setCalculatedLamaOnsite] = useState<number | null>(null)
   const [catatan, setCatatan] = useState("")
   const [lamaOnsite, setLamaOnsite] = useState("")
   const [error, setError] = useState("")
@@ -123,6 +125,74 @@ export function NewLeaveRequestDialog({ open, onOpenChange, onSuccess }: NewLeav
   }, [nik, allUsers])
 
   useEffect(() => {
+    const fetchPreviousLeave = async () => {
+      if (selectedUser && jenisPengajuanCuti === "Cuti Periodik") {
+        setIsLoadingPreviousLeave(true)
+        try {
+          const response = await fetch(`/api/leave-requests/previous?nik=${encodeURIComponent(selectedUser.nik)}`)
+          if (response.ok) {
+            const result = await response.json()
+            setPreviousPeriodicLeave(result.data)
+          } else {
+            setPreviousPeriodicLeave(null)
+          }
+        } catch (error) {
+          console.error("Error fetching previous leave:", error)
+          setPreviousPeriodicLeave(null)
+        } finally {
+          setIsLoadingPreviousLeave(false)
+        }
+      } else {
+        setPreviousPeriodicLeave(null)
+      }
+    }
+
+    fetchPreviousLeave()
+  }, [selectedUser, jenisPengajuanCuti])
+
+  useEffect(() => {
+    if (previousPeriodicLeave && tanggalMulai) {
+      const previousEndDate = new Date(previousPeriodicLeave.periodeAkhir)
+      const currentStartDate = new Date(tanggalMulai)
+
+      const diffTime = currentStartDate.getTime() - previousEndDate.getTime()
+      const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24))
+
+      if (diffDays > 0) {
+        setCalculatedLamaOnsite(diffDays)
+        setLamaOnsite(diffDays.toString())
+      } else {
+        setCalculatedLamaOnsite(null)
+        setLamaOnsite("")
+      }
+    } else {
+      setCalculatedLamaOnsite(null)
+    }
+  }, [previousPeriodicLeave, tanggalMulai])
+
+  useEffect(() => {
+    if (previousPeriodicLeave && selectedUser && jenisPengajuanCuti === "Cuti Periodik") {
+      const previousEndDate = new Date(previousPeriodicLeave.periodeAkhir)
+      const jabatan = selectedUser.jabatan.toLowerCase()
+
+      let daysToAdd = 70 // Default for Admin, GL, SPV
+
+      // Check if position is Head or PJO (56 days)
+      if (jabatan.includes("head") || jabatan.includes("pjo")) {
+        daysToAdd = 56
+      }
+
+      const nextLeaveDate = new Date(previousEndDate)
+      nextLeaveDate.setDate(nextLeaveDate.getDate() + daysToAdd)
+
+      const formattedDate = nextLeaveDate.toISOString().split("T")[0]
+      setTanggalCutiPeriodikBerikutnya(formattedDate)
+    } else {
+      setTanggalCutiPeriodikBerikutnya("")
+    }
+  }, [previousPeriodicLeave, selectedUser, jenisPengajuanCuti])
+
+  useEffect(() => {
     if (tanggalCutiPeriodikBerikutnya) {
       const today = new Date()
       today.setHours(0, 0, 0, 0)
@@ -203,7 +273,7 @@ export function NewLeaveRequestDialog({ open, onOpenChange, onSuccess }: NewLeav
           tanggalKeberangkatan: jenisPengajuan === "dengan_tiket" ? tanggalKeberangkatan : null,
           cutiPeriodikBerikutnya: tanggalCutiPeriodikBerikutnya || null,
           catatan: catatan || null,
-          lamaOnsite: lamaOnsite ? Number.parseInt(lamaOnsite) : null,
+          lamaOnsite: calculatedLamaOnsite || null,
           submittedBy: user.nik,
           site: selectedUser.site,
           departemen: selectedUser.departemen,
@@ -237,6 +307,7 @@ export function NewLeaveRequestDialog({ open, onOpenChange, onSuccess }: NewLeav
       setTanggalCutiPeriodikBerikutnya("")
       setCatatan("")
       setLamaOnsite("")
+      setCalculatedLamaOnsite(null)
 
       onSuccess()
     } catch (error) {
@@ -358,7 +429,10 @@ export function NewLeaveRequestDialog({ open, onOpenChange, onSuccess }: NewLeav
 
           <div className="space-y-2">
             <Label htmlFor="jenisTiket">Jenis Pengajuan</Label>
-            <Select value={jenisPengajuan} onValueChange={(value) => setJenisPengajuan(value as "dengan_tiket" | "lokal")}>
+            <Select
+              value={jenisPengajuan}
+              onValueChange={(value) => setJenisPengajuan(value as "dengan_tiket" | "lokal")}
+            >
               <SelectTrigger id="jenisTiket">
                 <SelectValue placeholder="Pilih jenis pengajuan" />
               </SelectTrigger>
@@ -394,8 +468,42 @@ export function NewLeaveRequestDialog({ open, onOpenChange, onSuccess }: NewLeav
           </div>
 
           {tanggalMulai && tanggalSelesai && new Date(tanggalSelesai) >= new Date(tanggalMulai) && (
-            <div className="text-sm text-slate-600">
-              Durasi: {calculateDaysBetween(tanggalMulai, tanggalSelesai)} hari
+            <div className="space-y-1">
+              <div className="text-sm text-slate-600">
+                Durasi: {calculateDaysBetween(tanggalMulai, tanggalSelesai)} hari
+              </div>
+              {jenisPengajuanCuti === "Cuti Periodik" && calculatedLamaOnsite !== null && (
+                <div className="text-sm text-slate-600">Lama Onsite: {calculatedLamaOnsite} hari</div>
+              )}
+            </div>
+          )}
+
+          {jenisPengajuanCuti === "Cuti Periodik" && selectedUser && (
+            <div className="p-4 bg-blue-50 border-2 border-blue-200 rounded-lg space-y-2">
+              <h3 className="font-semibold text-blue-900">Informasi Cuti Periodik</h3>
+
+              {isLoadingPreviousLeave ? (
+                <p className="text-sm text-blue-700">Memuat data cuti sebelumnya...</p>
+              ) : previousPeriodicLeave ? (
+                <div className="text-sm">
+                  <p className="text-blue-700">
+                    <span className="font-medium">Cuti Periodik Terakhir:</span>{" "}
+                    {new Date(previousPeriodicLeave.periodeAwal).toLocaleDateString("id-ID", {
+                      day: "2-digit",
+                      month: "long",
+                      year: "numeric",
+                    })}{" "}
+                    -{" "}
+                    {new Date(previousPeriodicLeave.periodeAkhir).toLocaleDateString("id-ID", {
+                      day: "2-digit",
+                      month: "long",
+                      year: "numeric",
+                    })}
+                  </p>
+                </div>
+              ) : (
+                <p className="text-sm text-blue-700">Tidak ada data cuti periodik sebelumnya.</p>
+              )}
             </div>
           )}
 
@@ -425,59 +533,34 @@ export function NewLeaveRequestDialog({ open, onOpenChange, onSuccess }: NewLeav
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="tanggalKeberangkatan" className="font-bold uppercase">
-                    Tanggal Keberangkatan
-                  </Label>
-                  <Input
-                    id="tanggalKeberangkatan"
-                    type="date"
-                    value={tanggalKeberangkatan}
-                    onChange={(e) => setTanggalKeberangkatan(e.target.value)}
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="tanggalCutiPeriodikBerikutnya">Tanggal Cuti Periodik Berikutnya</Label>
-                  <Input
-                    id="tanggalCutiPeriodikBerikutnya"
-                    type="date"
-                    value={tanggalCutiPeriodikBerikutnya}
-                    onChange={(e) => setTanggalCutiPeriodikBerikutnya(e.target.value)}
-                  />
-                  {daysUntilNextLeave !== null && (
-                    <p className="text-sm text-slate-600 mt-1">
-                      {daysUntilNextLeave > 0 ? (
-                        <span className="font-medium text-blue-600">
-                          {daysUntilNextLeave} hari lagi menjelang cuti berikutnya
-                        </span>
-                      ) : daysUntilNextLeave === 0 ? (
-                        <span className="font-medium text-green-600">Cuti periodik hari ini</span>
-                      ) : (
-                        <span className="font-medium text-orange-600">
-                          Tanggal cuti periodik sudah terlewat ({Math.abs(daysUntilNextLeave)} hari yang lalu)
-                        </span>
-                      )}
-                    </p>
-                  )}
-                </div>
+              <div className="space-y-2">
+                <Label htmlFor="tanggalKeberangkatan" className="font-bold uppercase">
+                  Tanggal Keberangkatan
+                </Label>
+                <Input
+                  id="tanggalKeberangkatan"
+                  type="date"
+                  value={tanggalKeberangkatan}
+                  onChange={(e) => setTanggalKeberangkatan(e.target.value)}
+                />
               </div>
             </>
           )}
 
-          <div className="space-y-2">
-            <Label htmlFor="lamaOnsite">Lama Onsite (dalam hari)</Label>
-            <Input
-              id="lamaOnsite"
-              type="number"
-              min="0"
-              placeholder="Masukkan lama onsite dalam hari"
-              value={lamaOnsite}
-              onChange={(e) => setLamaOnsite(e.target.value)}
-            />
-            <p className="text-xs text-slate-500">Opsional: Isi jika karyawan akan onsite</p>
-          </div>
+          {jenisPengajuanCuti !== "Cuti Periodik" && (
+            <div className="space-y-2">
+              <Label htmlFor="lamaOnsite">Lama Onsite (dalam hari)</Label>
+              <Input
+                id="lamaOnsite"
+                type="number"
+                min="0"
+                placeholder="Masukkan lama onsite dalam hari"
+                value={lamaOnsite}
+                onChange={(e) => setLamaOnsite(e.target.value)}
+              />
+              <p className="text-xs text-slate-500">Opsional: Isi jika karyawan akan onsite</p>
+            </div>
+          )}
 
           <div className="space-y-2">
             <Label htmlFor="catatan">Catatan Khusus (Bila Pengajuan tidak sesuai Roster atau tidak sesuai POH)</Label>

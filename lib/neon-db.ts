@@ -422,6 +422,8 @@ export async function getLeaveRequestsByUserId(userId: string) {
   }
 }
 
+export const getLeaveRequestsByUser = getLeaveRequestsByUserId
+
 export async function getLeaveRequestsBySite(site: string) {
   try {
     const result = await sql`
