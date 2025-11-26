@@ -32,6 +32,9 @@ export default function DashboardPage() {
         case "pjo_site":
           router.push("/dashboard/pjo-site")
           break
+        case "manager_ho":
+          router.push("/dashboard/manager-ho")
+          break
         case "hr_ho":
           router.push("/dashboard/hr-ho")
           break

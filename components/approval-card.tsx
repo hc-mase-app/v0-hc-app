@@ -45,6 +45,7 @@ export function ApprovalCard({
     const approvalMap: Record<string, string[]> = {
       dic: ["pending_dic"],
       pjo_site: ["pending_pjo"],
+      manager_ho: ["pending_manager_ho"], // Added manager_ho role
       hr_ho: ["pending_hr_ho"],
       admin_site: [],
       hr_site: [],

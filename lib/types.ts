@@ -1,14 +1,25 @@
-export type UserRole = "user" | "admin_site" | "hr_site" | "dic" | "pjo_site" | "hr_ho" | "hr_ticketing" | "super_admin"
+export type UserRole =
+  | "user"
+  | "admin_site"
+  | "hr_site"
+  | "dic"
+  | "pjo_site"
+  | "manager_ho"
+  | "hr_ho"
+  | "hr_ticketing"
+  | "super_admin"
 
 export type LeaveStatus =
   | "pending_dic"
   | "pending_pjo"
+  | "pending_manager_ho"
   | "pending_hr_ho"
   | "di_proses"
   | "tiket_issued"
   | "approved"
   | "ditolak_dic"
   | "ditolak_pjo"
+  | "ditolak_manager_ho"
   | "ditolak_hr_ho"
 
 export type JenisPengajuan = "dengan_tiket" | "lokal"

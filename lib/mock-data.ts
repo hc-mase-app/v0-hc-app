@@ -113,6 +113,22 @@ export const INITIAL_USERS: User[] = [
     noTelp: "081234567896",
     tanggalBergabung: "2021-05-10",
   },
+  {
+    id: "8",
+    nik: "MGRHO001",
+    nama: "Bambang Sutrisno",
+    email: "bambang@3s-gsm.com",
+    password: "password123",
+    role: "manager_ho",
+    site: "Head Office",
+    jabatan: "Manager",
+    departemen: "HCGA",
+    poh: "POH007",
+    statusKaryawan: "Tetap",
+    noKtp: "3201234567890130",
+    noTelp: "081234567897",
+    tanggalBergabung: "2016-04-01",
+  },
 ]
 
 export const SITES = ["Head Office", "wbn", "hsm", "bsf", "mhm", "psn", "bekb", "abn", "ke", "tcmm", "tcm", "im", "tmu"]
