@@ -22,27 +22,53 @@ interface ExcelColumnSelectorDialogProps {
 }
 
 const AVAILABLE_COLUMNS = [
-  { id: "nama", label: "NAMA", default: true },
-  { id: "tglInvoice", label: "TGL INVOICE", default: true },
-  { id: "nomorInvoice", label: "NOMOR INVOICE", default: true },
-  { id: "site", label: "SITE", default: true },
-  { id: "nik", label: "NIK KARYAWAN", default: true },
+  // User Data (dari relasi users)
+  { id: "nik", label: "NIK", default: true },
   { id: "namaKaryawan", label: "NAMA KARYAWAN", default: true },
+  { id: "email", label: "EMAIL", default: false },
   { id: "jabatan", label: "JABATAN", default: true },
-  { id: "hakTiketKaryawan", label: "HAK TIKET KARYAWAN", default: true },
-  { id: "pohTiketKaryawan", label: "POH TIKET KARYAWAN", default: true },
+  { id: "departemen", label: "DEPARTEMEN", default: true },
+  { id: "site", label: "SITE", default: true },
+  { id: "role", label: "ROLE", default: false },
+  { id: "hakTiket", label: "HAK TIKET", default: true },
+  { id: "poh", label: "POH", default: true },
+
+  // Leave Request Data (dari leave_requests)
+  { id: "jenisCuti", label: "JENIS CUTI", default: true },
+  { id: "tanggalPengajuan", label: "TANGGAL PENGAJUAN", default: true },
+  { id: "periodeAwal", label: "PERIODE AWAL", default: true },
+  { id: "periodeAkhir", label: "PERIODE AKHIR", default: true },
+  { id: "jumlahHari", label: "JUMLAH HARI", default: true },
+  { id: "tanggalKeberangkatan", label: "TANGGAL KEBERANGKATAN", default: true },
+  { id: "berangkatDari", label: "BERANGKAT DARI", default: true },
+  { id: "tujuan", label: "TUJUAN", default: true },
+  { id: "catatan", label: "CATATAN", default: false },
+  { id: "cutiPeriodikBerikutnya", label: "CUTI PERIODIK BERIKUTNYA", default: false },
+
+  // Workflow Status
+  { id: "status", label: "STATUS", default: true },
+
+  // Ticketing
+  { id: "bookingCode", label: "KODE BOOKING", default: true },
   { id: "namaPesawat", label: "NAMA PESAWAT", default: true },
-  { id: "lamaOnsite", label: "LAMA ONSITE", default: true },
-  { id: "notes", label: "NOTES", default: true },
-  { id: "notesLainnya", label: "NOTES LAINNYA", default: true },
-  { id: "tglIssuedTiket", label: "TGL ISSUED TIKET", default: true },
-  { id: "tglTiket", label: "TGL TIKET", default: true },
   { id: "rutePesawat", label: "RUTE PESAWAT", default: true },
-  { id: "keteranganPotonganGaji", label: "KETERANGAN POTONG GAJI", default: true },
-  { id: "nilaiRefundTiket", label: "NILAI REFUND TIKET", default: true },
-  { id: "keteranganRefund", label: "KETERANGAN REFUND", default: true },
-  { id: "harga", label: "HARGA", default: true },
-  { id: "dpp", label: "DPP", default: true },
+  { id: "tanggalIssuedTiket", label: "TANGGAL ISSUED TIKET", default: false },
+
+  // Ticket Departure
+  { id: "tiketBerangkatCode", label: "TIKET BERANGKAT - KODE", default: false },
+  { id: "tiketBerangkatMaskapai", label: "TIKET BERANGKAT - MASKAPAI", default: false },
+  { id: "tiketBerangkatJam", label: "TIKET BERANGKAT - JAM", default: false },
+  { id: "tiketBerangkatRute", label: "TIKET BERANGKAT - RUTE", default: false },
+
+  // Ticket Return
+  { id: "tiketBalikCode", label: "TIKET BALIK - KODE", default: false },
+  { id: "tiketBalikMaskapai", label: "TIKET BALIK - MASKAPAI", default: false },
+  { id: "tiketBalikJam", label: "TIKET BALIK - JAM", default: false },
+  { id: "tiketBalikRute", label: "TIKET BALIK - RUTE", default: false },
+
+  // Metadata
+  { id: "createdAt", label: "DIBUAT PADA", default: false },
+  { id: "updatedAt", label: "DIUPDATE PADA", default: false },
 ]
 
 export function ExcelColumnSelectorDialog({ open, onClose, onExport, isExporting }: ExcelColumnSelectorDialogProps) {
@@ -70,10 +96,8 @@ export function ExcelColumnSelectorDialog({ open, onClose, onExport, isExporting
     <Dialog open={open} onOpenChange={onClose}>
       <DialogContent className="max-w-3xl max-h-[80vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Pilih Kolom untuk Export Excel</DialogTitle>
-          <DialogDescription>
-            Pilih kolom data yang ingin Anda export ke file Excel. Anda bisa pilih semua atau hanya kolom tertentu saja.
-          </DialogDescription>
+          <DialogTitle>Export Excel Custom - Pilih Kolom Database</DialogTitle>
+          <DialogDescription>Pilih kolom data dari database yang ingin Anda export ke file Excel.</DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4">
@@ -90,26 +114,67 @@ export function ExcelColumnSelectorDialog({ open, onClose, onExport, isExporting
           </div>
 
           <div className="border rounded-lg p-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {AVAILABLE_COLUMNS.map((column) => (
-                <div key={column.id} className="flex items-center space-x-2">
-                  <Checkbox
-                    id={column.id}
-                    checked={selectedColumns.includes(column.id)}
-                    onCheckedChange={() => handleToggleColumn(column.id)}
-                  />
-                  <Label htmlFor={column.id} className="text-sm font-normal cursor-pointer flex-1">
-                    {column.label}
-                  </Label>
+            <div className="space-y-4">
+              <div>
+                <h4 className="text-sm font-semibold text-slate-700 mb-2 border-b pb-1">Data Karyawan</h4>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
+                  {AVAILABLE_COLUMNS.slice(0, 9).map((column) => (
+                    <div key={column.id} className="flex items-center space-x-2">
+                      <Checkbox
+                        id={column.id}
+                        checked={selectedColumns.includes(column.id)}
+                        onCheckedChange={() => handleToggleColumn(column.id)}
+                      />
+                      <Label htmlFor={column.id} className="text-xs font-normal cursor-pointer flex-1">
+                        {column.label}
+                      </Label>
+                    </div>
+                  ))}
                 </div>
-              ))}
+              </div>
+
+              <div>
+                <h4 className="text-sm font-semibold text-slate-700 mb-2 border-b pb-1">Data Pengajuan Cuti</h4>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
+                  {AVAILABLE_COLUMNS.slice(9, 20).map((column) => (
+                    <div key={column.id} className="flex items-center space-x-2">
+                      <Checkbox
+                        id={column.id}
+                        checked={selectedColumns.includes(column.id)}
+                        onCheckedChange={() => handleToggleColumn(column.id)}
+                      />
+                      <Label htmlFor={column.id} className="text-xs font-normal cursor-pointer flex-1">
+                        {column.label}
+                      </Label>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div>
+                <h4 className="text-sm font-semibold text-slate-700 mb-2 border-b pb-1">Data Tiket</h4>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
+                  {AVAILABLE_COLUMNS.slice(20, 34).map((column) => (
+                    <div key={column.id} className="flex items-center space-x-2">
+                      <Checkbox
+                        id={column.id}
+                        checked={selectedColumns.includes(column.id)}
+                        onCheckedChange={() => handleToggleColumn(column.id)}
+                      />
+                      <Label htmlFor={column.id} className="text-xs font-normal cursor-pointer flex-1">
+                        {column.label}
+                      </Label>
+                    </div>
+                  ))}
+                </div>
+              </div>
             </div>
           </div>
 
           <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
             <p className="text-xs text-blue-800">
-              <strong>Catatan:</strong> Semakin banyak kolom yang dipilih, semakin lengkap data yang diexport. Anda bisa
-              mengatur ulang pilihan kolom setiap kali akan export.
+              <strong>Catatan:</strong> Export Custom menampilkan data sesuai dengan field di database. Untuk format
+              Finance, gunakan "Export Excel Default".
             </p>
           </div>
         </div>

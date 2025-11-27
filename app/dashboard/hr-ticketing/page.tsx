@@ -22,6 +22,7 @@ import { ExcelColumnSelectorDialog } from "@/components/excel-column-selector-di
 import { exportToExcelCustom } from "@/lib/excel-export-custom"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { ChevronDown } from "lucide-react"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 
 export default function HRTicketingDashboard() {
   const { user, isAuthenticated } = useAuth()
@@ -42,6 +43,8 @@ export default function HRTicketingDashboard() {
   const [tiketPulangChecked, setTiketPulangChecked] = useState(false)
   const [columnSelectorOpen, setColumnSelectorOpen] = useState(false)
   const [isExportingCustom, setIsExportingCustom] = useState(false)
+  const [selectedDepartemen, setSelectedDepartemen] = useState<string>("all")
+  const [selectedSite, setSelectedSite] = useState<string>("all")
   const bookingCodeRef = useRef<HTMLInputElement>(null)
   const namaPesawatRef = useRef<HTMLInputElement>(null)
   const jamKeberangkatanRef = useRef<HTMLInputElement>(null)
@@ -87,24 +90,59 @@ export default function HRTicketingDashboard() {
     }
   }
 
+  const uniqueDepartments = useMemo(() => {
+    const allData = [...pendingRequests, ...allRequests]
+    const departments = new Set<string>()
+    allData.forEach((request) => {
+      if (request.departemen) {
+        departments.add(request.departemen)
+      }
+    })
+    return Array.from(departments).sort()
+  }, [pendingRequests, allRequests])
+
+  const uniqueSites = useMemo(() => {
+    const allData = [...pendingRequests, ...allRequests]
+    const sites = new Set<string>()
+    allData.forEach((request) => {
+      if (request.site) {
+        sites.add(request.site)
+      }
+    })
+    return Array.from(sites).sort()
+  }, [pendingRequests, allRequests])
+
   const filteredRequests = useMemo(() => {
     const source = activeTab === "pending" ? pendingRequests : allRequests
 
-    if (!searchQuery.trim()) {
-      return source
+    let filtered = source
+
+    // Filter by department
+    if (selectedDepartemen && selectedDepartemen !== "all") {
+      filtered = filtered.filter((request) => request.departemen === selectedDepartemen)
     }
 
-    const query = searchQuery.toLowerCase()
-    return source.filter((request) => {
-      return (
-        (request.userNik?.toLowerCase() || "").includes(query) ||
-        (request.userName?.toLowerCase() || "").includes(query) ||
-        (request.jabatan?.toLowerCase() || "").includes(query) ||
-        (request.departemen?.toLowerCase() || "").includes(query) ||
-        (request.jenisPengajuanCuti?.toLowerCase() || "").includes(query)
-      )
-    })
-  }, [searchQuery, pendingRequests, allRequests, activeTab])
+    // Filter by site
+    if (selectedSite && selectedSite !== "all") {
+      filtered = filtered.filter((request) => request.site === selectedSite)
+    }
+
+    // Filter by search query
+    if (searchQuery.trim()) {
+      const query = searchQuery.toLowerCase()
+      filtered = filtered.filter((request) => {
+        return (
+          (request.userNik?.toLowerCase() || "").includes(query) ||
+          (request.userName?.toLowerCase() || "").includes(query) ||
+          (request.jabatan?.toLowerCase() || "").includes(query) ||
+          (request.departemen?.toLowerCase() || "").includes(query) ||
+          (request.jenisPengajuanCuti?.toLowerCase() || "").includes(query)
+        )
+      })
+    }
+
+    return filtered
+  }, [searchQuery, pendingRequests, allRequests, activeTab, selectedDepartemen, selectedSite])
 
   const handleProcessTicket = async () => {
     if (!bookingRequest) return
@@ -205,13 +243,25 @@ export default function HRTicketingDashboard() {
       console.log("[v0] Export started")
       console.log("[v0] Start date:", startDate)
       console.log("[v0] End date:", endDate)
+      console.log("[v0] Selected Departemen:", selectedDepartemen)
+      console.log("[v0] Selected Site:", selectedSite)
       console.log("[v0] All requests count:", allRequests.length)
 
       let dataToExport = allRequests
 
+      if (selectedDepartemen && selectedDepartemen !== "all") {
+        dataToExport = dataToExport.filter((request) => request.departemen === selectedDepartemen)
+        console.log("[v0] After departemen filter count:", dataToExport.length)
+      }
+
+      if (selectedSite && selectedSite !== "all") {
+        dataToExport = dataToExport.filter((request) => request.site === selectedSite)
+        console.log("[v0] After site filter count:", dataToExport.length)
+      }
+
       if (startDate || endDate) {
         console.log("[v0] Applying date filter...")
-        dataToExport = allRequests.filter((request) => {
+        dataToExport = dataToExport.filter((request) => {
           if (!request.updatedAt) return false
 
           const issuedDate = new Date(request.updatedAt)
@@ -241,18 +291,24 @@ export default function HRTicketingDashboard() {
 
       if (dataToExport.length === 0) {
         console.log("[v0] No data to export")
-        const dateRangeMsg =
-          startDate && endDate
-            ? `antara ${new Date(startDate).toLocaleDateString("id-ID")} dan ${new Date(endDate).toLocaleDateString("id-ID")}`
-            : startDate
-              ? `dari ${new Date(startDate).toLocaleDateString("id-ID")}`
-              : `sampai ${new Date(endDate).toLocaleDateString("id-ID")}`
+        const filterParts = []
+        if (selectedDepartemen !== "all") filterParts.push(`Departemen: ${selectedDepartemen}`)
+        if (selectedSite !== "all") filterParts.push(`Site: ${selectedSite}`)
+        if (startDate && endDate) {
+          filterParts.push(
+            `Tanggal: ${new Date(startDate).toLocaleDateString("id-ID")} - ${new Date(endDate).toLocaleDateString("id-ID")}`,
+          )
+        } else if (startDate) {
+          filterParts.push(`Dari: ${new Date(startDate).toLocaleDateString("id-ID")}`)
+        } else if (endDate) {
+          filterParts.push(`Sampai: ${new Date(endDate).toLocaleDateString("id-ID")}`)
+        }
 
         toast({
           title: "Tidak Ada Data",
           description:
-            startDate || endDate
-              ? `Tidak ada tiket yang diproses ${dateRangeMsg}. Coba pilih rentang tanggal yang berbeda.`
+            filterParts.length > 0
+              ? `Tidak ada data dengan filter: ${filterParts.join(", ")}. Coba ubah filter yang berbeda.`
               : "Tidak ada data untuk di-export",
           variant: "destructive",
         })
@@ -291,6 +347,10 @@ export default function HRTicketingDashboard() {
         }
       })
 
+      const filterParts = []
+      if (selectedDepartemen !== "all") filterParts.push(selectedDepartemen.replace(/\s+/g, "_"))
+      if (selectedSite !== "all") filterParts.push(selectedSite.replace(/\s+/g, "_"))
+
       const dateRangeText =
         startDate && endDate
           ? `${startDate}_sampai_${endDate}`
@@ -300,7 +360,8 @@ export default function HRTicketingDashboard() {
               ? `sampai_${endDate}`
               : new Date().toISOString().split("T")[0]
 
-      const fileName = `Riwayat_Pengajuan_Cuti_${activeTab}_${dateRangeText}`
+      const filterSuffix = filterParts.length > 0 ? `_${filterParts.join("_")}` : ""
+      const fileName = `Riwayat_Pengajuan_Cuti_${activeTab}${filterSuffix}_${dateRangeText}`
 
       console.log("[v0] Calling exportToExcel with", enrichedDataToExport.length, "records")
       console.log("[v0] ========== CALLING EXPORT FUNCTION ==========")
@@ -337,11 +398,21 @@ export default function HRTicketingDashboard() {
     setIsExportingCustom(true)
     try {
       console.log("[v0] Starting custom export with columns:", selectedColumns)
+      console.log("[v0] Selected Departemen:", selectedDepartemen)
+      console.log("[v0] Selected Site:", selectedSite)
 
       let dataToExport = allRequests
 
+      if (selectedDepartemen && selectedDepartemen !== "all") {
+        dataToExport = dataToExport.filter((request) => request.departemen === selectedDepartemen)
+      }
+
+      if (selectedSite && selectedSite !== "all") {
+        dataToExport = dataToExport.filter((request) => request.site === selectedSite)
+      }
+
       if (startDate || endDate) {
-        dataToExport = allRequests.filter((request) => {
+        dataToExport = dataToExport.filter((request) => {
           if (!request.updatedAt) return false
 
           const issuedDate = new Date(request.updatedAt)
@@ -367,15 +438,27 @@ export default function HRTicketingDashboard() {
       }
 
       if (dataToExport.length === 0) {
+        const filterParts = []
+        if (selectedDepartemen !== "all") filterParts.push(`Departemen: ${selectedDepartemen}`)
+        if (selectedSite !== "all") filterParts.push(`Site: ${selectedSite}`)
+        if (startDate || endDate) filterParts.push("Tanggal yang dipilih")
+
         toast({
           title: "Tidak Ada Data",
-          description: "Tidak ada data untuk di-export dengan filter yang dipilih",
+          description:
+            filterParts.length > 0
+              ? `Tidak ada data dengan filter: ${filterParts.join(", ")}`
+              : "Tidak ada data untuk di-export dengan filter yang dipilih",
           variant: "destructive",
         })
         setIsExportingCustom(false)
         setColumnSelectorOpen(false)
         return
       }
+
+      const filterParts = []
+      if (selectedDepartemen !== "all") filterParts.push(selectedDepartemen.replace(/\s+/g, "_"))
+      if (selectedSite !== "all") filterParts.push(selectedSite.replace(/\s+/g, "_"))
 
       const dateRangeText =
         startDate && endDate
@@ -386,7 +469,8 @@ export default function HRTicketingDashboard() {
               ? `sampai_${endDate}`
               : new Date().toISOString().split("T")[0]
 
-      const fileName = `Pengajuan_Cuti_Custom_${dateRangeText}`
+      const filterSuffix = filterParts.length > 0 ? `_${filterParts.join("_")}` : ""
+      const fileName = `Pengajuan_Cuti_Custom${filterSuffix}_${dateRangeText}`
 
       await exportToExcelCustom(dataToExport, fileName, selectedColumns)
 
@@ -463,66 +547,126 @@ export default function HRTicketingDashboard() {
         </div>
 
         <Card>
-          <CardHeader>
-            <div className="flex justify-between items-start">
+          <CardHeader className="space-y-4">
+            <div className="flex flex-col lg:flex-row lg:justify-between lg:items-start gap-4">
               <div>
                 <CardTitle>Pengajuan Cuti</CardTitle>
               </div>
+              <div className="flex flex-col sm:flex-row gap-2">
+                <div className="space-y-1">
+                  <Label htmlFor="startDate" className="text-xs">
+                    Dari Tanggal
+                  </Label>
+                  <Input
+                    id="startDate"
+                    type="date"
+                    value={startDate}
+                    onChange={(e) => setStartDate(e.target.value)}
+                    className="w-full sm:w-40"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label htmlFor="endDate" className="text-xs">
+                    Sampai Tanggal
+                  </Label>
+                  <Input
+                    id="endDate"
+                    type="date"
+                    value={endDate}
+                    onChange={(e) => setEndDate(e.target.value)}
+                    className="w-full sm:w-40"
+                  />
+                </div>
+              </div>
+            </div>
+
+            <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4">
+              <div className="flex flex-wrap items-end gap-3">
+                <div className="w-full xs:w-auto min-w-[140px]">
+                  <Label htmlFor="filterDepartemen" className="text-xs mb-1 block text-slate-600">
+                    Departemen
+                  </Label>
+                  <Select value={selectedDepartemen} onValueChange={setSelectedDepartemen}>
+                    <SelectTrigger id="filterDepartemen" className="h-8 text-sm w-full">
+                      <SelectValue placeholder="Semua" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Semua</SelectItem>
+                      {uniqueDepartments.map((dept) => (
+                        <SelectItem key={dept} value={dept}>
+                          {dept}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="w-full xs:w-auto min-w-[140px]">
+                  <Label htmlFor="filterSite" className="text-xs mb-1 block text-slate-600">
+                    Site
+                  </Label>
+                  <Select value={selectedSite} onValueChange={setSelectedSite}>
+                    <SelectTrigger id="filterSite" className="h-8 text-sm w-full">
+                      <SelectValue placeholder="Semua" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Semua</SelectItem>
+                      {uniqueSites.map((site) => (
+                        <SelectItem key={site} value={site}>
+                          {site}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                {(selectedDepartemen !== "all" || selectedSite !== "all") && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => {
+                      setSelectedDepartemen("all")
+                      setSelectedSite("all")
+                    }}
+                    className="text-slate-500 hover:text-slate-700 h-8 text-xs"
+                  >
+                    Reset
+                  </Button>
+                )}
+              </div>
               <div className="flex flex-col gap-2">
-                <div className="flex gap-2 items-end">
-                  <div className="space-y-1">
-                    <Label htmlFor="startDate" className="text-xs">
-                      Dari Tanggal
-                    </Label>
-                    <Input
-                      id="startDate"
-                      type="date"
-                      value={startDate}
-                      onChange={(e) => setStartDate(e.target.value)}
-                      className="w-40"
-                    />
-                  </div>
-                  <div className="space-y-1">
-                    <Label htmlFor="endDate" className="text-xs">
-                      Sampai Tanggal
-                    </Label>
-                    <Input
-                      id="endDate"
-                      type="date"
-                      value={endDate}
-                      onChange={(e) => setEndDate(e.target.value)}
-                      className="w-40"
-                    />
-                  </div>
-                </div>
-                <div className="flex flex-col gap-2">
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button variant="outline" size="sm" className="gap-2 w-full bg-transparent">
-                        <Download className="h-4 w-4" />
-                        Export Excel
-                        <ChevronDown className="h-4 w-4 ml-2" />
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end" className="w-56">
-                      <DropdownMenuItem onClick={() => setColumnSelectorOpen(true)} className="cursor-pointer">
-                        <Download className="h-4 w-4 mr-2" />
-                        Export Excel Custom (Pilih Kolom)
-                      </DropdownMenuItem>
-                      <DropdownMenuItem onClick={handleExportToExcel} className="cursor-pointer">
-                        <Download className="h-4 w-4 mr-2" />
-                        Export Excel Finance
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                </div>
-                {(startDate || endDate) && (
-                  <p className="text-xs text-slate-500 text-right">
-                    {startDate && endDate
-                      ? `Filter: ${startDate} s/d ${endDate}`
-                      : startDate
-                        ? `Filter: Dari ${startDate}`
-                        : `Filter: Sampai ${endDate}`}
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="outline" size="sm" className="gap-2 bg-transparent h-8 w-full sm:w-auto">
+                      <Download className="h-3.5 w-3.5" />
+                      Export Excel
+                      <ChevronDown className="h-3.5 w-3.5" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="w-56">
+                    <DropdownMenuItem onClick={() => setColumnSelectorOpen(true)} className="cursor-pointer">
+                      <Download className="h-4 w-4 mr-2" />
+                      Export Excel Custom (Pilih Kolom)
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={handleExportToExcel} className="cursor-pointer">
+                      <Download className="h-4 w-4 mr-2" />
+                      Export Excel Finance
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+                {(startDate || endDate || selectedDepartemen !== "all" || selectedSite !== "all") && (
+                  <p className="text-[10px] text-slate-500 text-right">
+                    {[
+                      selectedDepartemen !== "all" ? `Dept: ${selectedDepartemen}` : null,
+                      selectedSite !== "all" ? `Site: ${selectedSite}` : null,
+                      startDate && endDate
+                        ? `${new Date(startDate).toLocaleDateString("id-ID")} - ${new Date(endDate).toLocaleDateString("id-ID")}`
+                        : startDate
+                          ? `Dari ${new Date(startDate).toLocaleDateString("id-ID")}`
+                          : endDate
+                            ? `Sampai ${new Date(endDate).toLocaleDateString("id-ID")}`
+                            : null,
+                    ]
+                      .filter(Boolean)
+                      .join(" | ")}
                   </p>
                 )}
               </div>
@@ -561,21 +705,21 @@ export default function HRTicketingDashboard() {
                         key={request.id}
                         className="border border-slate-200 rounded-lg p-4 hover:bg-slate-50 transition-colors"
                       >
-                        <div className="flex justify-between items-start mb-4">
+                        <div className="flex flex-col gap-4 mb-4">
                           <div className="space-y-3 flex-1">
-                            <div className="flex items-center gap-2">
+                            <div className="flex flex-wrap items-center gap-2">
                               <h3 className="font-semibold text-slate-900">{request.jenisPengajuanCuti}</h3>
                               {getTicketStatusBadge(request)}
                             </div>
 
-                            <div className="grid grid-cols-2 md:grid-cols-5 gap-4 text-sm">
+                            <div className="grid grid-cols-1 xs:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3 text-sm">
                               <div>
                                 <p className="text-xs text-slate-500">NIK</p>
                                 <p className="font-medium text-slate-900">{request.userNik || "-"}</p>
                               </div>
                               <div>
                                 <p className="text-xs text-slate-500">Nama</p>
-                                <p className="font-medium text-slate-900">
+                                <p className="font-medium text-slate-900 truncate">
                                   {request.userName || "Nama tidak tersedia"}
                                 </p>
                               </div>
@@ -590,7 +734,7 @@ export default function HRTicketingDashboard() {
                               <div className="flex items-start gap-2">
                                 <Calendar className="h-4 w-4 text-slate-500 mt-0.5 flex-shrink-0" />
                                 <div>
-                                  <p className="text-xs text-slate-500 font-bold uppercase">Tanggal Keberangkatan</p>
+                                  <p className="text-xs text-slate-500 font-bold uppercase">Tgl Keberangkatan</p>
                                   <p className="font-medium text-slate-900">
                                     {request.tanggalKeberangkatan ? formatDate(request.tanggalKeberangkatan) : "-"}
                                   </p>
@@ -600,7 +744,7 @@ export default function HRTicketingDashboard() {
                           </div>
                         </div>
 
-                        <div className="pt-3 border-t border-slate-200 flex gap-2">
+                        <div className="pt-3 border-t border-slate-200 flex flex-col sm:flex-row gap-2">
                           <Button
                             variant="outline"
                             size="sm"
@@ -621,7 +765,7 @@ export default function HRTicketingDashboard() {
                             className="flex-1"
                           >
                             <Ticket className="h-4 w-4 mr-2" />
-                            Proses Tiket
+                            Prose Tiket
                           </Button>
                         </div>
                       </div>
@@ -645,9 +789,9 @@ export default function HRTicketingDashboard() {
                         key={request.id}
                         className="border border-slate-200 rounded-lg p-4 hover:bg-slate-50 transition-colors"
                       >
-                        <div className="flex justify-between items-start mb-4">
+                        <div className="flex flex-col gap-4 mb-4">
                           <div className="space-y-3 flex-1">
-                            <div className="flex items-center gap-2">
+                            <div className="flex flex-wrap items-center gap-2">
                               <h3 className="font-semibold text-slate-900">{request.jenisPengajuanCuti}</h3>
                               {getTicketStatusBadge(request)}
                               {request.status === "tiket_issued" && (!request.namaPesawat || !request.lamaOnsite) && (
@@ -657,14 +801,14 @@ export default function HRTicketingDashboard() {
                               )}
                             </div>
 
-                            <div className="grid grid-cols-2 md:grid-cols-5 gap-4 text-sm">
+                            <div className="grid grid-cols-1 xs:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3 text-sm">
                               <div>
                                 <p className="text-xs text-slate-500">NIK</p>
                                 <p className="font-medium text-slate-900">{request.userNik || "-"}</p>
                               </div>
                               <div>
                                 <p className="text-xs text-slate-500">Nama</p>
-                                <p className="font-medium text-slate-900">
+                                <p className="font-medium text-slate-900 truncate">
                                   {request.userName || "Nama tidak tersedia"}
                                 </p>
                               </div>
@@ -679,7 +823,7 @@ export default function HRTicketingDashboard() {
                               <div className="flex items-start gap-2">
                                 <Calendar className="h-4 w-4 text-slate-500 mt-0.5 flex-shrink-0" />
                                 <div>
-                                  <p className="text-xs text-slate-500 font-bold uppercase">Tanggal Keberangkatan</p>
+                                  <p className="text-xs text-slate-500 font-bold uppercase">Tgl Keberangkatan</p>
                                   <p className="font-medium text-slate-900">
                                     {request.tanggalKeberangkatan ? formatDate(request.tanggalKeberangkatan) : "-"}
                                   </p>
@@ -689,7 +833,7 @@ export default function HRTicketingDashboard() {
                           </div>
                         </div>
 
-                        <div className="pt-3 border-t border-slate-200 flex gap-2">
+                        <div className="pt-3 border-t border-slate-200 flex flex-col sm:flex-row gap-2">
                           <Button
                             variant="outline"
                             size="sm"

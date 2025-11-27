@@ -2,7 +2,8 @@ import * as XLSX from "xlsx"
 import { downloadExcel } from "./download-utils"
 import type { LeaveRequest } from "./types"
 
-function formatDateForExcel(date: string | Date): string {
+function formatDateForExcel(date: string | Date | null | undefined): string {
+  if (!date) return "-"
   try {
     const d = new Date(date)
     if (isNaN(d.getTime())) return "-"
@@ -32,66 +33,117 @@ function formatDateForExcel(date: string | Date): string {
   }
 }
 
+function formatStatus(status: string): string {
+  const statusMap: Record<string, string> = {
+    pending_dic: "Menunggu DIC",
+    pending_pjo: "Menunggu PJO",
+    pending_manager_ho: "Menunggu Manager HO",
+    pending_hr_ho: "Menunggu HR HO",
+    di_proses: "Diproses",
+    tiket_issued: "Tiket Issued",
+    ditolak_dic: "Ditolak DIC",
+    ditolak_pjo: "Ditolak PJO",
+    ditolak_manager_ho: "Ditolak Manager HO",
+    ditolak_hr_ho: "Ditolak HR HO",
+  }
+  return statusMap[status] || status
+}
+
 const COLUMN_MAPPING: Record<string, { header: string; getValue: (item: any) => string }> = {
-  nama: {
-    header: "NAMA",
-    getValue: () => "", // Blank
-  },
-  tglInvoice: {
-    header: "TGL INVOICE",
-    getValue: () => "", // Blank
-  },
-  nomorInvoice: {
-    header: "NOMOR INVOICE",
-    getValue: () => "", // Blank
-  },
-  site: {
-    header: "SITE",
-    getValue: (item) => item.site || "-",
-  },
+  // User Data
   nik: {
-    header: "NIK KARYAWAN",
+    header: "NIK",
     getValue: (item) => item.userNik || "-",
   },
   namaKaryawan: {
     header: "NAMA KARYAWAN",
     getValue: (item) => item.userName || "-",
   },
+  email: {
+    header: "EMAIL",
+    getValue: (item) => item.email || "-",
+  },
   jabatan: {
     header: "JABATAN",
     getValue: (item) => item.jabatan || "-",
   },
-  hakTiketKaryawan: {
-    header: "HAK TIKET KARYAWAN",
+  departemen: {
+    header: "DEPARTEMEN",
+    getValue: (item) => item.departemen || "-",
+  },
+  site: {
+    header: "SITE",
+    getValue: (item) => item.site || "-",
+  },
+  role: {
+    header: "ROLE",
+    getValue: (item) => item.role || "-",
+  },
+  hakTiket: {
+    header: "HAK TIKET",
     getValue: (item) => item.hakTiket || "-",
   },
-  pohTiketKaryawan: {
-    header: "POH TIKET KARYAWAN",
+  poh: {
+    header: "POH",
     getValue: (item) => item.poh || "-",
+  },
+
+  // Leave Request Data
+  jenisCuti: {
+    header: "JENIS CUTI",
+    getValue: (item) => item.jenisCuti || "-",
+  },
+  tanggalPengajuan: {
+    header: "TANGGAL PENGAJUAN",
+    getValue: (item) => formatDateForExcel(item.tanggalPengajuan),
+  },
+  periodeAwal: {
+    header: "PERIODE AWAL",
+    getValue: (item) => formatDateForExcel(item.periodeAwal),
+  },
+  periodeAkhir: {
+    header: "PERIODE AKHIR",
+    getValue: (item) => formatDateForExcel(item.periodeAkhir),
+  },
+  jumlahHari: {
+    header: "JUMLAH HARI",
+    getValue: (item) => item.jumlahHari?.toString() || "-",
+  },
+  tanggalKeberangkatan: {
+    header: "TANGGAL KEBERANGKATAN",
+    getValue: (item) => formatDateForExcel(item.tanggalKeberangkatan),
+  },
+  berangkatDari: {
+    header: "BERANGKAT DARI",
+    getValue: (item) => item.berangkatDari || "-",
+  },
+  tujuan: {
+    header: "TUJUAN",
+    getValue: (item) => item.tujuan || "-",
+  },
+  catatan: {
+    header: "CATATAN",
+    getValue: (item) => item.catatan || "-",
+  },
+  cutiPeriodikBerikutnya: {
+    header: "CUTI PERIODIK BERIKUTNYA",
+    getValue: (item) => formatDateForExcel(item.cutiPeriodikBerikutnya),
+  },
+
+  // Workflow Status
+  status: {
+    header: "STATUS",
+    getValue: (item) => formatStatus(item.status),
+  },
+
+  // Ticketing
+  bookingCode: {
+    header: "KODE BOOKING",
+    getValue: (item) => item.bookingCode || "-",
   },
   namaPesawat: {
     header: "NAMA PESAWAT",
     getValue: (item) => item.namaPesawat || "-",
-  },
-  lamaOnsite: {
-    header: "LAMA ONSITE",
-    getValue: (item) => (item.lamaOnsite ? String(item.lamaOnsite) : "-"),
-  },
-  notes: {
-    header: "NOTES",
-    getValue: () => "", // Blank
-  },
-  notesLainnya: {
-    header: "NOTES LAINNYA",
-    getValue: (item) => item.catatanAdminSite || "-",
-  },
-  tglIssuedTiket: {
-    header: "TGL ISSUED TIKET",
-    getValue: (item) => (item.tanggalIssuedTiket ? formatDateForExcel(item.tanggalIssuedTiket) : "-"),
-  },
-  tglTiket: {
-    header: "TGL TIKET",
-    getValue: (item) => (item.tanggalKeberangkatan ? formatDateForExcel(item.tanggalKeberangkatan) : "-"),
   },
   rutePesawat: {
     header: "RUTE PESAWAT",
@@ -101,25 +153,55 @@ const COLUMN_MAPPING: Record<string, { header: string; getValue: (item: any) => 
       return `${dari} - ${tujuan}`
     },
   },
-  keteranganPotonganGaji: {
-    header: "KETERANGAN POTONG GAJI",
-    getValue: () => "", // Blank
+  tanggalIssuedTiket: {
+    header: "TANGGAL ISSUED TIKET",
+    getValue: (item) => formatDateForExcel(item.tanggalIssuedTiket),
   },
-  nilaiRefundTiket: {
-    header: "NILAI REFUND TIKET",
-    getValue: () => "", // Blank
+
+  // Ticket Departure
+  tiketBerangkatCode: {
+    header: "TIKET BERANGKAT - KODE",
+    getValue: (item) => item.tiketBerangkatCode || "-",
   },
-  keteranganRefund: {
-    header: "KETERANGAN REFUND",
-    getValue: () => "", // Blank
+  tiketBerangkatMaskapai: {
+    header: "TIKET BERANGKAT - MASKAPAI",
+    getValue: (item) => item.tiketBerangkatMaskapai || "-",
   },
-  harga: {
-    header: "HARGA",
-    getValue: () => "", // Blank
+  tiketBerangkatJam: {
+    header: "TIKET BERANGKAT - JAM",
+    getValue: (item) => item.tiketBerangkatJam || "-",
   },
-  dpp: {
-    header: "DPP",
-    getValue: () => "", // Blank
+  tiketBerangkatRute: {
+    header: "TIKET BERANGKAT - RUTE",
+    getValue: (item) => item.tiketBerangkatRute || "-",
+  },
+
+  // Ticket Return
+  tiketBalikCode: {
+    header: "TIKET BALIK - KODE",
+    getValue: (item) => item.tiketBalikCode || "-",
+  },
+  tiketBalikMaskapai: {
+    header: "TIKET BALIK - MASKAPAI",
+    getValue: (item) => item.tiketBalikMaskapai || "-",
+  },
+  tiketBalikJam: {
+    header: "TIKET BALIK - JAM",
+    getValue: (item) => item.tiketBalikJam || "-",
+  },
+  tiketBalikRute: {
+    header: "TIKET BALIK - RUTE",
+    getValue: (item) => item.tiketBalikRute || "-",
+  },
+
+  // Metadata
+  createdAt: {
+    header: "DIBUAT PADA",
+    getValue: (item) => formatDateForExcel(item.createdAt),
+  },
+  updatedAt: {
+    header: "DIUPDATE PADA",
+    getValue: (item) => formatDateForExcel(item.updatedAt),
   },
 }
 
