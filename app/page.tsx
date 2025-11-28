@@ -1,9 +1,9 @@
 "use client"
 
 import { useEffect } from "react"
-import { useRouter } from 'next/navigation'
+import { useRouter } from "next/navigation"
 import { initializeMockData } from "@/lib/mock-data"
-import { Users, Presentation, UserCheck, CalendarCheck, Lock, BrainCircuit } from 'lucide-react'
+import { Users, Presentation, UserCheck, CalendarCheck, Lock, BrainCircuit, Hash } from "lucide-react"
 
 export default function Home() {
   const router = useRouter()
@@ -30,7 +30,7 @@ export default function Home() {
       title: "Psikotest",
       icon: BrainCircuit,
       href: "https://psikotest-nine.vercel.app",
-      requiresLogin: false,
+      requiresLogin: true,
       isExternal: true,
     },
     {
@@ -45,11 +45,18 @@ export default function Home() {
       href: "/login",
       requiresLogin: true,
     },
+    {
+      title: "NRP Generator",
+      icon: Hash,
+      href: "https://nrp-generator.vercel.app/",
+      requiresLogin: true,
+      isExternal: true,
+    },
   ]
 
-  const handleCardClick = (feature: typeof features[0]) => {
+  const handleCardClick = (feature: (typeof features)[0]) => {
     if (feature.isExternal) {
-      window.open(feature.href, '_blank', 'noopener,noreferrer')
+      window.open(feature.href, "_blank", "noopener,noreferrer")
     } else {
       router.push(feature.href)
     }
@@ -77,7 +84,7 @@ export default function Home() {
               >
                 <div className="relative">
                   <div className="absolute inset-0 rounded-[22%] bg-[#D4AF37] opacity-10 blur-xl group-hover:opacity-20 transition-opacity"></div>
-                  
+
                   <div
                     className={`relative w-20 h-20 md:w-24 md:h-24 rounded-[22%] 
                     bg-gradient-to-br from-[#1a1a1a] via-[#0a0a0a] to-[#1a1a1a]
@@ -88,11 +95,14 @@ export default function Home() {
                     transition-all duration-300 group-hover:scale-105 group-hover:border-[#D4AF37]/50`}
                   >
                     <div className="absolute inset-0 rounded-[22%] bg-gradient-to-b from-white/3 via-transparent to-transparent"></div>
-                    
+
                     {/* Icon */}
-                    <Icon className="relative w-10 h-10 md:w-12 md:h-12 text-[#D4AF37] drop-shadow-[0_0_6px_rgba(212,175,55,0.6)] group-hover:drop-shadow-[0_0_10px_rgba(212,175,55,0.9)]" strokeWidth={1.8} />
+                    <Icon
+                      className="relative w-10 h-10 md:w-12 md:h-12 text-[#D4AF37] drop-shadow-[0_0_6px_rgba(212,175,55,0.6)] group-hover:drop-shadow-[0_0_10px_rgba(212,175,55,0.9)]"
+                      strokeWidth={1.8}
+                    />
                   </div>
-                  
+
                   {/* Lock badge for login required */}
                   {feature.requiresLogin && (
                     <div className="absolute -top-1 -right-1 w-6 h-6 bg-red-500 rounded-full flex items-center justify-center shadow-lg border border-red-600">
