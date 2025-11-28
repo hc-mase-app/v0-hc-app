@@ -46,9 +46,11 @@ export function NewLeaveRequestDialog({ open, onOpenChange, onSuccess }: NewLeav
   const [error, setError] = useState("")
   const [isSubmitting, setIsSubmitting] = useState(false)
 
+  const allowedRoles = ["hr_site", "admin_site", "hr_ticketing"]
+
   useEffect(() => {
-    if (open && user && user.role !== "hr_site" && user.role !== "admin_site") {
-      setError("Hanya Admin Site atau HR Site yang dapat membuat pengajuan cuti")
+    if (open && user && !allowedRoles.includes(user.role)) {
+      setError("Hanya Admin Site, HR Site, atau HR Ticketing yang dapat membuat pengajuan cuti")
       return
     }
   }, [open, user])
@@ -66,6 +68,14 @@ export function NewLeaveRequestDialog({ open, onOpenChange, onSuccess }: NewLeav
             } else if (user?.role === "hr_site") {
               const filteredUsers = users.filter((u: User) => u.site === user.site)
               setAllUsers(filteredUsers)
+            } else if (user?.role === "hr_ticketing") {
+              const userSite = user.site?.toUpperCase()
+              if (userSite === "HO" || userSite === "ALL") {
+                setAllUsers(users)
+              } else {
+                const filteredUsers = users.filter((u: User) => u.site === user.site)
+                setAllUsers(filteredUsers)
+              }
             } else {
               setAllUsers(users)
             }
@@ -212,8 +222,8 @@ export function NewLeaveRequestDialog({ open, onOpenChange, onSuccess }: NewLeav
     e.preventDefault()
     setError("")
 
-    if (!user || (user.role !== "hr_site" && user.role !== "admin_site")) {
-      setError("Hanya Admin Site atau HR Site yang dapat membuat pengajuan cuti")
+    if (!user || !allowedRoles.includes(user.role)) {
+      setError("Hanya Admin Site, HR Site, atau HR Ticketing yang dapat membuat pengajuan cuti")
       return
     }
 
@@ -234,7 +244,13 @@ export function NewLeaveRequestDialog({ open, onOpenChange, onSuccess }: NewLeav
       }
     }
 
-    if (selectedUser.site !== user.site) {
+    if (user.role === "hr_ticketing") {
+      const userSite = user.site?.toUpperCase()
+      if (userSite !== "HO" && userSite !== "ALL" && selectedUser.site !== user.site) {
+        setError(`Anda hanya dapat membuat pengajuan untuk site ${user.site}`)
+        return
+      }
+    } else if (selectedUser.site !== user.site) {
       setError(`Anda hanya dapat membuat pengajuan untuk site ${user.site}`)
       return
     }

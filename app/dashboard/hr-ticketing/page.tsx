@@ -5,7 +5,7 @@ import { useAuth } from "@/lib/auth-context"
 import { useRouter } from "next/navigation"
 import { DashboardLayout } from "@/components/dashboard-layout"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { FileText, Clock, CheckCircle, Search, Calendar, Ticket, Download, Edit } from "lucide-react"
+import { FileText, Clock, CheckCircle, Search, Calendar, Ticket, Download, Edit, Plus } from "lucide-react"
 import type { LeaveRequest } from "@/lib/types"
 import { formatDate, getStatusColor, getDetailedTicketStatus } from "@/lib/utils"
 import { Badge } from "@/components/ui/badge"
@@ -23,6 +23,7 @@ import { exportToExcelCustom } from "@/lib/excel-export-custom"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { ChevronDown } from "lucide-react"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { NewLeaveRequestDialog } from "@/components/new-leave-request-dialog"
 
 export default function HRTicketingDashboard() {
   const { user, isAuthenticated } = useAuth()
@@ -45,6 +46,7 @@ export default function HRTicketingDashboard() {
   const [isExportingCustom, setIsExportingCustom] = useState(false)
   const [selectedDepartemen, setSelectedDepartemen] = useState<string>("all")
   const [selectedSite, setSelectedSite] = useState<string>("all")
+  const [showNewRequestDialog, setShowNewRequestDialog] = useState(false)
   const bookingCodeRef = useRef<HTMLInputElement>(null)
   const namaPesawatRef = useRef<HTMLInputElement>(null)
   const jamKeberangkatanRef = useRef<HTMLInputElement>(null)
@@ -71,12 +73,16 @@ export default function HRTicketingDashboard() {
 
   const loadData = async () => {
     try {
-      const pendingRes = await fetch("/api/workflow?action=pending&role=hr_ticketing&site=all")
+      // If user's site is "HO" or "ALL", they can see all sites
+      // Otherwise, they only see requests from their site
+      const userSiteParam = encodeURIComponent(user?.site || "all")
+
+      const pendingRes = await fetch(`/api/workflow?action=pending&role=hr_ticketing&site=${userSiteParam}`)
       const pending = await pendingRes.json()
       const pendingData = Array.isArray(pending) ? pending : pending?.data || []
       setpendingRequests(pendingData)
 
-      const allRes = await fetch("/api/workflow?action=all&role=hr_ticketing&site=all")
+      const allRes = await fetch(`/api/workflow?action=all&role=hr_ticketing&site=${userSiteParam}`)
       const all = await allRes.json()
       const allData = Array.isArray(all) ? all : all?.data || []
       setAllRequests(allData)
@@ -504,9 +510,26 @@ export default function HRTicketingDashboard() {
 
   if (!user) return null
 
+  const isHRTicketingHO = user.site?.toUpperCase() === "HO" || user.site?.toUpperCase() === "ALL"
+
   return (
     <DashboardLayout title="Dashboard HR Ticketing">
       <div className="space-y-6">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+          <div>
+            <h1 className="text-2xl font-bold text-slate-900">Dashboard HR Ticketing</h1>
+            <p className="text-sm text-muted-foreground">
+              {isHRTicketingHO
+                ? "Kelola pengajuan cuti dari semua site dan semua departemen"
+                : `Kelola pengajuan cuti untuk site ${user.site} - semua departemen`}
+            </p>
+          </div>
+          <Button onClick={() => setShowNewRequestDialog(true)}>
+            <Plus className="h-4 w-4 mr-2" />
+            Ajukan Izin Baru
+          </Button>
+        </div>
+
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -1087,6 +1110,14 @@ export default function HRTicketingDashboard() {
         onClose={() => setColumnSelectorOpen(false)}
         onExport={handleExportCustomColumns}
         isExporting={isExportingCustom}
+      />
+      <NewLeaveRequestDialog
+        open={showNewRequestDialog}
+        onOpenChange={setShowNewRequestDialog}
+        onSuccess={() => {
+          setShowNewRequestDialog(false)
+          loadData()
+        }}
       />
     </DashboardLayout>
   )

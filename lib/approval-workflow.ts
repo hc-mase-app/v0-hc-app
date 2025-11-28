@@ -110,19 +110,41 @@ export async function getPendingRequestsForRole(
     if (!rule) {
       // Special cases
       if (role === "hr_ticketing") {
-        const result = await sql`
-          SELECT 
-            lr.*,
-            u.name, u.jabatan, u.poh, u.status_karyawan,
-            u.no_ktp, u.no_telp, u.email, u.tanggal_lahir, u.jenis_kelamin
-          FROM leave_requests lr
-          LEFT JOIN users u ON lr.nik = u.nik
-          WHERE lr.status = 'di_proses'
-          AND (lr.jenis_pengajuan = 'dengan_tiket' OR lr.jenis_pengajuan IS NULL)
-          ORDER BY lr.created_at DESC
-        `
-        console.log(`[v0] Workflow query executed for ${role}, rows:`, result.length)
-        return mapDbRowsToLeaveRequests(Array.isArray(result) ? result : [])
+        // If userSite is "HO", "ALL", or "all" -> show all sites
+        // Otherwise, filter by user's site
+        const isAllSiteAccess = userSite === "HO" || userSite === "ALL" || userSite === "all"
+
+        if (isAllSiteAccess) {
+          const result = await sql`
+            SELECT 
+              lr.*,
+              u.name, u.jabatan, u.poh, u.status_karyawan,
+              u.no_ktp, u.no_telp, u.email, u.tanggal_lahir, u.jenis_kelamin
+            FROM leave_requests lr
+            LEFT JOIN users u ON lr.nik = u.nik
+            WHERE lr.status = 'di_proses'
+            AND (lr.jenis_pengajuan = 'dengan_tiket' OR lr.jenis_pengajuan IS NULL)
+            ORDER BY lr.created_at DESC
+          `
+          console.log(`[v0] HR Ticketing (ALL SITES) pending requests:`, result.length)
+          return mapDbRowsToLeaveRequests(Array.isArray(result) ? result : [])
+        } else {
+          // Filter by specific site
+          const result = await sql`
+            SELECT 
+              lr.*,
+              u.name, u.jabatan, u.poh, u.status_karyawan,
+              u.no_ktp, u.no_telp, u.email, u.tanggal_lahir, u.jenis_kelamin
+            FROM leave_requests lr
+            LEFT JOIN users u ON lr.nik = u.nik
+            WHERE lr.status = 'di_proses'
+            AND (lr.jenis_pengajuan = 'dengan_tiket' OR lr.jenis_pengajuan IS NULL)
+            AND lr.site = ${userSite}
+            ORDER BY lr.created_at DESC
+          `
+          console.log(`[v0] HR Ticketing (site: ${userSite}) pending requests:`, result.length)
+          return mapDbRowsToLeaveRequests(Array.isArray(result) ? result : [])
+        }
       }
       return []
     }
@@ -243,7 +265,6 @@ export async function getAllRequestsForRole(role: UserRole, userSite: string, us
         `
         break
       case "hr_ho":
-      case "hr_ticketing":
         result = await sql`
           SELECT 
             lr.*,
@@ -255,6 +276,39 @@ export async function getAllRequestsForRole(role: UserRole, userSite: string, us
           ORDER BY lr.created_at DESC
         `
         break
+      case "hr_ticketing": {
+        // If userSite is "HO", "ALL", or "all" -> show all sites
+        // Otherwise, filter by user's site
+        const isAllSiteAccess = userSite === "HO" || userSite === "ALL" || userSite === "all"
+
+        if (isAllSiteAccess) {
+          result = await sql`
+            SELECT 
+              lr.*,
+              u.name, u.jabatan, u.poh, u.status_karyawan,
+              u.no_ktp, u.no_telp, u.email, u.tanggal_lahir, u.jenis_kelamin
+            FROM leave_requests lr
+            LEFT JOIN users u ON lr.nik = u.nik
+            WHERE (lr.jenis_pengajuan = 'dengan_tiket' OR lr.jenis_pengajuan IS NULL)
+            ORDER BY lr.created_at DESC
+          `
+          console.log(`[v0] HR Ticketing (ALL SITES) all requests:`, result.length)
+        } else {
+          result = await sql`
+            SELECT 
+              lr.*,
+              u.name, u.jabatan, u.poh, u.status_karyawan,
+              u.no_ktp, u.no_telp, u.email, u.tanggal_lahir, u.jenis_kelamin
+            FROM leave_requests lr
+            LEFT JOIN users u ON lr.nik = u.nik
+            WHERE (lr.jenis_pengajuan = 'dengan_tiket' OR lr.jenis_pengajuan IS NULL)
+            AND lr.site = ${userSite}
+            ORDER BY lr.created_at DESC
+          `
+          console.log(`[v0] HR Ticketing (site: ${userSite}) all requests:`, result.length)
+        }
+        break
+      }
       case "user":
         return []
     }
