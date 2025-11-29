@@ -63,7 +63,6 @@ export function AssessmentApprovalCard({
       setNotes("")
       onApprove?.()
     } catch (error) {
-      console.error("Error approving assessment:", error)
       setError("Gagal menyetujui assessment")
     } finally {
       setIsApproving(false)
@@ -101,7 +100,6 @@ export function AssessmentApprovalCard({
       setNotes("")
       onReject?.()
     } catch (error) {
-      console.error("Error rejecting assessment:", error)
       setError("Gagal menolak assessment")
     } finally {
       setIsRejecting(false)

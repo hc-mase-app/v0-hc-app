@@ -65,10 +65,10 @@ export function KaryawanTable({ data, onRefresh }: KaryawanTableProps) {
           <TableRow className="border-[#333] bg-[#1a1a1a] hover:bg-[#1a1a1a]">
             <TableHead className="text-[#D4AF37] font-semibold">NRP</TableHead>
             <TableHead className="text-[#D4AF37] font-semibold">Nama Karyawan</TableHead>
-            <TableHead className="text-[#D4AF37] font-semibold hidden md:table-cell">Jabatan</TableHead>
-            <TableHead className="text-[#D4AF37] font-semibold hidden lg:table-cell">Departemen</TableHead>
-            <TableHead className="text-[#D4AF37] font-semibold hidden md:table-cell">Tgl Masuk</TableHead>
-            <TableHead className="text-[#D4AF37] font-semibold hidden lg:table-cell">Site</TableHead>
+            <TableHead className="text-[#D4AF37] font-semibold">Jabatan</TableHead>
+            <TableHead className="text-[#D4AF37] font-semibold">Departemen</TableHead>
+            <TableHead className="text-[#D4AF37] font-semibold">Tgl Masuk</TableHead>
+            <TableHead className="text-[#D4AF37] font-semibold">Site</TableHead>
             <TableHead className="text-[#D4AF37] font-semibold">Entitas</TableHead>
             <TableHead className="text-[#D4AF37] font-semibold text-right">Aksi</TableHead>
           </TableRow>
@@ -78,12 +78,10 @@ export function KaryawanTable({ data, onRefresh }: KaryawanTableProps) {
             <TableRow key={karyawan.id} className="border-[#333] hover:bg-[#1a1a1a]">
               <TableCell className="font-mono text-[#D4AF37] font-medium">{karyawan.nrp}</TableCell>
               <TableCell className="text-white">{karyawan.nama_karyawan}</TableCell>
-              <TableCell className="text-white/70 hidden md:table-cell">{karyawan.jabatan}</TableCell>
-              <TableCell className="text-white/70 hidden lg:table-cell">{karyawan.departemen}</TableCell>
-              <TableCell className="text-white/70 hidden md:table-cell">
-                {formatDate(karyawan.tanggal_masuk_kerja)}
-              </TableCell>
-              <TableCell className="text-white/70 hidden lg:table-cell">{karyawan.site}</TableCell>
+              <TableCell className="text-white/70">{karyawan.jabatan}</TableCell>
+              <TableCell className="text-white/70">{karyawan.departemen}</TableCell>
+              <TableCell className="text-white/70">{formatDate(karyawan.tanggal_masuk_kerja)}</TableCell>
+              <TableCell className="text-white/70">{karyawan.site}</TableCell>
               <TableCell>
                 <Badge variant="outline" className={getEntitasBadgeColor(karyawan.entitas)}>
                   {karyawan.entitas.includes("SSS") ? "SSS" : "GSM"}

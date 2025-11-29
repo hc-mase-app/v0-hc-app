@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Card, CardContent } from "@/components/ui/card"
 import { addKaryawan } from "@/app/nrp-generator/actions"
 import { ENTITAS_OPTIONS, DEPARTEMEN_OPTIONS, SITE_OPTIONS } from "@/lib/nrp-types"
 import { UserPlus, Loader2 } from "lucide-react"
@@ -58,13 +58,7 @@ export function NRPForm({ onSuccess }: NRPFormProps) {
 
   return (
     <Card className="border-[#D4AF37]/20 bg-[#0a0a0a]">
-      <CardHeader className="pb-4">
-        <CardTitle className="flex items-center gap-2 text-lg text-[#D4AF37]">
-          <UserPlus className="h-5 w-5" />
-          Tambah Karyawan Baru
-        </CardTitle>
-      </CardHeader>
-      <CardContent>
+      <CardContent className="pt-6">
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-2">

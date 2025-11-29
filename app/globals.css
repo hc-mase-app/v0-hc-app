@@ -126,4 +126,14 @@
   body {
     @apply bg-background text-foreground;
   }
+
+  /* Make calendar icon gold color */
+  input[type="date"]::-webkit-calendar-picker-indicator {
+    filter: invert(65%) sepia(50%) saturate(500%) hue-rotate(10deg) brightness(95%) contrast(90%);
+    cursor: pointer;
+  }
+
+  input[type="date"]::-webkit-calendar-picker-indicator:hover {
+    filter: invert(65%) sepia(50%) saturate(500%) hue-rotate(10deg) brightness(110%) contrast(95%);
+  }
 }

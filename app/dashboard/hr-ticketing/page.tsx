@@ -172,13 +172,6 @@ export default function HRTicketingDashboard() {
     const berangkatDariBalik = berangkatDariBalikRef.current?.value.trim() || null
     const tujuanBalik = tujuanBalikRef.current?.value.trim() || null
 
-    console.log("[v0] Data yang akan dikirim:", {
-      tiketBerangkat: tiketBerangkatChecked,
-      tiketBalik: tiketPulangChecked,
-      bookingCode,
-      bookingCodeBalik,
-    })
-
     setIsProcessing(true)
     try {
       const response = await fetch("/api/workflow", {
@@ -245,28 +238,17 @@ export default function HRTicketingDashboard() {
 
   const handleExportToExcel = () => {
     try {
-      console.log("[v0] ========== EXPORT HANDLER START ==========")
-      console.log("[v0] Export started")
-      console.log("[v0] Start date:", startDate)
-      console.log("[v0] End date:", endDate)
-      console.log("[v0] Selected Departemen:", selectedDepartemen)
-      console.log("[v0] Selected Site:", selectedSite)
-      console.log("[v0] All requests count:", allRequests.length)
-
       let dataToExport = allRequests
 
       if (selectedDepartemen && selectedDepartemen !== "all") {
         dataToExport = dataToExport.filter((request) => request.departemen === selectedDepartemen)
-        console.log("[v0] After departemen filter count:", dataToExport.length)
       }
 
       if (selectedSite && selectedSite !== "all") {
         dataToExport = dataToExport.filter((request) => request.site === selectedSite)
-        console.log("[v0] After site filter count:", dataToExport.length)
       }
 
       if (startDate || endDate) {
-        console.log("[v0] Applying date filter...")
         dataToExport = dataToExport.filter((request) => {
           if (!request.updatedAt) return false
 
@@ -279,7 +261,6 @@ export default function HRTicketingDashboard() {
             const end = new Date(endDate)
             end.setHours(23, 59, 59, 999)
             const included = issuedDate >= start && issuedDate <= end
-            console.log("[v0] Request", request.id, "issued:", issuedDate, "included:", included)
             return included
           } else if (startDate) {
             const start = new Date(startDate)
@@ -292,11 +273,9 @@ export default function HRTicketingDashboard() {
           }
           return true
         })
-        console.log("[v0] Filtered data count:", dataToExport.length)
       }
 
       if (dataToExport.length === 0) {
-        console.log("[v0] No data to export")
         const filterParts = []
         if (selectedDepartemen !== "all") filterParts.push(`Departemen: ${selectedDepartemen}`)
         if (selectedSite !== "all") filterParts.push(`Site: ${selectedSite}`)
@@ -321,7 +300,6 @@ export default function HRTicketingDashboard() {
         return
       }
 
-      console.log("[v0] Building employee data map...")
       const employeeDataMap = new Map<string, { namaPesawat?: string; lamaOnsite?: number }>()
 
       const sortedRequests = [...allRequests].sort((a, b) => {
@@ -341,8 +319,6 @@ export default function HRTicketingDashboard() {
           }
         }
       }
-
-      console.log("[v0] Employee data map size:", employeeDataMap.size)
 
       const enrichedDataToExport = dataToExport.map((request) => {
         const employeeData = request.userNik ? employeeDataMap.get(request.userNik) : null
@@ -369,19 +345,14 @@ export default function HRTicketingDashboard() {
       const filterSuffix = filterParts.length > 0 ? `_${filterParts.join("_")}` : ""
       const fileName = `Riwayat_Pengajuan_Cuti_${activeTab}${filterSuffix}_${dateRangeText}`
 
-      console.log("[v0] Calling exportToExcel with", enrichedDataToExport.length, "records")
-      console.log("[v0] ========== CALLING EXPORT FUNCTION ==========")
-
       exportToExcel(enrichedDataToExport, fileName)
         .then(() => {
-          console.log("[v0] Export completed successfully")
           toast({
             title: "Berhasil",
             description: `${enrichedDataToExport.length} data berhasil di-export ke Excel`,
           })
         })
         .catch((error) => {
-          console.error("[v0] Export failed:", error)
           toast({
             title: "Error",
             description: error instanceof Error ? error.message : "Gagal export Excel",
@@ -389,9 +360,6 @@ export default function HRTicketingDashboard() {
           })
         })
     } catch (error) {
-      console.error("[v0] ========== EXPORT HANDLER ERROR ==========")
-      console.error("[v0] Error in handleExportToExcel:", error)
-      console.error("[v0] ===========================================")
       toast({
         title: "Error",
         description: error instanceof Error ? error.message : "Gagal export Excel",
@@ -403,10 +371,6 @@ export default function HRTicketingDashboard() {
   const handleExportCustomColumns = async (selectedColumns: string[]) => {
     setIsExportingCustom(true)
     try {
-      console.log("[v0] Starting custom export with columns:", selectedColumns)
-      console.log("[v0] Selected Departemen:", selectedDepartemen)
-      console.log("[v0] Selected Site:", selectedSite)
-
       let dataToExport = allRequests
 
       if (selectedDepartemen && selectedDepartemen !== "all") {
@@ -487,7 +451,6 @@ export default function HRTicketingDashboard() {
 
       setColumnSelectorOpen(false)
     } catch (error) {
-      console.error("[v0] Error in handleExportCustomColumns:", error)
       toast({
         title: "Error",
         description: error instanceof Error ? error.message : "Gagal export Excel",
