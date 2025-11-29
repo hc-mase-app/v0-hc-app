@@ -33,9 +33,9 @@ export default function Home() {
     {
       title: "Psikotest",
       icon: BrainCircuit,
-      href: "https://psikotest-nine.vercel.app",
+      href: "/psikotest",
       requiresLogin: true,
-      isExternal: true,
+      isExternal: false,
       allowedRoles: [],
     },
     {
@@ -115,7 +115,9 @@ export default function Home() {
                   <div
                     className={`absolute inset-0 rounded-[22%] ${
                       isDisabled ? "bg-gray-500" : "bg-[#D4AF37]"
-                    } opacity-10 blur-xl group-hover:opacity-20 transition-opacity`}
+                    } opacity-10 blur-xl transition-all duration-300 ${
+                      isDisabled ? "" : "group-hover:opacity-30 group-hover:blur-2xl"
+                    }`}
                   ></div>
 
                   <div
@@ -124,11 +126,10 @@ export default function Home() {
                     flex items-center justify-center 
                     ${
                       isDisabled
-                        ? "shadow-[0_0_10px_rgba(100,100,100,0.2)]"
-                        : "shadow-[0_0_20px_rgba(212,175,55,0.3),0_8px_16px_rgba(0,0,0,0.6)] hover:shadow-[0_0_30px_rgba(212,175,55,0.5),0_12px_24px_rgba(0,0,0,0.7)]"
+                        ? "shadow-[0_0_10px_rgba(100,100,100,0.2)] border-2 border-gray-600/30"
+                        : "shadow-[0_0_20px_rgba(212,175,55,0.3),0_8px_16px_rgba(0,0,0,0.6)] border-2 border-[#D4AF37]/30 hover:border-[#D4AF37] hover:shadow-[0_0_40px_rgba(212,175,55,0.6),0_12px_24px_rgba(0,0,0,0.7)]"
                     }
-                    border-2 ${isDisabled ? "border-gray-600/30" : "border-[#D4AF37]/30"}
-                    transition-all duration-300 ${isDisabled ? "" : "group-hover:scale-105 group-hover:border-[#D4AF37]/50"}`}
+                    transition-all duration-300 ${isDisabled ? "" : "group-hover:scale-105"}`}
                   >
                     <div className="absolute inset-0 rounded-[22%] bg-gradient-to-b from-white/3 via-transparent to-transparent"></div>
 
@@ -138,7 +139,7 @@ export default function Home() {
                         isDisabled ? "text-gray-600" : "text-[#D4AF37]"
                       } drop-shadow-[0_0_6px_rgba(212,175,55,0.6)] ${
                         isDisabled ? "" : "group-hover:drop-shadow-[0_0_10px_rgba(212,175,55,0.9)]"
-                      }`}
+                      } transition-all duration-300`}
                       strokeWidth={1.8}
                     />
                   </div>
@@ -157,10 +158,9 @@ export default function Home() {
                   )}
                 </div>
 
-                {/* Label underneath */}
                 <h3
-                  className={`text-xs md:text-sm font-normal text-center max-w-[100px] md:max-w-[120px] leading-tight ${
-                    isDisabled ? "text-gray-600" : "text-white"
+                  className={`text-xs md:text-sm font-normal text-center max-w-[100px] md:max-w-[120px] leading-tight transition-colors duration-300 ${
+                    isDisabled ? "text-gray-600" : "text-white group-hover:text-[#D4AF37]"
                   }`}
                 >
                   {feature.title}
