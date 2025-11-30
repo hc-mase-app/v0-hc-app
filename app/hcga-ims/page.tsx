@@ -1,0 +1,106 @@
+"use client"
+
+import { useRouter } from "next/navigation"
+import { Building2, ArrowLeft, FileText, ClipboardList, BookOpen, Mail, GitBranch, FileCheck } from "lucide-react"
+import { Button } from "@/components/ui/button"
+
+export default function HcgaImsPage() {
+  const router = useRouter()
+
+  const documentCategories = [
+    {
+      title: "Induksi Karyawan",
+      icon: FileText,
+      url: "https://drive.google.com/drive/u/7/folders/1OfZOMf0qUG7ONZbEKJtpMBCGuP5mlztM",
+    },
+    {
+      title: "FORM",
+      icon: ClipboardList,
+      url: "https://drive.google.com/drive/u/7/folders/1vZ2G1rbuii48VxwfhvcLy6raD4KYFoxg",
+    },
+    {
+      title: "SOP & IK",
+      icon: BookOpen,
+      url: "https://drive.google.com/drive/u/7/folders/1Bdf2wNHLIVtKEl6pr0sm9wxb0fbJWWAX",
+    },
+    {
+      title: "Internal Memo",
+      icon: Mail,
+      url: "https://drive.google.com/drive/u/7/folders/15ikNc7yRNpJmUrYSej7Mv2Ytdz_egxnS",
+    },
+    {
+      title: "Bisnis Proses",
+      icon: GitBranch,
+      url: "https://drive.google.com/drive/u/7/folders/1XYkJVSy5M-0Mm9TwcDiKgqFWz8f5Y0i_",
+    },
+    {
+      title: "SK",
+      icon: FileCheck,
+      url: "https://drive.google.com/drive/u/7/folders/19cvQEJ5cTuv4OrisUjDSZm16rkhOVD0g",
+    },
+  ]
+
+  const handleCardClick = (url: string) => {
+    window.open(url, "_blank", "noopener,noreferrer")
+  }
+
+  return (
+    <div className="min-h-screen bg-[#0a0a0a] dark">
+      {/* Header */}
+      <header className="border-b border-white/10 bg-[#0a0a0a]/80 backdrop-blur-sm sticky top-0 z-50">
+        <div className="container mx-auto px-4 py-4">
+          <div className="flex items-center gap-4">
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => router.push("/")}
+              className="text-[#D4AF37] hover:text-[#D4AF37]/80 hover:bg-[#D4AF37]/10"
+            >
+              <ArrowLeft className="w-5 h-5" />
+            </Button>
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-[#1a1a1a] via-[#0a0a0a] to-[#1a1a1a] flex items-center justify-center border border-[#D4AF37]/30 shadow-[0_0_20px_rgba(212,175,55,0.3)]">
+                <Building2 className="w-6 h-6 text-[#D4AF37]" />
+              </div>
+              <div>
+                <h1 className="text-xl font-semibold text-white">HCGA Integrated Management System</h1>
+                <p className="text-sm text-gray-400">Dokumen Umum HCGA</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </header>
+
+      {/* Main Content - iOS Style Grid */}
+      <main className="container mx-auto px-4 py-12">
+        <div className="grid grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-8 max-w-6xl mx-auto">
+          {documentCategories.map((category) => {
+            const Icon = category.icon
+            return (
+              <button
+                key={category.title}
+                onClick={() => handleCardClick(category.url)}
+                className="group flex flex-col items-center gap-3 w-28 transition-transform duration-200 active:scale-95"
+              >
+                {/* iOS-style square icon card */}
+                <div className="w-24 h-24 rounded-2xl bg-gradient-to-br from-[#1a1a1a] via-[#0a0a0a] to-[#1a1a1a] border border-[#D4AF37]/30 flex items-center justify-center transition-all duration-300 group-hover:border-[#D4AF37] group-hover:shadow-[0_0_25px_rgba(212,175,55,0.5)] group-hover:scale-110">
+                  <Icon className="w-12 h-12 text-[#D4AF37] transition-transform duration-300 group-hover:scale-110" />
+                </div>
+
+                {/* Label text below */}
+                <span className="text-sm text-center text-gray-300 group-hover:text-[#D4AF37] transition-colors duration-300 leading-tight px-1">
+                  {category.title}
+                </span>
+              </button>
+            )
+          })}
+        </div>
+      </main>
+
+      {/* Footer */}
+      <footer className="py-6 text-center mt-auto">
+        <p className="text-[#666666] text-sm">© 2025 Yan Firdaus | HCD | HCGA | PT SSS - PT GSM</p>
+      </footer>
+    </div>
+  )
+}

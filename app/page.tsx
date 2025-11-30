@@ -4,7 +4,7 @@ import { useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { initializeMockData } from "@/lib/mock-data"
 import { useAuth } from "@/lib/auth-context"
-import { Users, Presentation, UserCheck, CalendarCheck, Lock, BrainCircuit, Hash } from "lucide-react"
+import { Users, Presentation, UserCheck, CalendarCheck, Lock, BrainCircuit, Hash, Building2 } from "lucide-react"
 
 export default function Home() {
   const router = useRouter()
@@ -59,6 +59,13 @@ export default function Home() {
       requiresLogin: true,
       allowedRoles: ["hr_ho", "hr_site", "admin"],
     },
+    {
+      title: "HCGA Integrated Management System",
+      icon: Building2,
+      href: "/hcga-ims",
+      requiresLogin: false,
+      allowedRoles: [],
+    },
   ]
 
   const hasAccess = (feature: (typeof features)[0]) => {
@@ -96,7 +103,7 @@ export default function Home() {
           </div>
         </div>
 
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-6 md:gap-8 max-w-5xl w-full px-4">
+        <div className="grid grid-cols-3 md:grid-cols-4 gap-6 md:gap-8 max-w-5xl w-full px-4">
           {features.map((feature) => {
             const Icon = feature.icon
             const userHasAccess = hasAccess(feature)
