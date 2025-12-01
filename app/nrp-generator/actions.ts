@@ -2,7 +2,7 @@
 
 import { sql } from "@/lib/db"
 import { generateNRP, getEntitasCode } from "@/lib/nrp-generator"
-import type { KaryawanInput, Karyawan } from "@/lib/nrp-types"
+import type { KaryawanInput, Karyawan, PaginationParams, PaginatedResponse } from "@/lib/nrp-types"
 import { revalidatePath } from "next/cache"
 
 async function getNextNomorUrut(kodeEntitas: string, tahun: string): Promise<number> {
@@ -80,6 +80,73 @@ export async function deleteKaryawan(id: string) {
 }
 
 export async function getKaryawanList(
+  params?: PaginationParams,
+): Promise<{ success: boolean; error?: string; data: PaginatedResponse<Karyawan> }> {
+  try {
+    const page = params?.page || 1
+    const limit = params?.limit || 50
+    const offset = (page - 1) * limit
+    const search = params?.search
+
+    // Get total count for pagination
+    let countResult: { count: string }[]
+    if (search) {
+      const searchPattern = `%${search}%`
+      countResult = await sql`
+        SELECT COUNT(*) as count FROM karyawan 
+        WHERE nama_karyawan ILIKE ${searchPattern} OR nrp ILIKE ${searchPattern}
+      `
+    } else {
+      countResult = await sql`
+        SELECT COUNT(*) as count FROM karyawan
+      `
+    }
+
+    const total = Number.parseInt(countResult[0].count, 10)
+    const totalPages = Math.ceil(total / limit)
+
+    // Get paginated data with ONLY required columns
+    let result: Karyawan[]
+    if (search) {
+      const searchPattern = `%${search}%`
+      result = await sql`
+        SELECT id, nrp, nama_karyawan, jabatan, departemen, tanggal_masuk_kerja, site, entitas, created_at, updated_at
+        FROM karyawan 
+        WHERE nama_karyawan ILIKE ${searchPattern} OR nrp ILIKE ${searchPattern}
+        ORDER BY created_at DESC
+        LIMIT ${limit} OFFSET ${offset}
+      `
+    } else {
+      result = await sql`
+        SELECT id, nrp, nama_karyawan, jabatan, departemen, tanggal_masuk_kerja, site, entitas, created_at, updated_at
+        FROM karyawan 
+        ORDER BY created_at DESC
+        LIMIT ${limit} OFFSET ${offset}
+      `
+    }
+
+    return {
+      success: true,
+      data: {
+        data: result,
+        pagination: {
+          page,
+          limit,
+          total,
+          totalPages,
+        },
+      },
+    }
+  } catch (error) {
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : "Unknown error",
+      data: { data: [], pagination: { page: 1, limit: 50, total: 0, totalPages: 0 } },
+    }
+  }
+}
+
+export async function getAllKaryawanForExport(
   search?: string,
 ): Promise<{ success: boolean; error?: string; data: Karyawan[] }> {
   try {
@@ -88,13 +155,15 @@ export async function getKaryawanList(
     if (search) {
       const searchPattern = `%${search}%`
       result = await sql`
-        SELECT * FROM karyawan 
+        SELECT id, nrp, nama_karyawan, jabatan, departemen, tanggal_masuk_kerja, site, entitas, created_at, updated_at
+        FROM karyawan 
         WHERE nama_karyawan ILIKE ${searchPattern} OR nrp ILIKE ${searchPattern}
         ORDER BY created_at DESC
       `
     } else {
       result = await sql`
-        SELECT * FROM karyawan 
+        SELECT id, nrp, nama_karyawan, jabatan, departemen, tanggal_masuk_kerja, site, entitas, created_at, updated_at
+        FROM karyawan 
         ORDER BY created_at DESC
       `
     }

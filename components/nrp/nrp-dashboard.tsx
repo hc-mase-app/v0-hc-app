@@ -6,44 +6,62 @@ import { KaryawanTable } from "./karyawan-table"
 import { SearchBar } from "./search-bar"
 import { StatsCards } from "./stats-cards"
 import { ExcelUpload } from "./excel-upload"
-import { getKaryawanList } from "@/app/nrp-generator/actions"
-import type { Karyawan } from "@/lib/nrp-types"
+import { getKaryawanList, getAllKaryawanForExport } from "@/app/nrp-generator/actions"
 import { RefreshCw, FileSpreadsheet, ArrowLeft, Hash, LogOut } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import Link from "next/link"
 import { useAuth } from "@/lib/auth-context"
 import { useRouter } from "next/navigation"
+import useSWR from "swr"
 
 export function NRPDashboard() {
   const { logout, user } = useAuth()
   const router = useRouter()
-  const [data, setData] = useState<Karyawan[]>([])
   const [search, setSearch] = useState("")
-  const [loading, setLoading] = useState(true)
+  const [page, setPage] = useState(1)
+  const limit = 50
 
-  const fetchData = useCallback(async () => {
-    setLoading(true)
-    const result = await getKaryawanList(search || undefined)
-    if (result.success) {
-      setData(result.data)
-    }
-    setLoading(false)
-  }, [search])
+  const {
+    data: response,
+    isLoading,
+    mutate,
+  } = useSWR(
+    ["karyawan-list", page, search],
+    async () => {
+      const result = await getKaryawanList({ page, limit, search: search || undefined })
+      if (result.success) {
+        return result.data
+      }
+      return { data: [], pagination: { page: 1, limit: 50, total: 0, totalPages: 0 } }
+    },
+    {
+      revalidateOnFocus: false,
+      revalidateOnReconnect: true,
+      dedupingInterval: 2000, // Prevent duplicate requests within 2 seconds
+    },
+  )
 
-  useEffect(() => {
-    fetchData()
-  }, [fetchData])
+  const data = response?.data || []
+  const pagination = response?.pagination || { page: 1, limit: 50, total: 0, totalPages: 0 }
 
   useEffect(() => {
     const timer = setTimeout(() => {
-      fetchData()
-    }, 300)
+      setPage(1) // Reset to page 1 on new search
+      mutate()
+    }, 500)
     return () => clearTimeout(timer)
-  }, [search, fetchData])
+  }, [search, mutate])
 
-  function exportToCSV() {
-    if (data.length === 0) return
+  // Refresh data manually
+  const fetchData = useCallback(() => {
+    mutate()
+  }, [mutate])
 
+  async function exportToCSV() {
+    const result = await getAllKaryawanForExport(search || undefined)
+    if (!result.success || result.data.length === 0) return
+
+    const exportData = result.data
     const headers = ["nrp", "nama_karyawan", "jabatan", "departemen", "tanggal_masuk", "site", "entitas"]
 
     const formatDateForCSV = (dateString: string) => {
@@ -56,7 +74,7 @@ export function NRPDashboard() {
 
     const csvContent = [
       headers.join(","),
-      ...data.map((k) =>
+      ...exportData.map((k) =>
         [
           k.nrp,
           k.nama_karyawan,
@@ -123,7 +141,7 @@ export function NRPDashboard() {
           {/* Left Column: Form + Stats */}
           <div className="space-y-6">
             <NRPForm onSuccess={fetchData} />
-            <StatsCards data={data} />
+            <StatsCards data={data} totalCount={pagination.total} />
           </div>
 
           {/* Right Column: Table */}
@@ -138,7 +156,7 @@ export function NRPDashboard() {
                 <Button
                   variant="outline"
                   onClick={exportToCSV}
-                  disabled={data.length === 0}
+                  disabled={pagination.total === 0}
                   className="gap-2 border-[#D4AF37]/30 text-[#D4AF37] hover:bg-[#D4AF37]/10 bg-transparent"
                 >
                   <FileSpreadsheet className="h-4 w-4" />
@@ -147,16 +165,23 @@ export function NRPDashboard() {
                 <Button
                   variant="outline"
                   onClick={fetchData}
-                  disabled={loading}
+                  disabled={isLoading}
                   className="gap-2 border-[#444] text-white hover:bg-[#333] bg-transparent"
                 >
-                  <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
+                  <RefreshCw className={`h-4 w-4 ${isLoading ? "animate-spin" : ""}`} />
                 </Button>
               </div>
             </div>
 
-            {/* Table */}
-            <KaryawanTable data={data} onRefresh={fetchData} />
+            {/* Table with Pagination */}
+            <KaryawanTable
+              data={data}
+              onRefresh={fetchData}
+              pagination={pagination}
+              currentPage={page}
+              onPageChange={setPage}
+              isLoading={isLoading}
+            />
           </div>
         </div>
       </div>

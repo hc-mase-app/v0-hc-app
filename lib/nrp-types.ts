@@ -21,6 +21,22 @@ export interface KaryawanInput {
   nrp?: string // Added optional NRP field for CSV import
 }
 
+export interface PaginationParams {
+  page: number
+  limit: number
+  search?: string
+}
+
+export interface PaginatedResponse<T> {
+  data: T[]
+  pagination: {
+    page: number
+    limit: number
+    total: number
+    totalPages: number
+  }
+}
+
 export const ENTITAS_OPTIONS = [
   { value: "PT SSS", code: "1" },
   { value: "PT GSM", code: "2" },

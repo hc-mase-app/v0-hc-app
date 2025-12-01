@@ -3,10 +3,11 @@ import type { Karyawan } from "@/lib/nrp-types"
 
 interface StatsCardsProps {
   data: Karyawan[]
+  totalCount?: number
 }
 
-export function StatsCards({ data }: StatsCardsProps) {
-  const totalKaryawan = data.length
+export function StatsCards({ data, totalCount }: StatsCardsProps) {
+  const totalKaryawan = totalCount ?? data.length
   const totalSSS = data.filter((k) => k.entitas.includes("SSS")).length
   const totalGSM = data.filter((k) => k.entitas.includes("GSM")).length
   const latestNRP = data.length > 0 ? data[0]?.nrp : "-"
