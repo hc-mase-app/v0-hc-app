@@ -116,8 +116,21 @@ export async function bulkAddKaryawan(inputs: KaryawanInput[]) {
       const tahun = tanggalMasuk.getFullYear().toString().slice(-2)
       const kodeEntitas = getEntitasCode(input.entitas)
 
-      const nomorUrut = await getNextNomorUrut(kodeEntitas, tahun)
-      const nrp = generateNRP(input.entitas, tanggalMasuk, nomorUrut)
+      let nrp: string
+      if (input.nrp) {
+        // Validate NRP is not duplicate
+        const existing = await sql`
+          SELECT nrp FROM karyawan WHERE nrp = ${input.nrp}
+        `
+        if (existing.length > 0) {
+          throw new Error(`NRP ${input.nrp} sudah terdaftar untuk ${input.nama_karyawan}`)
+        }
+        nrp = input.nrp
+      } else {
+        // Auto-generate NRP
+        const nomorUrut = await getNextNomorUrut(kodeEntitas, tahun)
+        nrp = generateNRP(input.entitas, tanggalMasuk, nomorUrut)
+      }
 
       await sql`
         INSERT INTO karyawan (nrp, nama_karyawan, jabatan, departemen, tanggal_masuk_kerja, site, entitas)

@@ -44,18 +44,27 @@ export function NRPDashboard() {
   function exportToCSV() {
     if (data.length === 0) return
 
-    const headers = ["NRP", "Nama Karyawan", "Jabatan", "Departemen", "Tanggal Masuk", "Site", "Entitas"]
+    const headers = ["nrp", "nama_karyawan", "jabatan", "departemen", "tanggal_masuk", "site", "entitas"]
+
+    const formatDateForCSV = (dateString: string) => {
+      const date = new Date(dateString)
+      const day = String(date.getDate()).padStart(2, "0")
+      const month = String(date.getMonth() + 1).padStart(2, "0")
+      const year = date.getFullYear()
+      return `${day}/${month}/${year}`
+    }
+
     const csvContent = [
       headers.join(","),
       ...data.map((k) =>
         [
           k.nrp,
-          `"${k.nama_karyawan}"`,
-          `"${k.jabatan}"`,
-          `"${k.departemen}"`,
-          k.tanggal_masuk_kerja,
+          k.nama_karyawan,
+          k.jabatan,
+          k.departemen,
+          formatDateForCSV(k.tanggal_masuk_kerja),
           k.site,
-          `"${k.entitas}"`,
+          k.entitas,
         ].join(","),
       ),
     ].join("\n")

@@ -27,6 +27,36 @@ interface ParsedRow extends KaryawanInput {
 
 const VALID_ENTITAS = ["PT SSS", "PT GSM"]
 
+function parseDDMMYYYYDate(dateStr: string): string {
+  const parts = dateStr.split(/[/-]/)
+  console.log("[v0] parseDDMMYYYYDate input:", dateStr, "parts:", parts)
+
+  if (parts.length !== 3) {
+    console.log("[v0] Invalid parts length")
+    return ""
+  }
+
+  const [d, m, y] = parts
+  const day = Number.parseInt(d, 10)
+  const month = Number.parseInt(m, 10)
+  let year = Number.parseInt(y, 10)
+
+  // Validate day and month ranges
+  if (day < 1 || day > 31 || month < 1 || month > 12) {
+    console.log("[v0] Invalid day/month:", { day, month })
+    return ""
+  }
+
+  // Convert 2-digit year to 4-digit (e.g., 16 -> 2016, 25 -> 2025)
+  if (year < 100) {
+    year = year < 30 ? 2000 + year : 1900 + year
+  }
+
+  const result = `${year}-${month.toString().padStart(2, "0")}-${day.toString().padStart(2, "0")}`
+  console.log("[v0] parseDDMMYYYYDate output:", result)
+  return result
+}
+
 export function ExcelUpload({ onSuccess }: { onSuccess: () => void }) {
   const [open, setOpen] = useState(false)
   const [parsedData, setParsedData] = useState<ParsedRow[]>([])
@@ -38,18 +68,20 @@ export function ExcelUpload({ onSuccess }: { onSuccess: () => void }) {
   function downloadTemplate() {
     const template = [
       {
+        nrp: "(Opsional) atau kosongkan untuk auto-generate",
         nama_karyawan: "Contoh: Budi Santoso",
         jabatan: "Staff",
         departemen: "HCGA",
-        tanggal_masuk_kerja: "2025-01-15",
+        tanggal_masuk_kerja: "06/08/2016",
         site: "HEAD OFFICE",
         entitas: "PT GSM",
       },
       {
+        nrp: "",
         nama_karyawan: "Contoh: Ani Wijaya",
         jabatan: "Manager",
         departemen: "FINANCE",
-        tanggal_masuk_kerja: "2025-02-01",
+        tanggal_masuk_kerja: "01/02/2025",
         site: "HSM",
         entitas: "PT SSS",
       },
@@ -59,13 +91,15 @@ export function ExcelUpload({ onSuccess }: { onSuccess: () => void }) {
     const wb = XLSX.utils.book_new()
     XLSX.utils.book_append_sheet(wb, ws, "Template")
 
-    ws["!cols"] = [{ wch: 25 }, { wch: 15 }, { wch: 15 }, { wch: 20 }, { wch: 15 }, { wch: 15 }]
+    ws["!cols"] = [{ wch: 35 }, { wch: 25 }, { wch: 15 }, { wch: 15 }, { wch: 20 }, { wch: 15 }, { wch: 15 }]
 
     XLSX.writeFile(wb, "template-import-karyawan.xlsx")
   }
 
   function validateRow(row: Record<string, unknown>, rowNumber: number): ParsedRow {
     const errors: string[] = []
+
+    const nrp = row.nrp ? String(row.nrp || "").trim() : ""
 
     const nama_karyawan = String(row.nama_karyawan || "").trim()
     const jabatan = String(row.jabatan || "").trim()
@@ -74,24 +108,58 @@ export function ExcelUpload({ onSuccess }: { onSuccess: () => void }) {
     const entitas = String(row.entitas || "").trim()
 
     let tanggal_masuk_kerja = ""
-    if (row.tanggal_masuk_kerja) {
-      if (typeof row.tanggal_masuk_kerja === "number") {
-        const date = XLSX.SSF.parse_date_code(row.tanggal_masuk_kerja)
+
+    const tanggalValue = row.tanggal_masuk_kerja || row.tanggal_masuk
+    console.log("[v0] validateRow - tanggalValue:", tanggalValue, "type:", typeof tanggalValue)
+
+    if (tanggalValue) {
+      if (typeof tanggalValue === "number") {
+        const date = XLSX.SSF.parse_date_code(tanggalValue)
         tanggal_masuk_kerja = `${date.y}-${String(date.m).padStart(2, "0")}-${String(date.d).padStart(2, "0")}`
+        console.log("[v0] Parsed as numeric date:", tanggal_masuk_kerja)
       } else {
-        const dateStr = String(row.tanggal_masuk_kerja).trim()
-        const parsed = new Date(dateStr)
-        if (!isNaN(parsed.getTime())) {
-          tanggal_masuk_kerja = parsed.toISOString().split("T")[0]
-        } else {
-          const parts = dateStr.split(/[/-]/)
-          if (parts.length === 3) {
-            const [d, m, y] = parts
-            tanggal_masuk_kerja = `${y}-${m.padStart(2, "0")}-${d.padStart(2, "0")}`
+        const dateStr = String(tanggalValue).trim()
+        console.log("[v0] Parsing string date:", dateStr)
+
+        let parsed = parseDDMMYYYYDate(dateStr)
+
+        // If DD/MM/YYYY parsing failed, try other formats
+        if (!parsed) {
+          console.log("[v0] DD/MM/YYYY parsing failed, trying alternatives")
+          const dateObj = new Date(dateStr)
+          if (!isNaN(dateObj.getTime())) {
+            parsed = dateObj.toISOString().split("T")[0]
+            console.log("[v0] Parsed with Date constructor:", parsed)
+          } else {
+            // Try flexible parsing of MM/DD/YYYY or DD/MM/YYYY
+            const parts = dateStr.split(/[/-]/)
+            if (parts.length === 3) {
+              const [first, second, third] = parts.map((p) => p.trim())
+              const firstNum = Number.parseInt(first, 10)
+              const secondNum = Number.parseInt(second, 10)
+
+              // If first > 12, it must be day (DD/MM/YYYY)
+              if (firstNum > 12) {
+                parsed = `${third}-${second.padStart(2, "0")}-${first.padStart(2, "0")}`
+                console.log("[v0] Parsed as DD/MM/YYYY:", parsed)
+              } else if (secondNum > 12) {
+                // If second > 12, it must be day (MM/DD/YYYY)
+                parsed = `${third}-${first.padStart(2, "0")}-${second.padStart(2, "0")}`
+                console.log("[v0] Parsed as MM/DD/YYYY:", parsed)
+              } else {
+                // Default to DD/MM/YYYY
+                parsed = parseDDMMYYYYDate(dateStr)
+                console.log("[v0] Default parsed as DD/MM/YYYY:", parsed)
+              }
+            }
           }
         }
+
+        tanggal_masuk_kerja = parsed
       }
     }
+
+    console.log("[v0] Final tanggal_masuk_kerja:", tanggal_masuk_kerja)
 
     if (!nama_karyawan) errors.push("Nama karyawan wajib diisi")
     if (!jabatan) errors.push("Jabatan wajib diisi")
@@ -103,8 +171,18 @@ export function ExcelUpload({ onSuccess }: { onSuccess: () => void }) {
       errors.push(`Entitas tidak valid. Gunakan: ${VALID_ENTITAS.join(" atau ")}`)
     }
 
+    if (nrp && nrp.length !== 10) {
+      errors.push("NRP harus 10 digit jika diisi")
+    }
+    if (nrp && !/^\d+$/.test(nrp)) {
+      errors.push("NRP harus berupa angka")
+    }
+
+    console.log("[v0] Row validation:", { rowNumber, isValid: errors.length === 0, errors })
+
     return {
       rowNumber,
+      nrp,
       nama_karyawan,
       jabatan,
       departemen,
@@ -158,6 +236,7 @@ export function ExcelUpload({ onSuccess }: { onSuccess: () => void }) {
       tanggal_masuk_kerja: row.tanggal_masuk_kerja,
       site: row.site,
       entitas: row.entitas,
+      nrp: row.nrp || undefined,
     }))
 
     const result = await bulkAddKaryawan(inputs)
@@ -213,7 +292,6 @@ export function ExcelUpload({ onSuccess }: { onSuccess: () => void }) {
         </DialogHeader>
 
         <div className="space-y-4">
-          {/* Template Download */}
           <Card className="border-[#333] bg-[#1a1a1a]">
             <CardHeader className="py-3">
               <CardTitle className="text-sm text-white">Template File</CardTitle>
@@ -233,7 +311,6 @@ export function ExcelUpload({ onSuccess }: { onSuccess: () => void }) {
             </CardContent>
           </Card>
 
-          {/* File Upload */}
           <Card className="border-[#333] bg-[#1a1a1a]">
             <CardHeader className="py-3">
               <CardTitle className="text-sm text-white">Upload File</CardTitle>
@@ -273,7 +350,6 @@ export function ExcelUpload({ onSuccess }: { onSuccess: () => void }) {
             </CardContent>
           </Card>
 
-          {/* Preview Data */}
           {parsedData.length > 0 && (
             <Card className="border-[#333] bg-[#1a1a1a]">
               <CardHeader className="py-3">
@@ -297,6 +373,7 @@ export function ExcelUpload({ onSuccess }: { onSuccess: () => void }) {
                     <TableHeader>
                       <TableRow className="border-[#333] bg-[#0a0a0a]">
                         <TableHead className="text-[#D4AF37]">Row</TableHead>
+                        <TableHead className="text-[#D4AF37]">NRP</TableHead>
                         <TableHead className="text-[#D4AF37]">Nama</TableHead>
                         <TableHead className="text-[#D4AF37]">Jabatan</TableHead>
                         <TableHead className="text-[#D4AF37]">Departemen</TableHead>
@@ -310,6 +387,9 @@ export function ExcelUpload({ onSuccess }: { onSuccess: () => void }) {
                       {parsedData.map((row) => (
                         <TableRow key={row.rowNumber} className="border-[#333]">
                           <TableCell className="text-white/70">{row.rowNumber}</TableCell>
+                          <TableCell className="text-white/70 font-mono">
+                            {row.nrp || <span className="text-[#D4AF37] text-xs">Auto</span>}
+                          </TableCell>
                           <TableCell className="text-white">{row.nama_karyawan}</TableCell>
                           <TableCell className="text-white/70">{row.jabatan}</TableCell>
                           <TableCell className="text-white/70">{row.departemen}</TableCell>
@@ -335,7 +415,6 @@ export function ExcelUpload({ onSuccess }: { onSuccess: () => void }) {
             </Card>
           )}
 
-          {/* Upload Result */}
           {uploadResult && (
             <Card
               className={`border ${uploadResult.failed > 0 ? "border-yellow-500/50" : "border-emerald-500/50"} bg-[#1a1a1a]`}
@@ -360,7 +439,6 @@ export function ExcelUpload({ onSuccess }: { onSuccess: () => void }) {
           )}
         </div>
 
-        {/* Actions */}
         <div className="flex justify-end gap-2 mt-4">
           <Button
             variant="outline"

@@ -18,6 +18,7 @@ export interface KaryawanInput {
   tanggal_masuk_kerja: string
   site: string
   entitas: string
+  nrp?: string // Added optional NRP field for CSV import
 }
 
 export const ENTITAS_OPTIONS = [
@@ -33,7 +34,8 @@ export const DEPARTEMEN_OPTIONS = [
   "HCGA",
   "SCM",
   "FINANCE",
-  "FAT",
+  "ACCOUNTING & TAX", // Changed "FAT" to "ACCOUNTING & TAX"
+  "IT",
 ] as const
 
 export const SITE_OPTIONS = [
