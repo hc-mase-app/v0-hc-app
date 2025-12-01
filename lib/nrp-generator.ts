@@ -15,8 +15,8 @@ export function generateNRP(entitas: string, tanggalMasuk: Date, nomorUrut: numb
   // Digit 4-5: Bulan (2 digit)
   const bulan = (tanggalMasuk.getMonth() + 1).toString().padStart(2, "0")
 
-  // Digit 6-9: Nomor urut (4 digit)
-  const urut = nomorUrut.toString().padStart(4, "0")
+  // Digit 6-10: Nomor urut (5 digit)
+  const urut = nomorUrut.toString().padStart(5, "0")
 
   return `${kodeEntitas}${tahun}${bulan}${urut}`
 }
@@ -31,6 +31,6 @@ export function parseNRP(nrp: string): {
     kodeEntitas: nrp.slice(0, 1),
     tahun: nrp.slice(1, 3),
     bulan: nrp.slice(3, 5),
-    nomorUrut: nrp.slice(5, 9),
+    nomorUrut: nrp.slice(5, 10),
   }
 }
