@@ -77,36 +77,36 @@ export function DocumentViewerModal({ open, onOpenChange, document }: DocumentVi
   return (
     <Dialog open={open} onOpenChange={handleOpen}>
       <DialogContent className="max-w-5xl h-[90vh] flex flex-col bg-[#0a0a0a] border-[#D4AF37]/30">
-        <DialogHeader>
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <FileText className="w-5 h-5 text-[#D4AF37]" />
-              <div>
-                <DialogTitle className="text-white">{document.name}</DialogTitle>
+        <DialogHeader className="pr-16">
+          <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+            <div className="flex items-start gap-3 flex-1 min-w-0">
+              <FileText className="w-5 h-5 text-[#D4AF37] flex-shrink-0 mt-0.5" />
+              <div className="min-w-0 flex-1">
+                <DialogTitle className="text-white truncate">{document.name}</DialogTitle>
                 <p className="text-sm text-gray-400 mt-1">
                   {formatFileSize(document.size)} • {new Date(document.lastModified).toLocaleDateString("id-ID")}
                 </p>
               </div>
             </div>
-            <div className="flex gap-2">
+            <div className="flex gap-2 flex-shrink-0">
               <Button
                 onClick={handleOpenNewTab}
                 variant="outline"
                 size="sm"
-                className="border-[#D4AF37]/30 text-[#D4AF37] hover:bg-[#D4AF37]/10 bg-transparent"
+                className="border-[#D4AF37]/30 text-[#D4AF37] hover:bg-[#D4AF37]/10 bg-transparent flex-1 md:flex-initial"
                 disabled={loading || !signedUrl}
               >
-                <ExternalLink className="w-4 h-4 mr-2" />
-                Buka Tab Baru
+                <ExternalLink className="w-4 h-4 md:mr-2" />
+                <span className="hidden md:inline">Buka Tab Baru</span>
               </Button>
               <Button
                 onClick={handleDownload}
                 size="sm"
-                className="bg-[#D4AF37] hover:bg-[#D4AF37]/90 text-black"
+                className="bg-[#D4AF37] hover:bg-[#D4AF37]/90 text-black flex-1 md:flex-initial"
                 disabled={loading || !signedUrl}
               >
-                <Download className="w-4 h-4 mr-2" />
-                Download
+                <Download className="w-4 h-4 md:mr-2" />
+                <span className="hidden md:inline">Download</span>
               </Button>
             </div>
           </div>

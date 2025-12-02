@@ -43,29 +43,33 @@ export function GoogleDriveViewerModal({ open, onOpenChange, document }: GoogleD
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-5xl h-[95vh] flex flex-col p-0 bg-[#0a0a0a] border-[#D4AF37]/20">
-        <DialogHeader className="px-6 py-4 border-b border-[#D4AF37]/20 flex-shrink-0">
-          <div className="flex items-center justify-between">
-            <div>
-              <DialogTitle className="text-white">{document.name}</DialogTitle>
+        <DialogHeader className="px-6 py-4 pr-16 border-b border-[#D4AF37]/20 flex-shrink-0">
+          <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+            <div className="flex-1 min-w-0">
+              <DialogTitle className="text-white truncate">{document.name}</DialogTitle>
               {document.size && document.uploadedAt && (
                 <p className="text-sm text-gray-400 mt-1">
                   {document.size} • {document.uploadedAt}
                 </p>
               )}
             </div>
-            <div className="flex gap-2">
+            <div className="flex gap-2 flex-shrink-0">
               <Button
                 onClick={handleOpenNewTab}
                 variant="outline"
                 size="sm"
-                className="border-[#D4AF37]/30 text-[#D4AF37] hover:bg-[#D4AF37]/10 bg-transparent"
+                className="border-[#D4AF37]/30 text-[#D4AF37] hover:bg-[#D4AF37]/10 bg-transparent flex-1 md:flex-initial"
               >
-                <ExternalLink className="w-4 h-4 mr-2" />
-                Buka Tab Baru
+                <ExternalLink className="w-4 h-4 md:mr-2" />
+                <span className="hidden md:inline">Buka Tab Baru</span>
               </Button>
-              <Button onClick={handleDownload} className="bg-[#D4AF37] hover:bg-[#D4AF37]/90 text-black" size="sm">
-                <Download className="w-4 h-4 mr-2" />
-                Download
+              <Button
+                onClick={handleDownload}
+                className="bg-[#D4AF37] hover:bg-[#D4AF37]/90 text-black flex-1 md:flex-initial"
+                size="sm"
+              >
+                <Download className="w-4 h-4 md:mr-2" />
+                <span className="hidden md:inline">Download</span>
               </Button>
             </div>
           </div>
