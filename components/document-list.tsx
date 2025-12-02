@@ -50,32 +50,24 @@ export function DocumentList({ category, subfolder }: DocumentListProps) {
           url += `&subfolder=${encodeURIComponent(subfolder)}`
         }
 
-        console.log(`[v0] Fetching from: ${url}`)
-
         const response = await fetch(url, {
           signal: controller.signal,
           cache: "no-store", // Always fetch fresh data from server
         })
 
-        console.log(`[v0] API Response Status: ${response.status}`)
-
         if (!response.ok) {
           const errorData = await response.json()
-          console.error(`[v0] API Error:`, errorData)
           throw new Error(errorData.details || "Dokumen tidak ditemukan")
         }
 
         const data = await response.json()
-        console.log(`[v0] Successfully fetched ${data.documents?.length || 0} documents`)
         setDocuments(data.documents || [])
       } catch (err) {
         if (err instanceof Error && err.name === "AbortError") {
-          console.log("[v0] Document fetch was aborted")
           return
         }
 
         const errorMessage = err instanceof Error ? err.message : "Unknown error"
-        console.error("[v0] Document fetch error:", errorMessage)
         setError("Gagal memuat dokumen dari database")
       } finally {
         setLoading(false)

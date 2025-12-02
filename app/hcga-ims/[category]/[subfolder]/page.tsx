@@ -3,15 +3,7 @@ import { useRouter, useParams } from "next/navigation"
 import { ArrowLeft, Building2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { DocumentList } from "@/components/document-list"
-
-const CATEGORY_LABELS: Record<string, string> = {
-  "induksi-karyawan": "INDUKSI KARYAWAN",
-  form: "FORM",
-  "sop-ik": "SOP - IK",
-  "bisnis-proses-so": "BISNIS PROSES & SO",
-  "internal-memo": "INTERNAL MEMO",
-  sk: "SURAT KEPUTUSAN ( UMUM )",
-}
+import { CATEGORY_LABELS } from "@/lib/hcga-constants"
 
 export default function SubfolderPage() {
   const router = useRouter()

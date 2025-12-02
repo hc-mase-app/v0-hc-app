@@ -18,6 +18,7 @@ import {
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Plus, Pencil, Trash2, ExternalLink } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
+import { CATEGORY_SUBFOLDERS } from "@/lib/hcga-constants"
 
 interface Document {
   id: number
@@ -38,15 +39,6 @@ const CATEGORIES = [
   { value: "internal-memo", label: "INTERNAL MEMO" },
   { value: "sk", label: "SURAT KEPUTUSAN ( UMUM )" },
 ]
-
-const CATEGORY_SUBFOLDERS: Record<string, string[]> = {
-  "induksi-karyawan": ["PT GSM", "PT SSS"],
-  form: ["PT GSM", "PT SSS"],
-  "sop-ik": ["PT GSM", "PT SSS"],
-  "bisnis-proses-so": ["PT GSM", "PT SSS"],
-  "internal-memo": ["PT GSM", "PT SSS"],
-  sk: ["PT GSM", "PT SSS"],
-}
 
 export default function AdminDocumentsPage() {
   const [documents, setDocuments] = useState<Document[]>([])
