@@ -109,29 +109,31 @@ export function DocumentList({ category }: DocumentListProps) {
         {documents.map((doc, index) => (
           <div
             key={doc.id || index}
-            className="flex items-center gap-4 p-4 rounded-lg bg-[#1a1a1a] border border-[#D4AF37]/20 hover:border-[#D4AF37] transition-all duration-200"
+            className="p-4 rounded-lg bg-[#1a1a1a] border border-[#D4AF37]/20 hover:border-[#D4AF37] transition-all duration-200"
           >
-            <div className="w-10 h-10 rounded-lg bg-[#D4AF37]/10 flex items-center justify-center flex-shrink-0">
-              <FileText className="w-5 h-5 text-[#D4AF37]" />
-            </div>
+            <div className="flex items-start gap-4">
+              <div className="w-10 h-10 rounded-lg bg-[#D4AF37]/10 flex items-center justify-center flex-shrink-0">
+                <FileText className="w-5 h-5 text-[#D4AF37]" />
+              </div>
 
-            <div className="flex-1 min-w-0">
-              <h4 className="text-sm font-medium text-white truncate">{doc.name}</h4>
-              {(doc.size || doc.uploadedAt) && (
-                <p className="text-xs text-gray-500 mt-0.5">
-                  {doc.size} {doc.uploadedAt && `• ${formatDate(doc.uploadedAt)}`}
-                </p>
-              )}
-            </div>
+              <div className="flex-1 min-w-0">
+                <h4 className="text-sm font-medium text-white mb-2">{doc.name}</h4>
+                {(doc.size || doc.uploadedAt) && (
+                  <p className="text-xs text-gray-500 mb-3">
+                    {doc.size} {doc.uploadedAt && `• ${formatDate(doc.uploadedAt)}`}
+                  </p>
+                )}
 
-            <Button
-              onClick={() => handleView(doc)}
-              className="bg-[#D4AF37] hover:bg-[#D4AF37]/90 text-black flex-shrink-0"
-              size="sm"
-            >
-              <Eye className="w-4 h-4 mr-2" />
-              Lihat
-            </Button>
+                <Button
+                  onClick={() => handleView(doc)}
+                  className="bg-[#D4AF37] hover:bg-[#D4AF37]/90 text-black w-full sm:w-auto"
+                  size="sm"
+                >
+                  <Eye className="w-4 h-4 mr-2" />
+                  Lihat
+                </Button>
+              </div>
+            </div>
           </div>
         ))}
       </div>

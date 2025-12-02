@@ -42,8 +42,8 @@ export function GoogleDriveViewerModal({ open, onOpenChange, document }: GoogleD
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-5xl h-[90vh] p-0 bg-[#0a0a0a] border-[#D4AF37]/20">
-        <DialogHeader className="px-6 py-4 border-b border-[#D4AF37]/20">
+      <DialogContent className="max-w-5xl h-[95vh] flex flex-col p-0 bg-[#0a0a0a] border-[#D4AF37]/20">
+        <DialogHeader className="px-6 py-4 border-b border-[#D4AF37]/20 flex-shrink-0">
           <div className="flex items-center justify-between">
             <div>
               <DialogTitle className="text-white">{document.name}</DialogTitle>
@@ -71,9 +71,9 @@ export function GoogleDriveViewerModal({ open, onOpenChange, document }: GoogleD
           </div>
         </DialogHeader>
 
-        <div className="relative flex-1 bg-white">
+        <div className="relative flex-1 bg-white overflow-hidden">
           {loading && (
-            <div className="absolute inset-0 flex items-center justify-center bg-[#0a0a0a]">
+            <div className="absolute inset-0 flex items-center justify-center bg-[#0a0a0a] z-10">
               <div className="flex flex-col items-center gap-3">
                 <Loader2 className="w-8 h-8 animate-spin text-[#D4AF37]" />
                 <p className="text-sm text-gray-400">Memuat dokumen...</p>
@@ -82,7 +82,7 @@ export function GoogleDriveViewerModal({ open, onOpenChange, document }: GoogleD
           )}
           <iframe
             src={previewUrl}
-            className="w-full h-full"
+            className="w-full h-full border-0"
             onLoad={() => setLoading(false)}
             title={document.name}
             allow="autoplay"
