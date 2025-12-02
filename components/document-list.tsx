@@ -13,10 +13,12 @@ interface Document {
   size?: string
   uploadedAt?: string
   category: string
+  subfolder?: string
 }
 
 interface DocumentListProps {
   category: DocumentCategory
+  subfolder?: string
 }
 
 function formatDate(dateString: string): string {
@@ -28,7 +30,7 @@ function formatDate(dateString: string): string {
   }
 }
 
-export function DocumentList({ category }: DocumentListProps) {
+export function DocumentList({ category, subfolder }: DocumentListProps) {
   const [documents, setDocuments] = useState<Document[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -43,9 +45,14 @@ export function DocumentList({ category }: DocumentListProps) {
       setError(null)
 
       try {
-        const response = await fetch(`/api/google-drive-documents?category=${category}`, {
+        let url = `/api/google-drive-documents?category=${category}`
+        if (subfolder && subfolder !== "all") {
+          url += `&subfolder=${encodeURIComponent(subfolder)}`
+        }
+
+        const response = await fetch(url, {
           signal: controller.signal,
-          cache: "no-store",
+          cache: "force-cache", // Enable browser cache for API responses
         })
 
         if (!response.ok) {
@@ -66,7 +73,7 @@ export function DocumentList({ category }: DocumentListProps) {
     fetchDocuments()
 
     return () => controller.abort()
-  }, [category])
+  }, [category, subfolder])
 
   const handleView = (doc: Document) => {
     setSelectedDocument(doc)

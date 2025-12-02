@@ -24,6 +24,7 @@ interface Document {
   name: string
   driveId: string
   category: string
+  subfolder?: string
   size?: string
   uploadedAt: string
   createdAt: string
@@ -38,6 +39,15 @@ const CATEGORIES = [
   { value: "sk", label: "SURAT KEPUTUSAN ( UMUM )" },
 ]
 
+const CATEGORY_SUBFOLDERS: Record<string, string[]> = {
+  "induksi-karyawan": ["PT GSM", "PT SSS"],
+  form: ["PT GSM", "PT SSS"],
+  "sop-ik": ["PT GSM", "PT SSS"],
+  "bisnis-proses-so": ["PT GSM", "PT SSS"],
+  "internal-memo": ["PT GSM", "PT SSS"],
+  sk: ["PT GSM", "PT SSS"],
+}
+
 export default function AdminDocumentsPage() {
   const [documents, setDocuments] = useState<Document[]>([])
   const [loading, setLoading] = useState(true)
@@ -50,6 +60,7 @@ export default function AdminDocumentsPage() {
     name: "",
     driveId: "",
     category: "",
+    subfolder: "",
     size: "",
   })
 
@@ -138,7 +149,7 @@ export default function AdminDocumentsPage() {
   }
 
   const resetForm = () => {
-    setFormData({ name: "", driveId: "", category: "", size: "" })
+    setFormData({ name: "", driveId: "", category: "", subfolder: "", size: "" })
     setEditingDocument(null)
   }
 
@@ -153,6 +164,7 @@ export default function AdminDocumentsPage() {
       name: doc.name,
       driveId: doc.driveId,
       category: doc.category,
+      subfolder: doc.subfolder || "",
       size: doc.size || "",
     })
     setIsDialogOpen(true)
@@ -161,6 +173,8 @@ export default function AdminDocumentsPage() {
   const getCategoryLabel = (value: string) => {
     return CATEGORIES.find((cat) => cat.value === value)?.label || value
   }
+
+  const availableSubfolders = formData.category ? CATEGORY_SUBFOLDERS[formData.category] || [] : []
 
   return (
     <div className="container mx-auto py-8 px-4">
@@ -215,6 +229,7 @@ export default function AdminDocumentsPage() {
                     <h3 className="font-semibold text-lg mb-1">{doc.name}</h3>
                     <div className="flex gap-4 text-sm text-muted-foreground">
                       <span className="font-medium">{getCategoryLabel(doc.category)}</span>
+                      {doc.subfolder && <span className="text-xs bg-muted px-2 py-1 rounded">{doc.subfolder}</span>}
                       {doc.size && <span>{doc.size}</span>}
                       <span>{new Date(doc.uploadedAt).toLocaleDateString()}</span>
                     </div>
@@ -277,7 +292,7 @@ export default function AdminDocumentsPage() {
                 <Label htmlFor="category">Category</Label>
                 <Select
                   value={formData.category}
-                  onValueChange={(value) => setFormData({ ...formData, category: value })}
+                  onValueChange={(value) => setFormData({ ...formData, category: value, subfolder: "" })}
                   required
                 >
                   <SelectTrigger>
@@ -292,6 +307,26 @@ export default function AdminDocumentsPage() {
                   </SelectContent>
                 </Select>
               </div>
+              {availableSubfolders.length > 0 && (
+                <div className="grid gap-2">
+                  <Label htmlFor="subfolder">Subfolder</Label>
+                  <Select
+                    value={formData.subfolder}
+                    onValueChange={(value) => setFormData({ ...formData, subfolder: value })}
+                  >
+                    <SelectTrigger id="subfolder">
+                      <SelectValue placeholder="Select subfolder" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {availableSubfolders.map((subfolder) => (
+                        <SelectItem key={subfolder} value={subfolder}>
+                          {subfolder}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
               <div className="grid gap-2">
                 <Label htmlFor="size">File Size (optional)</Label>
                 <Input

@@ -17,6 +17,7 @@ export async function GET(request: NextRequest) {
           name,
           drive_id as "driveId",
           category,
+          subfolder,
           size,
           uploaded_at as "uploadedAt",
           created_at as "createdAt"
@@ -31,6 +32,7 @@ export async function GET(request: NextRequest) {
           name,
           drive_id as "driveId",
           category,
+          subfolder,
           size,
           uploaded_at as "uploadedAt",
           created_at as "createdAt"
@@ -53,20 +55,21 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
-    const { name, driveId, category, size } = body
+    const { name, driveId, category, subfolder, size } = body
 
     if (!name || !driveId || !category) {
       return NextResponse.json({ error: "Missing required fields: name, driveId, category" }, { status: 400 })
     }
 
     const result = await sql`
-      INSERT INTO documents (name, drive_id, category, size)
-      VALUES (${name}, ${driveId}, ${category}, ${size || null})
+      INSERT INTO documents (name, drive_id, category, subfolder, size)
+      VALUES (${name}, ${driveId}, ${category}, ${subfolder || null}, ${size || null})
       RETURNING 
         id,
         name,
         drive_id as "driveId",
         category,
+        subfolder,
         size,
         uploaded_at as "uploadedAt",
         created_at as "createdAt"
@@ -76,7 +79,6 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     console.error("POST document error:", error)
 
-    // Check for unique constraint violation (duplicate drive_id)
     if (error instanceof Error && error.message.includes("unique")) {
       return NextResponse.json({ error: "Document with this Google Drive ID already exists" }, { status: 409 })
     }
@@ -92,7 +94,7 @@ export async function POST(request: NextRequest) {
 export async function PUT(request: NextRequest) {
   try {
     const body = await request.json()
-    const { id, name, driveId, category, size } = body
+    const { id, name, driveId, category, subfolder, size } = body
 
     if (!id) {
       return NextResponse.json({ error: "Document ID required" }, { status: 400 })
@@ -104,6 +106,7 @@ export async function PUT(request: NextRequest) {
         name = COALESCE(${name}, name),
         drive_id = COALESCE(${driveId}, drive_id),
         category = COALESCE(${category}, category),
+        subfolder = COALESCE(${subfolder}, subfolder),
         size = COALESCE(${size}, size),
         updated_at = CURRENT_TIMESTAMP
       WHERE id = ${id}
@@ -112,6 +115,7 @@ export async function PUT(request: NextRequest) {
         name,
         drive_id as "driveId",
         category,
+        subfolder,
         size,
         uploaded_at as "uploadedAt",
         created_at as "createdAt",
