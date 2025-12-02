@@ -9,39 +9,39 @@ export default function HcgaImsPage() {
 
   const documentCategories = [
     {
-      title: "Induksi Karyawan",
+      title: "INDUKSI KARYAWAN",
       icon: FileText,
-      url: "https://drive.google.com/drive/u/7/folders/1OfZOMf0qUG7ONZbEKJtpMBCGuP5mlztM",
+      route: "/hcga-ims/induksi-karyawan",
     },
     {
       title: "FORM",
       icon: ClipboardList,
-      url: "https://drive.google.com/drive/u/7/folders/1vZ2G1rbuii48VxwfhvcLy6raD4KYFoxg",
+      route: "/hcga-ims/form",
     },
     {
-      title: "SOP & IK",
+      title: "SOP - IK",
       icon: BookOpen,
-      url: "https://drive.google.com/drive/u/7/folders/1Bdf2wNHLIVtKEl6pr0sm9wxb0fbJWWAX",
+      route: "/hcga-ims/sop-ik",
     },
     {
-      title: "Internal Memo",
-      icon: Mail,
-      url: "https://drive.google.com/drive/u/7/folders/15ikNc7yRNpJmUrYSej7Mv2Ytdz_egxnS",
-    },
-    {
-      title: "Bisnis Proses",
+      title: "BISNIS PROSES & SO",
       icon: GitBranch,
-      url: "https://drive.google.com/drive/u/7/folders/1XYkJVSy5M-0Mm9TwcDiKgqFWz8f5Y0i_",
+      route: "/hcga-ims/bisnis-proses-so",
     },
     {
-      title: "SK",
+      title: "INTERNAL MEMO",
+      icon: Mail,
+      route: "/hcga-ims/internal-memo",
+    },
+    {
+      title: "SURAT KEPUTUSAN ( UMUM )",
       icon: FileCheck,
-      url: "https://drive.google.com/drive/u/7/folders/19cvQEJ5cTuv4OrisUjDSZm16rkhOVD0g",
+      route: "/hcga-ims/sk",
     },
   ]
 
-  const handleCardClick = (url: string) => {
-    window.open(url, "_blank", "noopener,noreferrer")
+  const handleCardClick = (route: string) => {
+    router.push(route)
   }
 
   return (
@@ -79,7 +79,7 @@ export default function HcgaImsPage() {
             return (
               <button
                 key={category.title}
-                onClick={() => handleCardClick(category.url)}
+                onClick={() => handleCardClick(category.route)}
                 className="group flex flex-col items-center gap-3 w-28 transition-transform duration-200 active:scale-95"
               >
                 {/* iOS-style square icon card */}

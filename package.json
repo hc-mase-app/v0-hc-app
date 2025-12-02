@@ -9,6 +9,8 @@
     "start": "next start"
   },
   "dependencies": {
+    "@aws-sdk/client-s3": "latest",
+    "@aws-sdk/s3-request-presigner": "3.940.0",
     "@capacitor/core": "latest",
     "@capacitor/filesystem": "latest",
     "@capacitor/share": "latest",
