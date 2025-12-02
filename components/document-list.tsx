@@ -45,25 +45,37 @@ export function DocumentList({ category, subfolder }: DocumentListProps) {
       setError(null)
 
       try {
-        let url = `/api/google-drive-documents?category=${category}`
+        let url = `/api/google-drive-documents?category=${encodeURIComponent(category)}`
         if (subfolder && subfolder !== "all") {
           url += `&subfolder=${encodeURIComponent(subfolder)}`
         }
 
+        console.log(`[v0] Fetching from: ${url}`)
+
         const response = await fetch(url, {
           signal: controller.signal,
-          cache: "force-cache", // Enable browser cache for API responses
+          cache: "no-store", // Always fetch fresh data from server
         })
 
+        console.log(`[v0] API Response Status: ${response.status}`)
+
         if (!response.ok) {
-          throw new Error("Dokumen tidak ditemukan")
+          const errorData = await response.json()
+          console.error(`[v0] API Error:`, errorData)
+          throw new Error(errorData.details || "Dokumen tidak ditemukan")
         }
 
         const data = await response.json()
+        console.log(`[v0] Successfully fetched ${data.documents?.length || 0} documents`)
         setDocuments(data.documents || [])
       } catch (err) {
-        if (err instanceof Error && err.name === "AbortError") return
+        if (err instanceof Error && err.name === "AbortError") {
+          console.log("[v0] Document fetch was aborted")
+          return
+        }
 
+        const errorMessage = err instanceof Error ? err.message : "Unknown error"
+        console.error("[v0] Document fetch error:", errorMessage)
         setError("Gagal memuat dokumen dari database")
       } finally {
         setLoading(false)
@@ -96,6 +108,9 @@ export function DocumentList({ category, subfolder }: DocumentListProps) {
       <div className="text-center py-12">
         <p className="text-sm text-red-400 mb-2">{error}</p>
         <p className="text-xs text-gray-500">Periksa koneksi database atau hubungi admin</p>
+        <p className="text-xs text-gray-600 mt-3">
+          Kategori: {category} {subfolder && `| Subfolder: ${subfolder}`}
+        </p>
       </div>
     )
   }
@@ -106,6 +121,9 @@ export function DocumentList({ category, subfolder }: DocumentListProps) {
         <FileText className="w-12 h-12 mx-auto mb-3 text-gray-600" />
         <p className="text-sm text-gray-400 mb-1">Belum ada dokumen</p>
         <p className="text-xs text-gray-500">Tambahkan dokumen melalui admin panel</p>
+        <p className="text-xs text-gray-600 mt-3">
+          Kategori: {category} {subfolder && `| Subfolder: ${subfolder}`}
+        </p>
       </div>
     )
   }
