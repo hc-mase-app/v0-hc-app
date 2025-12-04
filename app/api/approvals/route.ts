@@ -1,5 +1,9 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { getApprovalHistory, getApprovalHistoryByRequestId, addApprovalHistory } from "@/lib/neon-db"
+import {
+  getAllApprovalHistory,
+  getApprovalHistoryByRequestId,
+  addApprovalHistory,
+} from "@/lib/services/approval-service"
 
 export async function GET(request: NextRequest) {
   try {
@@ -12,12 +16,12 @@ export async function GET(request: NextRequest) {
     if (type === "by-request" && requestId) {
       result = await getApprovalHistoryByRequestId(requestId)
     } else {
-      result = await getApprovalHistory()
+      result = await getAllApprovalHistory()
     }
 
     return NextResponse.json(result)
   } catch (error) {
-    console.error("Error fetching approvals:", error)
+    console.error("[API] Error fetching approvals:", error)
     return NextResponse.json({ error: "Terjadi kesalahan" }, { status: 500 })
   }
 }
@@ -28,7 +32,7 @@ export async function POST(request: NextRequest) {
     const result = await addApprovalHistory(data)
     return NextResponse.json(result)
   } catch (error) {
-    console.error("Error creating approval:", error)
+    console.error("[API] Error creating approval:", error)
     return NextResponse.json({ error: "Terjadi kesalahan" }, { status: 500 })
   }
 }

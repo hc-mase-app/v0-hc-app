@@ -1,7 +1,23 @@
 import { neon } from "@neondatabase/serverless"
 import { mapDbRowToLeaveRequest, mapDbRowsToLeaveRequests } from "./db-mapper"
 
-const sql = neon(process.env.DATABASE_URL || "")
+export const sql = neon(process.env.DATABASE_URL || "")
+
+// ============================================================================
+// LEGACY CODE BELOW - KEPT FOR BACKWARD COMPATIBILITY
+// ============================================================================
+// NOTE: All functions below are deprecated and replaced by service layer:
+// - User functions → lib/services/user-service.ts
+// - Leave Request functions → lib/leave-request-service.ts
+// - Assessment functions → lib/services/assessment-service.ts
+// - Approval functions → lib/services/approval-service.ts
+// - NRP functions → lib/services/nrp-service.ts
+//
+// This file is kept only for:
+// 1. sql export (used by all services)
+// 2. Legacy transform functions (to be moved)
+// 3. Backward compatibility during transition
+// ============================================================================
 
 const KEPRIBADIAN_NAMES: Record<string, string> = {
   A1: "Inisiatif & Kreativitas",
