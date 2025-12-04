@@ -9,6 +9,7 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url)
     const category = searchParams.get("category")
     const subfolder = searchParams.get("subfolder")
+    const search = searchParams.get("search")
 
     if (!category) {
       console.error("[v0] Missing category parameter in GET /api/google-drive-documents")
@@ -16,7 +17,27 @@ export async function GET(request: NextRequest) {
     }
 
     let documents
-    if (subfolder) {
+    if (subfolder && search) {
+      console.log(`[v0] Fetching documents for category=${category}, subfolder=${subfolder}, search=${search}`)
+      documents = await sql`
+        SELECT 
+          id,
+          name,
+          drive_id as "driveId",
+          category,
+          subfolder,
+          size,
+          uploaded_at as "uploadedAt",
+          created_at as "createdAt"
+        FROM documents
+        WHERE category = ${category} 
+          AND subfolder = ${subfolder}
+          AND name ILIKE ${"%" + search + "%"}
+        ORDER BY uploaded_at DESC
+        LIMIT 100
+      `
+      console.log(`[v0] Found ${documents.length} documents with subfolder and search filter`)
+    } else if (subfolder) {
       console.log(`[v0] Fetching documents for category=${category}, subfolder=${subfolder}`)
       documents = await sql`
         SELECT 
@@ -34,6 +55,25 @@ export async function GET(request: NextRequest) {
         LIMIT 100
       `
       console.log(`[v0] Found ${documents.length} documents with subfolder filter`)
+    } else if (search) {
+      console.log(`[v0] Fetching documents for category=${category}, search=${search}`)
+      documents = await sql`
+        SELECT 
+          id,
+          name,
+          drive_id as "driveId",
+          category,
+          subfolder,
+          size,
+          uploaded_at as "uploadedAt",
+          created_at as "createdAt"
+        FROM documents
+        WHERE category = ${category}
+          AND name ILIKE ${"%" + search + "%"}
+        ORDER BY uploaded_at DESC
+        LIMIT 100
+      `
+      console.log(`[v0] Found ${documents.length} documents with search filter`)
     } else {
       console.log(`[v0] Fetching documents for category=${category} (no subfolder filter)`)
       documents = await sql`

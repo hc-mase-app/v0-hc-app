@@ -45,7 +45,7 @@ export default function HcgaImsPage() {
   }
 
   return (
-    <div className="min-h-screen bg-[#0a0a0a] dark">
+    <div className="min-h-screen bg-[#0a0a0a] dark flex flex-col">
       {/* Header */}
       <header className="border-b border-white/10 bg-[#0a0a0a]/80 backdrop-blur-sm sticky top-0 z-50">
         <div className="container mx-auto px-4 py-4">
@@ -72,7 +72,7 @@ export default function HcgaImsPage() {
       </header>
 
       {/* Main Content - Improved responsive grid for mobile */}
-      <main className="container mx-auto px-4 py-8 md:py-12">
+      <main className="container mx-auto px-4 py-8 md:py-12 flex-1">
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4 md:gap-6 lg:gap-8 max-w-6xl mx-auto">
           {documentCategories.map((category) => {
             const Icon = category.icon

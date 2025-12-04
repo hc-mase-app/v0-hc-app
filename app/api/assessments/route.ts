@@ -18,7 +18,7 @@ export async function GET(request: NextRequest) {
     const id = searchParams.get("id")
     const status = searchParams.get("status")
     const createdBy = searchParams.get("createdBy")
-    const createdByNik = searchParams.get("createdByNik") // Added createdByNik for consistency
+    const createdByNik = searchParams.get("createdByNik")
     const site = searchParams.get("site")
 
     let result
@@ -59,12 +59,20 @@ export async function GET(request: NextRequest) {
     }
 
     if (Array.isArray(result)) {
-      const resultsWithHistory = await Promise.all(
-        result.map(async (assessment) => {
-          const [approvalHistory] = await withErrorHandling(() => getAssessmentApprovals(assessment.id))
-          return { ...assessment, approvalHistory: approvalHistory || [] }
-        }),
+      // Extract all assessment IDs
+      const assessmentIds = result.map((assessment) => assessment.id)
+
+      // Batch fetch all approval histories in one query
+      const allApprovalHistories = await Promise.all(
+        assessmentIds.map((id) => withErrorHandling(() => getAssessmentApprovals(id))),
       )
+
+      // Map approval histories back to assessments
+      const resultsWithHistory = result.map((assessment, index) => {
+        const [approvalHistory] = allApprovalHistories[index]
+        return { ...assessment, approvalHistory: approvalHistory || [] }
+      })
+
       return successResponse(resultsWithHistory)
     }
 

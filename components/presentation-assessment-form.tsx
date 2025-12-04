@@ -221,6 +221,51 @@ export default function PresentationAssessmentForm() {
     }
   }
 
+  const handleSendWhatsApp = async () => {
+    if (!formData.signature) {
+      alert("Silakan tanda tangani form terlebih dahulu sebelum mengirim")
+      return
+    }
+
+    // Buat pesan ringkasan penilaian
+    const statusLulus = isPassing ? "✅ LULUS" : "❌ TIDAK LULUS"
+    const message = `*EVALUASI PRESENTASI KARYAWAN*
+
+📋 *Informasi Karyawan:*
+Nama: ${formData.nama || "-"}
+NRP: ${formData.nrp || "-"}
+Departemen: ${formData.departemen || "-"}
+Jabatan: ${formData.jabatan || "-"}
+Usulan: ${formData.usulanJabatan || "-"}
+
+📊 *Hasil Penilaian:*
+• Attitude/Sikap Kerja: ${formData.attitude}/5 = ${scores.attitude}
+• Leadership: ${formData.leadership}/5 = ${scores.leadership}
+• Penguasaan Materi: ${formData.penguasaan}/5 = ${scores.penguasaan}
+• Penyajian Materi: ${formData.penyajian}/5 = ${scores.penyajian}
+• Proposal Materi: ${formData.proposal}/5 = ${scores.proposal}
+
+*TOTAL NILAI: ${totalScore}*
+*Status: ${statusLulus}*
+
+👤 *Penilai:*
+${formData.namaPenilai || "-"} - ${formData.jabatanPenilai || "-"}
+Tanggal: ${formData.tanggalPenilai || "-"}
+
+${formData.catatan ? `📝 Catatan:\n${formData.catatan}` : ""}
+
+_Dokumen ini dikirim dari HC App - PT Sarana Sukses Sejahtera_`
+
+    // Encode message untuk URL
+    const encodedMessage = encodeURIComponent(message)
+
+    // Buka WhatsApp Web dengan pesan pre-filled
+    const whatsappUrl = `https://wa.me/?text=${encodedMessage}`
+
+    // Buka di tab baru
+    window.open(whatsappUrl, "_blank")
+  }
+
   return (
     <div className="max-w-5xl mx-auto space-y-6">
       <div className="space-y-6">
@@ -506,7 +551,9 @@ export default function PresentationAssessmentForm() {
           <Download className="h-4 w-4 mr-2" />
           Export to PDF
         </Button>
-        <Button className="bg-primary hover:bg-primary/90">Kirim Penilaian</Button>
+        <Button onClick={handleSendWhatsApp} className="bg-primary hover:bg-primary/90">
+          Kirim Penilaian
+        </Button>
       </div>
     </div>
   )

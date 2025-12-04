@@ -782,7 +782,31 @@ export async function addApprovalHistory(history: any) {
 
 export async function getAssessments() {
   try {
-    const result = await sql`SELECT * FROM employee_assessments ORDER BY created_at DESC`
+    const result = await sql`
+      SELECT 
+        id, employee_nik, employee_name, employee_jabatan, employee_departemen,
+        employee_site, employee_tanggal_masuk, employee_status,
+        kepribadian_1_score, kepribadian_1_nilai, kepribadian_2_score, kepribadian_2_nilai,
+        kepribadian_3_score, kepribadian_3_nilai, kepribadian_4_score, kepribadian_4_nilai,
+        kepribadian_total,
+        prestasi_1_score, prestasi_1_nilai, prestasi_2_score, prestasi_2_nilai,
+        prestasi_3_score, prestasi_3_nilai, prestasi_4_score, prestasi_4_nilai,
+        prestasi_5_score, prestasi_5_nilai, prestasi_6_score, prestasi_6_nilai,
+        prestasi_7_score, prestasi_7_nilai, prestasi_8_score, prestasi_8_nilai,
+        prestasi_9_score, prestasi_9_nilai, prestasi_10_score, prestasi_10_nilai,
+        prestasi_total,
+        kehadiran_sakit, kehadiran_izin, kehadiran_alpa, kehadiran_nilai,
+        indisipliner_sp1, indisipliner_sp2, indisipliner_sp3, indisipliner_nilai,
+        subtotal, total_score, grade, penalties,
+        kelebihan, kekurangan,
+        rekomendasi_perpanjang_kontrak, rekomendasi_perpanjang_bulan,
+        rekomendasi_pengangkatan_tetap, rekomendasi_promosi_jabatan,
+        rekomendasi_perubahan_gaji, rekomendasi_end_kontrak,
+        status, created_by_nik, created_by_name, created_by_role,
+        created_at, updated_at
+      FROM employee_assessments 
+      ORDER BY created_at DESC
+    `
     return result.map(transformAssessmentData)
   } catch (error) {
     console.error("Error fetching assessments:", error)
@@ -792,7 +816,31 @@ export async function getAssessments() {
 
 export async function getAssessmentById(id: string) {
   try {
-    const result = await sql`SELECT * FROM employee_assessments WHERE id = ${id}`
+    const result = await sql`
+      SELECT 
+        id, employee_nik, employee_name, employee_jabatan, employee_departemen,
+        employee_site, employee_tanggal_masuk, employee_status,
+        kepribadian_1_score, kepribadian_1_nilai, kepribadian_2_score, kepribadian_2_nilai,
+        kepribadian_3_score, kepribadian_3_nilai, kepribadian_4_score, kepribadian_4_nilai,
+        kepribadian_total,
+        prestasi_1_score, prestasi_1_nilai, prestasi_2_score, prestasi_2_nilai,
+        prestasi_3_score, prestasi_3_nilai, prestasi_4_score, prestasi_4_nilai,
+        prestasi_5_score, prestasi_5_nilai, prestasi_6_score, prestasi_6_nilai,
+        prestasi_7_score, prestasi_7_nilai, prestasi_8_score, prestasi_8_nilai,
+        prestasi_9_score, prestasi_9_nilai, prestasi_10_score, prestasi_10_nilai,
+        prestasi_total,
+        kehadiran_sakit, kehadiran_izin, kehadiran_alpa, kehadiran_nilai,
+        indisipliner_sp1, indisipliner_sp2, indisipliner_sp3, indisipliner_nilai,
+        subtotal, total_score, grade, penalties,
+        kelebihan, kekurangan,
+        rekomendasi_perpanjang_kontrak, rekomendasi_perpanjang_bulan,
+        rekomendasi_pengangkatan_tetap, rekomendasi_promosi_jabatan,
+        rekomendasi_perubahan_gaji, rekomendasi_end_kontrak,
+        status, created_by_nik, created_by_name, created_by_role,
+        created_at, updated_at
+      FROM employee_assessments 
+      WHERE id = ${id}
+    `
     return transformAssessmentData(result[0])
   } catch (error) {
     console.error("Error fetching assessment:", error)

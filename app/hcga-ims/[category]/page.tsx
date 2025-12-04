@@ -27,7 +27,7 @@ export default function CategoryPage() {
 
   if (!hasSubfolders) {
     return (
-      <div className="min-h-screen bg-[#0a0a0a] dark">
+      <div className="min-h-screen bg-[#0a0a0a] dark flex flex-col">
         {/* Header */}
         <header className="border-b border-white/10 bg-[#0a0a0a]/80 backdrop-blur-sm sticky top-0 z-50">
           <div className="container mx-auto px-4 py-4">
@@ -54,12 +54,12 @@ export default function CategoryPage() {
         </header>
 
         {/* Main Content */}
-        <main className="container mx-auto px-4 py-8 max-w-4xl">
+        <main className="container mx-auto px-4 py-8 max-w-4xl flex-1">
           <DocumentList category={category} />
         </main>
 
         {/* Footer */}
-        <footer className="py-6 text-center mt-auto">
+        <footer className="py-6 text-center">
           <p className="text-[#666666] text-sm">© 2025 Yan Firdaus | HCD | HCGA | PT SSS - PT GSM</p>
         </footer>
       </div>
@@ -67,7 +67,7 @@ export default function CategoryPage() {
   }
 
   return (
-    <div className="min-h-screen bg-[#0a0a0a] dark">
+    <div className="min-h-screen bg-[#0a0a0a] dark flex flex-col">
       {/* Header */}
       <header className="border-b border-white/10 bg-[#0a0a0a]/80 backdrop-blur-sm sticky top-0 z-50">
         <div className="container mx-auto px-4 py-4">
@@ -94,7 +94,7 @@ export default function CategoryPage() {
       </header>
 
       {/* Main Content - Subfolder Selection */}
-      <main className="container mx-auto px-4 py-8 md:py-12">
+      <main className="container mx-auto px-4 py-8 md:py-12 flex-1">
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4 md:gap-6 lg:gap-8 max-w-6xl mx-auto">
           {subfolders.map((subfolder) => (
             <button
@@ -115,7 +115,7 @@ export default function CategoryPage() {
       </main>
 
       {/* Footer */}
-      <footer className="py-6 text-center mt-auto">
+      <footer className="py-6 text-center">
         <p className="text-[#666666] text-sm">© 2025 Yan Firdaus | HCD | HCGA | PT SSS - PT GSM</p>
       </footer>
     </div>
