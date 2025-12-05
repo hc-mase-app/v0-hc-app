@@ -110,23 +110,30 @@ export function getRoleLabel(role: string): string {
 export function getDetailedTicketStatus(
   status: string,
   statusTiketBerangkat?: string,
-  statusTiketPulang?: string,
+  statusTiketBalik?: string,
 ): string {
-  // Cek apakah ada tiket yang sudah issued
   const tiketBerangkatIssued = statusTiketBerangkat === "issued"
-  const tiketPulangIssued = statusTiketPulang === "issued"
+  const tiketBalikIssued = statusTiketBalik === "issued"
 
-  // Jika minimal satu tiket sudah issued, tampilkan status detail
-  if (tiketBerangkatIssued || tiketPulangIssued) {
-    if (tiketBerangkatIssued && tiketPulangIssued) {
-      return "Tiket Lengkap"
-    } else if (tiketBerangkatIssued) {
-      return "Tiket Berangkat Terbit"
-    } else if (tiketPulangIssued) {
-      return "Tiket Balik Terbit"
-    }
+  // Priority 1: Check if tickets are issued
+  if (tiketBerangkatIssued && tiketBalikIssued) {
+    return "Tiket Lengkap"
+  } else if (tiketBerangkatIssued && !tiketBalikIssued) {
+    return "Tiket Berangkat Terbit"
+  } else if (!tiketBerangkatIssued && tiketBalikIssued) {
+    return "Tiket Balik Terbit"
   }
 
-  // Jika tidak ada tiket yang issued, return label biasa
+  // Priority 2: Check status for in-progress tickets
+  if (status === "di_proses") {
+    return "Di Proses HR Ticketing"
+  }
+
+  // Priority 3: Check for approved local leave
+  if (status === "approved") {
+    return "Cuti Lokal Disetujui"
+  }
+
+  // Default: Return standard label
   return getStatusLabel(status)
 }

@@ -8,16 +8,32 @@ import { useRouter } from "next/navigation"
 import { DashboardLayout } from "@/components/dashboard-layout"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Plus, FileText, Clock, CheckCircle, XCircle, Search, Calendar, ArrowLeft, Edit } from "lucide-react"
+import {
+  Plus,
+  FileText,
+  Clock,
+  XCircle,
+  Search,
+  Calendar,
+  ArrowLeft,
+  Edit,
+  Plane,
+  Ticket,
+  Settings,
+  ChevronLeft,
+  ChevronRight,
+} from "lucide-react"
 import type { LeaveRequest } from "@/lib/types"
-import { formatDate, getStatusLabel, getStatusColor } from "@/lib/utils"
+import { formatDate, getStatusLabel, getStatusColor, getDetailedTicketStatus } from "@/lib/utils"
 import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { NewLeaveRequestDialog } from "@/components/new-leave-request-dialog"
 import { LeaveRequestDetailDialog } from "@/components/leave-request-detail-dialog"
 import { EditLeaveRequestDialog } from "@/components/edit-leave-request-dialog"
 import Link from "next/link"
+
+const ITEMS_PER_PAGE = 5
 
 export default function AdminSiteCutiPage() {
   const { user, isAuthenticated } = useAuth()
@@ -25,12 +41,23 @@ export default function AdminSiteCutiPage() {
   const [requests, setRequests] = useState<LeaveRequest[]>([])
   const [filteredRequests, setFilteredRequests] = useState<LeaveRequest[]>([])
   const [searchQuery, setSearchQuery] = useState("")
-  const [stats, setStats] = useState({ total: 0, pending: 0, approved: 0, rejected: 0 })
+  const [stats, setStats] = useState({
+    total: 0,
+    menunggu: 0,
+    tiketBerangkat: 0,
+    tiketLengkap: 0,
+    cutiLokal: 0,
+    diProses: 0,
+    ditolak: 0,
+  })
   const [loading, setLoading] = useState(true)
-  const [activeTab, setActiveTab] = useState("all")
+  const [statusFilter, setStatusFilter] = useState("all")
+  const [selectedMonth, setSelectedMonth] = useState<string>("all")
+  const [selectedYear, setSelectedYear] = useState<string>("all")
   const [showNewRequestDialog, setShowNewRequestDialog] = useState(false)
   const [selectedRequest, setSelectedRequest] = useState<LeaveRequest | null>(null)
   const [editingRequest, setEditingRequest] = useState<LeaveRequest | null>(null)
+  const [currentPage, setCurrentPage] = useState(1)
 
   const loadData = useCallback(async () => {
     if (!user?.site) return
@@ -60,15 +87,71 @@ export default function AdminSiteCutiPage() {
       setRequests(sortedRequests)
       setFilteredRequests(sortedRequests)
 
+      const menunggu = sortedRequests.filter(
+        (r: LeaveRequest) =>
+          r.status === "pending_dic" ||
+          r.status === "pending_pjo" ||
+          r.status === "pending_manager_ho" ||
+          r.status === "pending_hr_ho",
+      ).length
+
+      const tiketLengkap = sortedRequests.filter(
+        (r: LeaveRequest) =>
+          (r.bookingCode && r.bookingCodeBalik) ||
+          (r.statusTiketBerangkat === "issued" && r.statusTiketBalik === "issued"),
+      ).length
+
+      const tiketBerangkat = sortedRequests.filter(
+        (r: LeaveRequest) =>
+          (r.bookingCode && !r.bookingCodeBalik) ||
+          (r.statusTiketBerangkat === "issued" && r.statusTiketBalik !== "issued"),
+      ).length
+
+      const cutiLokal = sortedRequests.filter(
+        (r: LeaveRequest) => r.jenisPengajuanCuti?.toLowerCase().includes("lokal") || r.status === "approved",
+      ).length
+
+      const ditolak = sortedRequests.filter((r: LeaveRequest) => r.status?.includes("ditolak")).length
+
+      const diProses = sortedRequests.filter((r: LeaveRequest) => {
+        const needsTicket = !r.jenisPengajuanCuti?.toLowerCase().includes("lokal")
+        const noTicketsYet =
+          !r.bookingCode &&
+          !r.bookingCodeBalik &&
+          r.statusTiketBerangkat !== "issued" &&
+          r.statusTiketBalik !== "issued"
+        const isInProcess = r.status === "di_proses" || r.status === "tiket_issued"
+
+        return needsTicket && noTicketsYet && isInProcess
+      }).length
+
       setStats({
         total: sortedRequests.length,
-        pending: sortedRequests.filter(
-          (r: LeaveRequest) => r.status === "pending_dic" || r.status === "pending_pjo" || r.status === "pending_hr_ho",
-        ).length,
-        approved: sortedRequests.filter((r: LeaveRequest) => r.status === "di_proses" || r.status === "tiket_issued")
-          .length,
-        rejected: sortedRequests.filter((r: LeaveRequest) => r.status?.includes("ditolak")).length,
+        menunggu,
+        tiketBerangkat,
+        tiketLengkap,
+        cutiLokal,
+        diProses,
+        ditolak,
       })
+
+      console.log(
+        "[v0] Stats breakdown:",
+        "Total:",
+        sortedRequests.length,
+        "Menunggu:",
+        menunggu,
+        "Tiket Berangkat:",
+        tiketBerangkat,
+        "Tiket Lengkap:",
+        tiketLengkap,
+        "Cuti Lokal:",
+        cutiLokal,
+        "Di Proses:",
+        diProses,
+        "Ditolak:",
+        ditolak,
+      )
     } catch (error) {
       console.error("[Admin Site Cuti] Error loading data:", error)
       setRequests([])
@@ -87,47 +170,81 @@ export default function AdminSiteCutiPage() {
   }, [user, isAuthenticated, router, loadData])
 
   useEffect(() => {
-    if (!searchQuery.trim()) {
-      if (activeTab === "all") {
-        setFilteredRequests(requests)
-      } else if (activeTab === "pending") {
-        setFilteredRequests(
-          requests.filter(
-            (r) => r.status === "pending_dic" || r.status === "pending_pjo" || r.status === "pending_hr_ho",
-          ),
-        )
-      } else if (activeTab === "approved") {
-        setFilteredRequests(requests.filter((r) => r.status === "di_proses" || r.status === "tiket_issued"))
-      } else if (activeTab === "rejected") {
-        setFilteredRequests(requests.filter((r) => r.status?.includes("ditolak")))
-      }
-      return
+    let filtered = requests
+
+    if (statusFilter === "menunggu") {
+      filtered = filtered.filter(
+        (r) =>
+          r.status === "pending_dic" ||
+          r.status === "pending_pjo" ||
+          r.status === "pending_manager_ho" ||
+          r.status === "pending_hr_ho",
+      )
+    } else if (statusFilter === "tiket_berangkat") {
+      filtered = filtered.filter(
+        (r) =>
+          (r.bookingCode && !r.bookingCodeBalik) ||
+          (r.statusTiketBerangkat === "issued" && r.statusTiketBalik !== "issued"),
+      )
+    } else if (statusFilter === "tiket_lengkap") {
+      filtered = filtered.filter(
+        (r) =>
+          (r.bookingCode && r.bookingCodeBalik) ||
+          (r.statusTiketBerangkat === "issued" && r.statusTiketBalik === "issued"),
+      )
+    } else if (statusFilter === "cuti_lokal") {
+      filtered = filtered.filter(
+        (r) => r.jenisPengajuanCuti?.toLowerCase().includes("lokal") || r.status === "approved",
+      )
+    } else if (statusFilter === "diProses") {
+      filtered = filtered.filter((r) => {
+        const needsTicket = !r.jenisPengajuanCuti?.toLowerCase().includes("lokal")
+        const noTicketsYet =
+          !r.bookingCode &&
+          !r.bookingCodeBalik &&
+          r.statusTiketBerangkat !== "issued" &&
+          r.statusTiketBalik !== "issued"
+        const isInProcess = r.status === "di_proses" || r.status === "tiket_issued"
+
+        return needsTicket && noTicketsYet && isInProcess
+      })
+    } else if (statusFilter === "ditolak") {
+      filtered = filtered.filter((r) => r.status?.includes("ditolak"))
     }
 
-    const query = searchQuery.toLowerCase()
-    let baseRequests = requests
+    filtered = filtered.filter((r) => {
+      const requestDate = new Date(r.tanggalKeberangkatan || r.createdAt)
 
-    if (activeTab === "pending") {
-      baseRequests = requests.filter(
-        (r) => r.status === "pending_dic" || r.status === "pending_pjo" || r.status === "pending_hr_ho",
-      )
-    } else if (activeTab === "approved") {
-      baseRequests = requests.filter((r) => r.status === "di_proses" || r.status === "tiket_issued")
-    } else if (activeTab === "rejected") {
-      baseRequests = requests.filter((r) => r.status?.includes("ditolak"))
-    }
+      const monthMatch = selectedMonth === "all" || requestDate.getMonth().toString() === selectedMonth
+      const yearMatch = selectedYear === "all" || requestDate.getFullYear().toString() === selectedYear
 
-    const filtered = baseRequests.filter((request) => {
-      return (
-        (request.userName?.toLowerCase() || "").includes(query) ||
-        (request.jenisPengajuanCuti?.toLowerCase() || "").includes(query) ||
-        getStatusLabel(request.status).toLowerCase().includes(query) ||
-        (request.alasan?.toLowerCase() || "").includes(query) ||
-        (request.bookingCode?.toLowerCase() || "").includes(query)
-      )
+      return monthMatch && yearMatch
     })
+
+    if (searchQuery.trim()) {
+      const query = searchQuery.toLowerCase()
+      filtered = filtered.filter((request) => {
+        return (
+          (request.userName?.toLowerCase() || "").includes(query) ||
+          (request.jenisPengajuanCuti?.toLowerCase() || "").includes(query) ||
+          getStatusLabel(request.status).toLowerCase().includes(query) ||
+          (request.alasan?.toLowerCase() || "").includes(query) ||
+          (request.bookingCode?.toLowerCase() || "").includes(query)
+        )
+      })
+    }
+
     setFilteredRequests(filtered)
-  }, [searchQuery, requests, activeTab])
+  }, [searchQuery, requests, statusFilter, selectedMonth, selectedYear])
+
+  const totalPages = Math.ceil(filteredRequests.length / ITEMS_PER_PAGE)
+  const startIndex = (currentPage - 1) * ITEMS_PER_PAGE
+  const endIndex = startIndex + ITEMS_PER_PAGE
+  const paginatedRequests = filteredRequests.slice(startIndex, endIndex)
+
+  useEffect(() => {
+    setCurrentPage(1)
+  }, [searchQuery, statusFilter, selectedMonth, selectedYear])
 
   if (loading) {
     return (
@@ -136,6 +253,31 @@ export default function AdminSiteCutiPage() {
       </DashboardLayout>
     )
   }
+
+  const months = [
+    { value: "all", label: "Semua Bulan" },
+    { value: "0", label: "Januari" },
+    { value: "1", label: "Februari" },
+    { value: "2", label: "Maret" },
+    { value: "3", label: "April" },
+    { value: "4", label: "Mei" },
+    { value: "5", label: "Juni" },
+    { value: "6", label: "Juli" },
+    { value: "7", label: "Agustus" },
+    { value: "8", label: "September" },
+    { value: "9", label: "Oktober" },
+    { value: "10", label: "November" },
+    { value: "11", label: "Desember" },
+  ]
+
+  const currentYear = new Date().getFullYear()
+  const years = [
+    { value: "all", label: "Semua Tahun" },
+    ...Array.from({ length: 5 }, (_, i) => ({
+      value: (currentYear - 2 + i).toString(),
+      label: (currentYear - 2 + i).toString(),
+    })),
+  ]
 
   return (
     <DashboardLayout title="Pengajuan Cuti">
@@ -152,52 +294,82 @@ export default function AdminSiteCutiPage() {
         <div className="flex justify-between items-center">
           <div>
             <h1 className="text-3xl font-bold tracking-tight">Pengajuan Cuti</h1>
-            <p className="text-muted-foreground mt-2">Kelola pengajuan cuti untuk site {user?.site}</p>
+            <p className="text-muted-foreground mt-2">Admin Site</p>
           </div>
-          <Button onClick={() => setShowNewRequestDialog(true)}>
+          <Button onClick={() => setShowNewRequestDialog(true)} className="bg-blue-600 hover:bg-blue-700">
             <Plus className="h-4 w-4 mr-2" />
             Ajukan Izin Baru
           </Button>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-          <Card>
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-7 gap-4">
+          <Card className="border-slate-200">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Total Pengajuan</CardTitle>
-              <FileText className="h-4 w-4 text-muted-foreground" />
+              <CardTitle className="text-sm font-medium">Total</CardTitle>
+              <FileText className="h-4 w-4 text-slate-500" />
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">{stats.total}</div>
             </CardContent>
           </Card>
 
-          <Card>
+          <Card className="border-orange-200 bg-orange-50/50">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Menunggu</CardTitle>
-              <Clock className="h-4 w-4 text-yellow-600" />
+              <CardTitle className="text-sm font-medium text-orange-700">Menunggu</CardTitle>
+              <Clock className="h-4 w-4 text-orange-500" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{stats.pending}</div>
+              <div className="text-2xl font-bold text-orange-600">{stats.menunggu}</div>
             </CardContent>
           </Card>
 
-          <Card>
+          <Card className="border-amber-200 bg-amber-50/50">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Disetujui</CardTitle>
-              <CheckCircle className="h-4 w-4 text-green-600" />
+              <CardTitle className="text-sm font-medium text-amber-700">Di Proses</CardTitle>
+              <Settings className="h-4 w-4 text-amber-500" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{stats.approved}</div>
+              <div className="text-2xl font-bold text-amber-600">{stats.diProses}</div>
             </CardContent>
           </Card>
 
-          <Card>
+          <Card className="border-blue-200 bg-blue-50/50">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Ditolak</CardTitle>
-              <XCircle className="h-4 w-4 text-red-600" />
+              <CardTitle className="text-sm font-medium text-blue-700">Tiket Berangkat</CardTitle>
+              <Plane className="h-4 w-4 text-blue-500" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{stats.rejected}</div>
+              <div className="text-2xl font-bold text-blue-600">{stats.tiketBerangkat}</div>
+            </CardContent>
+          </Card>
+
+          <Card className="border-green-200 bg-green-50/50">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium text-green-700">Tiket Lengkap</CardTitle>
+              <Ticket className="h-4 w-4 text-green-500" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-green-600">{stats.tiketLengkap}</div>
+            </CardContent>
+          </Card>
+
+          <Card className="border-purple-200 bg-purple-50/50">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium text-purple-700">Cuti Lokal</CardTitle>
+              <Calendar className="h-4 w-4 text-purple-500" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-purple-600">{stats.cutiLokal}</div>
+            </CardContent>
+          </Card>
+
+          <Card className="border-red-200 bg-red-50/50">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium text-red-700">Ditolak</CardTitle>
+              <XCircle className="h-4 w-4 text-red-500" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-red-600">{stats.ditolak}</div>
             </CardContent>
           </Card>
         </div>
@@ -206,6 +378,50 @@ export default function AdminSiteCutiPage() {
           <CardHeader>
             <CardTitle>Daftar Pengajuan</CardTitle>
             <CardDescription>Klik pada pengajuan untuk melihat detail dan riwayat persetujuan</CardDescription>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mt-4">
+              <Select value={statusFilter} onValueChange={setStatusFilter}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Filter Status" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Semua Pengajuan</SelectItem>
+                  <SelectItem value="menunggu">Menunggu Approval</SelectItem>
+                  <SelectItem value="diProses">Di Proses HR Ticketing</SelectItem>
+                  <SelectItem value="tiket_berangkat">Tiket Berangkat Terbit</SelectItem>
+                  <SelectItem value="tiket_lengkap">Tiket Lengkap</SelectItem>
+                  <SelectItem value="cuti_lokal">Cuti Lokal (Tanpa Tiket)</SelectItem>
+                  <SelectItem value="ditolak">Ditolak</SelectItem>
+                </SelectContent>
+              </Select>
+
+              <Select value={selectedMonth} onValueChange={setSelectedMonth}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Pilih Bulan" />
+                </SelectTrigger>
+                <SelectContent>
+                  {months.map((month) => (
+                    <SelectItem key={month.value} value={month.value}>
+                      {month.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+
+              <Select value={selectedYear} onValueChange={setSelectedYear}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Pilih Tahun" />
+                </SelectTrigger>
+                <SelectContent>
+                  {years.map((year) => (
+                    <SelectItem key={year.value} value={year.value}>
+                      {year.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
             <div className="relative mt-4">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
               <Input
@@ -217,53 +433,81 @@ export default function AdminSiteCutiPage() {
             </div>
           </CardHeader>
           <CardContent>
-            <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-              <TabsList className="grid w-full grid-cols-2 md:grid-cols-4 gap-1 h-auto bg-muted p-1">
-                <TabsTrigger value="all" className="text-xs md:text-sm px-2 md:px-4 h-auto py-2 whitespace-normal">
-                  Semua ({stats.total})
-                </TabsTrigger>
-                <TabsTrigger value="pending" className="text-xs md:text-sm px-2 md:px-4 h-auto py-2 whitespace-normal">
-                  Menunggu ({stats.pending})
-                </TabsTrigger>
-                <TabsTrigger value="approved" className="text-xs md:text-sm px-2 md:px-4 h-auto py-2 whitespace-normal">
-                  Disetujui ({stats.approved})
-                </TabsTrigger>
-                <TabsTrigger value="rejected" className="text-xs md:text-sm px-2 md:px-4 h-auto py-2 whitespace-normal">
-                  Ditolak ({stats.rejected})
-                </TabsTrigger>
-              </TabsList>
+            {filteredRequests.length === 0 ? (
+              <div className="text-center py-12">
+                <FileText className="h-12 w-12 text-slate-300 mx-auto mb-4" />
+                <p className="text-slate-600 mb-4">
+                  {searchQuery || statusFilter !== "all"
+                    ? "Tidak ada pengajuan yang sesuai dengan filter"
+                    : "Belum ada pengajuan izin"}
+                </p>
+                {!searchQuery && statusFilter === "all" && (
+                  <Button onClick={() => setShowNewRequestDialog(true)}>
+                    <Plus className="h-4 w-4 mr-2" />
+                    Buat Pengajuan Pertama
+                  </Button>
+                )}
+              </div>
+            ) : (
+              <div className="space-y-4">
+                <p className="text-sm text-slate-600">
+                  Menampilkan {startIndex + 1}-{Math.min(endIndex, filteredRequests.length)} dari{" "}
+                  {filteredRequests.length} pengajuan
+                </p>
 
-              <TabsContent value={activeTab} className="mt-4">
-                {filteredRequests.length === 0 ? (
-                  <div className="text-center py-12">
-                    <FileText className="h-12 w-12 text-slate-300 mx-auto mb-4" />
-                    <p className="text-slate-600 mb-4">
-                      {searchQuery ? "Tidak ada pengajuan yang sesuai dengan pencarian" : "Belum ada pengajuan izin"}
-                    </p>
-                    {!searchQuery && (
-                      <Button onClick={() => setShowNewRequestDialog(true)}>
-                        <Plus className="h-4 w-4 mr-2" />
-                        Buat Pengajuan Pertama
-                      </Button>
-                    )}
-                  </div>
-                ) : (
-                  <div className="space-y-3">
-                    {filteredRequests.map((request) => (
-                      <RequestCard
-                        key={request.id}
-                        request={request}
-                        onSelect={() => setSelectedRequest(request)}
-                        onEdit={(e) => {
-                          e.stopPropagation()
-                          setEditingRequest(request)
-                        }}
-                      />
-                    ))}
+                <div className="space-y-3">
+                  {paginatedRequests.map((request) => (
+                    <RequestCard
+                      key={request.id}
+                      request={request}
+                      onSelect={() => setSelectedRequest(request)}
+                      onEdit={(e) => {
+                        e.stopPropagation()
+                        setEditingRequest(request)
+                      }}
+                    />
+                  ))}
+                </div>
+
+                {totalPages > 1 && (
+                  <div className="flex items-center justify-between pt-4 border-t">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                      disabled={currentPage === 1}
+                    >
+                      <ChevronLeft className="h-4 w-4 mr-1" />
+                      Sebelumnya
+                    </Button>
+
+                    <div className="flex items-center gap-2">
+                      {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
+                        <Button
+                          key={page}
+                          variant={currentPage === page ? "default" : "outline"}
+                          size="sm"
+                          onClick={() => setCurrentPage(page)}
+                          className={currentPage === page ? "bg-blue-600" : ""}
+                        >
+                          {page}
+                        </Button>
+                      ))}
+                    </div>
+
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                      disabled={currentPage === totalPages}
+                    >
+                      Berikutnya
+                      <ChevronRight className="h-4 w-4 ml-1" />
+                    </Button>
                   </div>
                 )}
-              </TabsContent>
-            </Tabs>
+              </div>
+            )}
           </CardContent>
         </Card>
       </div>
@@ -312,42 +556,61 @@ function RequestCard({
 }) {
   const canEdit = !request.bookingCode && !request.bookingCodeBalik
 
+  const displayStatus = getDetailedTicketStatus(request.status, request.statusTiketBerangkat, request.statusTiketBalik)
+
+  const getEnhancedStatusColor = (status: string, displayStatus: string): string => {
+    if (displayStatus === "Tiket Lengkap") {
+      return "bg-green-500 text-white"
+    } else if (displayStatus === "Tiket Berangkat Terbit") {
+      return "bg-blue-500 text-white"
+    } else if (displayStatus === "Tiket Balik Terbit") {
+      return "bg-cyan-500 text-white"
+    }
+
+    return getStatusColor(status)
+  }
+
   return (
     <div
-      className="border border-slate-200 rounded-lg p-4 hover:bg-slate-50 cursor-pointer transition-colors"
+      className="border border-slate-200 rounded-lg p-6 hover:bg-slate-50 cursor-pointer transition-colors"
       onClick={onSelect}
     >
-      <div className="flex justify-between items-start mb-3">
-        <div className="flex-1 space-y-2">
-          <div className="flex items-center gap-3">
-            <span className="text-sm font-medium text-slate-600">NIK:</span>
-            <span className="text-sm text-slate-900">{request.userNik || "-"}</span>
+      <div className="flex justify-between items-start gap-8">
+        <div className="flex-1 grid grid-cols-2 gap-x-12 gap-y-3">
+          <div className="space-y-3">
+            <div className="flex items-start gap-3">
+              <span className="text-sm font-medium text-slate-500 min-w-[90px]">NIK:</span>
+              <span className="text-sm text-slate-900 font-medium">{request.userNik || "-"}</span>
+            </div>
+            <div className="flex items-start gap-3">
+              <span className="text-sm font-medium text-slate-500 min-w-[90px]">Jabatan:</span>
+              <span className="text-sm text-slate-900">{request.jabatan || "-"}</span>
+            </div>
+            <div className="flex items-start gap-3">
+              <span className="text-sm font-medium text-slate-500 min-w-[90px]">Tanggal Cuti:</span>
+              <span className="text-sm text-slate-900">{formatDate(request.tanggalKeberangkatan)}</span>
+            </div>
           </div>
-          <div className="flex items-center gap-3">
-            <span className="text-sm font-medium text-slate-600">Nama:</span>
-            <span className="text-sm font-semibold text-slate-900">{request.userName || "Nama tidak tersedia"}</span>
-          </div>
-          <div className="flex items-center gap-3">
-            <span className="text-sm font-medium text-slate-600">Jabatan:</span>
-            <span className="text-sm text-slate-900">{request.jabatan || "-"}</span>
-          </div>
-          <div className="flex items-center gap-3">
-            <span className="text-sm font-medium text-slate-600">Departemen:</span>
-            <span className="text-sm text-slate-900">{request.departemen || "-"}</span>
-          </div>
-          <div className="flex items-center gap-3">
-            <Calendar className="h-4 w-4 text-slate-600" />
-            <span className="text-sm font-medium text-slate-600">Tanggal Keberangkatan:</span>
-            <span className="text-sm text-slate-900">
-              {request.tanggalKeberangkatan ? formatDate(request.tanggalKeberangkatan) : "-"}
-            </span>
+
+          <div className="space-y-3">
+            <div className="flex items-start gap-3">
+              <span className="text-sm font-medium text-slate-500 min-w-[90px]">Nama:</span>
+              <span className="text-sm text-slate-900 font-semibold">{request.userName || "-"}</span>
+            </div>
+            <div className="flex items-start gap-3">
+              <span className="text-sm font-medium text-slate-500 min-w-[90px]">Departemen:</span>
+              <span className="text-sm text-slate-900">{request.departemen || "-"}</span>
+            </div>
           </div>
         </div>
-        <div className="flex flex-col items-end gap-2">
-          <Badge className={getStatusColor(request.status)}>{getStatusLabel(request.status)}</Badge>
+
+        <div className="flex flex-col items-end gap-2 flex-shrink-0">
+          <Badge className={`${getEnhancedStatusColor(request.status, displayStatus)} px-4 py-1.5 text-sm`}>
+            {displayStatus}
+          </Badge>
           {canEdit && (
-            <Button variant="outline" size="sm" onClick={onEdit}>
-              <Edit className="h-3 w-3 mr-1" />
+            <Button variant="ghost" size="sm" onClick={onEdit} className="h-8">
+              <Edit className="h-3.5 w-3.5 mr-1" />
               Edit
             </Button>
           )}

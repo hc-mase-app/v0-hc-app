@@ -27,5 +27,5 @@ const result = await sql`SELECT NOW()`
 - `admin_documents` - HCGA IMS documents
 \`\`\`
 
-```md file="CARA_JALANKAN_MIGRATION.md" isDeleted="true"
+\`\`\`md file="CARA_JALANKAN_MIGRATION.md" isDeleted="true"
 ...deleted...

@@ -5,7 +5,7 @@ import { useAuth } from "@/lib/auth-context"
 import { useRouter } from "next/navigation"
 import { DashboardLayout } from "@/components/dashboard-layout"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { FileText, Clock, CheckCircle, Search, Calendar, Ticket, Download, Edit, Plus } from "lucide-react"
+import { FileText, Search, Calendar, Ticket, Download, Edit, Plus } from "lucide-react"
 import type { LeaveRequest } from "@/lib/types"
 import { formatDate, getStatusColor, getDetailedTicketStatus } from "@/lib/utils"
 import { Badge } from "@/components/ui/badge"
@@ -46,6 +46,10 @@ export default function HRTicketingDashboard() {
   const [isExportingCustom, setIsExportingCustom] = useState(false)
   const [selectedDepartemen, setSelectedDepartemen] = useState<string>("all")
   const [selectedSite, setSelectedSite] = useState<string>("all")
+  const [selectedStatus, setSelectedStatus] = useState<string>("all")
+  const [currentPage, setCurrentPage] = useState(1)
+  const itemsPerPage = 10
+
   const [showNewRequestDialog, setShowNewRequestDialog] = useState(false)
   const bookingCodeRef = useRef<HTMLInputElement>(null)
   const namaPesawatRef = useRef<HTMLInputElement>(null)
@@ -118,9 +122,30 @@ export default function HRTicketingDashboard() {
     return Array.from(sites).sort()
   }, [pendingRequests, allRequests])
 
-  const filteredRequests = useMemo(() => {
-    const source = activeTab === "pending" ? pendingRequests : allRequests
+  const perluDiprosesRequests = useMemo(() => {
+    // Pengajuan yang belum diproses tiket berangkat atau belum lengkap tiket balik
+    return pendingRequests.filter((req) => {
+      // Exclude cuti lokal
+      if (req.jenisPengajuanCuti === "Cuti Lokal Tanpa Tiket") return false
 
+      // Include jika belum ada tiket berangkat atau belum ada tiket balik
+      return req.statusTiketBerangkat !== "issued" || req.statusTiketBalik !== "issued"
+    })
+  }, [pendingRequests])
+
+  const riwayatRequests = useMemo(() => {
+    // Pengajuan yang sudah ada tiket (minimal tiket berangkat issued)
+    return allRequests.filter((req) => {
+      // Exclude cuti lokal
+      if (req.jenisPengajuanCuti === "Cuti Lokal Tanpa Tiket") return false
+
+      // Include yang sudah ada tiket berangkat atau sudah lengkap
+      return req.statusTiketBerangkat === "issued" || req.status === "tiket_issued"
+    })
+  }, [allRequests])
+
+  const filteredRequests = useMemo(() => {
+    const source = activeTab === "pending" ? perluDiprosesRequests : riwayatRequests
     let filtered = source
 
     // Filter by department
@@ -131,6 +156,28 @@ export default function HRTicketingDashboard() {
     // Filter by site
     if (selectedSite && selectedSite !== "all") {
       filtered = filtered.filter((request) => request.site === selectedSite)
+    }
+
+    if (selectedStatus && selectedStatus !== "all") {
+      if (selectedStatus === "perlu_proses") {
+        // Belum ada tiket sama sekali
+        filtered = filtered.filter((request) => !request.bookingCode && !request.bookingCodeBalik)
+      } else if (selectedStatus === "tiket_berangkat") {
+        // Ada tiket berangkat tapi belum lengkap
+        filtered = filtered.filter(
+          (request) =>
+            request.statusTiketBerangkat === "issued" && request.bookingCode && request.statusTiketBalik !== "issued",
+        )
+      } else if (selectedStatus === "tiket_lengkap") {
+        // Tiket berangkat dan balik lengkap
+        filtered = filtered.filter(
+          (request) =>
+            request.statusTiketBerangkat === "issued" &&
+            request.statusTiketBalik === "issued" &&
+            request.bookingCode &&
+            request.bookingCodeBalik,
+        )
+      }
     }
 
     // Filter by search query
@@ -148,7 +195,19 @@ export default function HRTicketingDashboard() {
     }
 
     return filtered
-  }, [searchQuery, pendingRequests, allRequests, activeTab, selectedDepartemen, selectedSite])
+  }, [searchQuery, perluDiprosesRequests, riwayatRequests, activeTab, selectedDepartemen, selectedSite, selectedStatus])
+
+  const paginatedRequests = useMemo(() => {
+    const startIndex = (currentPage - 1) * itemsPerPage
+    const endIndex = startIndex + itemsPerPage
+    return filteredRequests.slice(startIndex, endIndex)
+  }, [filteredRequests, currentPage])
+
+  const totalPages = Math.ceil(filteredRequests.length / itemsPerPage)
+
+  useEffect(() => {
+    setCurrentPage(1)
+  }, [selectedDepartemen, selectedSite, selectedStatus, searchQuery, activeTab])
 
   const handleProcessTicket = async () => {
     if (!bookingRequest) return
@@ -493,41 +552,6 @@ export default function HRTicketingDashboard() {
           </Button>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Perlu Diproses</CardTitle>
-              <Clock className="h-4 w-4 text-orange-600" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{pendingRequests.length}</div>
-              <p className="text-xs text-muted-foreground">Status: Di Proses</p>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Tiket Issued</CardTitle>
-              <CheckCircle className="h-4 w-4 text-green-600" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{allRequests.filter((r) => r.status === "tiket_issued").length}</div>
-              <p className="text-xs text-muted-foreground">Sudah ada kode booking</p>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Total Riwayat</CardTitle>
-              <FileText className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{allRequests.length}</div>
-              <p className="text-xs text-muted-foreground">Semua pengajuan</p>
-            </CardContent>
-          </Card>
-        </div>
-
         <div>
           <h2 className="text-2xl font-bold text-slate-900 mb-2">Proses Tiket & Input Booking</h2>
         </div>
@@ -604,13 +628,30 @@ export default function HRTicketingDashboard() {
                     </SelectContent>
                   </Select>
                 </div>
-                {(selectedDepartemen !== "all" || selectedSite !== "all") && (
+                <div className="w-full xs:w-auto min-w-[160px]">
+                  <Label htmlFor="filterStatus" className="text-xs mb-1 block text-slate-600">
+                    Status Tiket
+                  </Label>
+                  <Select value={selectedStatus} onValueChange={setSelectedStatus}>
+                    <SelectTrigger id="filterStatus" className="h-8 text-sm w-full">
+                      <SelectValue placeholder="Semua Pengajuan" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Semua Pengajuan</SelectItem>
+                      <SelectItem value="perlu_proses">Perlu di Proses</SelectItem>
+                      <SelectItem value="tiket_berangkat">Tiket Berangkat Terbit</SelectItem>
+                      <SelectItem value="tiket_lengkap">Tiket Lengkap</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                {(selectedDepartemen !== "all" || selectedSite !== "all" || selectedStatus !== "all") && (
                   <Button
                     variant="ghost"
                     size="sm"
                     onClick={() => {
                       setSelectedDepartemen("all")
                       setSelectedSite("all")
+                      setSelectedStatus("all")
                     }}
                     className="text-slate-500 hover:text-slate-700 h-8 text-xs"
                   >
@@ -670,8 +711,8 @@ export default function HRTicketingDashboard() {
           <CardContent>
             <Tabs value={activeTab} onValueChange={setActiveTab}>
               <TabsList className="grid w-full grid-cols-2">
-                <TabsTrigger value="pending">Perlu Diproses ({pendingRequests.length})</TabsTrigger>
-                <TabsTrigger value="history">Riwayat ({allRequests.length})</TabsTrigger>
+                <TabsTrigger value="pending">Perlu Diproses ({perluDiprosesRequests.length})</TabsTrigger>
+                <TabsTrigger value="history">Riwayat ({riwayatRequests.length})</TabsTrigger>
               </TabsList>
 
               <TabsContent value="pending">
@@ -686,76 +727,117 @@ export default function HRTicketingDashboard() {
                   </div>
                 ) : (
                   <div className="space-y-3">
-                    {filteredRequests.map((request) => (
-                      <div
-                        key={request.id}
-                        className="border border-slate-200 rounded-lg p-4 hover:bg-slate-50 transition-colors"
-                      >
-                        <div className="flex flex-col gap-4 mb-4">
-                          <div className="space-y-3 flex-1">
-                            <div className="flex flex-wrap items-center gap-2">
-                              <h3 className="font-semibold text-slate-900">{request.jenisPengajuanCuti}</h3>
-                              {getTicketStatusBadge(request)}
-                            </div>
+                    {paginatedRequests.map(
+                      (
+                        request, // Changed from filteredRequests to paginatedRequests
+                      ) => (
+                        <div
+                          key={request.id}
+                          className="border border-slate-200 rounded-lg p-4 hover:bg-slate-50 transition-colors"
+                        >
+                          <div className="flex flex-col gap-4 mb-4">
+                            <div className="space-y-3 flex-1">
+                              <div className="flex flex-wrap items-center gap-2">
+                                <h3 className="font-semibold text-slate-900">{request.jenisPengajuanCuti}</h3>
+                                {getTicketStatusBadge(request)}
+                              </div>
 
-                            <div className="grid grid-cols-1 xs:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3 text-sm">
-                              <div>
-                                <p className="text-xs text-slate-500">NIK</p>
-                                <p className="font-medium text-slate-900">{request.userNik || "-"}</p>
-                              </div>
-                              <div>
-                                <p className="text-xs text-slate-500">Nama</p>
-                                <p className="font-medium text-slate-900 truncate">
-                                  {request.userName || "Nama tidak tersedia"}
-                                </p>
-                              </div>
-                              <div>
-                                <p className="text-xs text-slate-500">Jabatan</p>
-                                <p className="font-medium text-slate-900">{request.jabatan || "-"}</p>
-                              </div>
-                              <div>
-                                <p className="text-xs text-slate-500">Departemen</p>
-                                <p className="font-medium text-slate-900">{request.departemen || "-"}</p>
-                              </div>
-                              <div className="flex items-start gap-2">
-                                <Calendar className="h-4 w-4 text-slate-500 mt-0.5 flex-shrink-0" />
+                              <div className="grid grid-cols-1 xs:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3 text-sm">
                                 <div>
-                                  <p className="text-xs text-slate-500 font-bold uppercase">Tgl Keberangkatan</p>
-                                  <p className="font-medium text-slate-900">
-                                    {request.tanggalKeberangkatan ? formatDate(request.tanggalKeberangkatan) : "-"}
+                                  <p className="text-xs text-slate-500">NIK</p>
+                                  <p className="font-medium text-slate-900">{request.userNik || "-"}</p>
+                                </div>
+                                <div>
+                                  <p className="text-xs text-slate-500">Nama</p>
+                                  <p className="font-medium text-slate-900 truncate">
+                                    {request.userName || "Nama tidak tersedia"}
                                   </p>
+                                </div>
+                                <div>
+                                  <p className="text-xs text-slate-500">Jabatan</p>
+                                  <p className="font-medium text-slate-900">{request.jabatan || "-"}</p>
+                                </div>
+                                <div>
+                                  <p className="text-xs text-slate-500">Departemen</p>
+                                  <p className="font-medium text-slate-900">{request.departemen || "-"}</p>
+                                </div>
+                                <div className="flex items-start gap-2">
+                                  <Calendar className="h-4 w-4 text-slate-500 mt-0.5 flex-shrink-0" />
+                                  <div>
+                                    <p className="text-xs text-slate-500 font-bold uppercase">Tgl Keberangkatan</p>
+                                    <p className="font-medium text-slate-900">
+                                      {request.tanggalKeberangkatan ? formatDate(request.tanggalKeberangkatan) : "-"}
+                                    </p>
+                                  </div>
                                 </div>
                               </div>
                             </div>
                           </div>
-                        </div>
 
-                        <div className="pt-3 border-t border-slate-200 flex flex-col sm:flex-row gap-2">
+                          <div className="pt-3 border-t border-slate-200 flex flex-col sm:flex-row gap-2">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => setSelectedRequest(request)}
+                              className="flex-1"
+                            >
+                              Lihat Detail
+                            </Button>
+                            <Button
+                              size="sm"
+                              onClick={() => {
+                                setBookingRequest(request)
+                                setTiketBerangkatChecked(request.statusTiketBerangkat === "issued")
+                                setTiketPulangChecked(request.statusTiketBalik === "issued")
+                                setIsEditMode(false)
+                                setBookingDialogOpen(true)
+                              }}
+                              className="flex-1"
+                            >
+                              <Ticket className="h-4 w-4 mr-2" />
+                              Proses Tiket
+                            </Button>
+                          </div>
+                        </div>
+                      ),
+                    )}
+                    {totalPages > 1 && (
+                      <div className="flex items-center justify-between mt-4">
+                        <div className="text-sm text-muted-foreground">
+                          Menampilkan {(currentPage - 1) * itemsPerPage + 1}-
+                          {Math.min(currentPage * itemsPerPage, filteredRequests.length)} dari {filteredRequests.length}{" "}
+                          pengajuan
+                        </div>
+                        <div className="flex gap-2">
                           <Button
                             variant="outline"
                             size="sm"
-                            onClick={() => setSelectedRequest(request)}
-                            className="flex-1"
+                            onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
+                            disabled={currentPage === 1}
                           >
-                            Lihat Detail
+                            Sebelumnya
                           </Button>
+                          {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
+                            <Button
+                              key={page}
+                              variant={currentPage === page ? "default" : "outline"}
+                              size="sm"
+                              onClick={() => setCurrentPage(page)}
+                            >
+                              {page}
+                            </Button>
+                          ))}
                           <Button
+                            variant="outline"
                             size="sm"
-                            onClick={() => {
-                              setBookingRequest(request)
-                              setTiketBerangkatChecked(request.statusTiketBerangkat === "issued")
-                              setTiketPulangChecked(request.statusTiketBalik === "issued")
-                              setIsEditMode(false)
-                              setBookingDialogOpen(true)
-                            }}
-                            className="flex-1"
+                            onClick={() => setCurrentPage((prev) => Math.min(totalPages, prev + 1))}
+                            disabled={currentPage === totalPages}
                           >
-                            <Ticket className="h-4 w-4 mr-2" />
-                            Prose Tiket
+                            Berikutnya
                           </Button>
                         </div>
                       </div>
-                    ))}
+                    )}
                   </div>
                 )}
               </TabsContent>
@@ -770,78 +852,125 @@ export default function HRTicketingDashboard() {
                   </div>
                 ) : (
                   <div className="space-y-3">
-                    {filteredRequests.map((request) => (
-                      <div
-                        key={request.id}
-                        className="border border-slate-200 rounded-lg p-4 hover:bg-slate-50 transition-colors"
-                      >
-                        <div className="flex flex-col gap-4 mb-4">
-                          <div className="space-y-3 flex-1">
-                            <div className="flex flex-wrap items-center gap-2">
-                              <h3 className="font-semibold text-slate-900">{request.jenisPengajuanCuti}</h3>
-                              {getTicketStatusBadge(request)}
-                              {request.status === "tiket_issued" && (!request.namaPesawat || !request.lamaOnsite) && (
-                                <Badge variant="outline" className="bg-yellow-50 text-yellow-700 border-yellow-300">
-                                  Data Belum Lengkap
-                                </Badge>
-                              )}
-                            </div>
+                    {paginatedRequests.map((request) => {
+                      // Changed from filteredRequests to paginatedRequests
+                      const detailedStatus = getDetailedTicketStatus(request)
+                      const statusColor = getStatusColor(detailedStatus.status)
+                      return (
+                        <div
+                          key={request.id}
+                          className="border border-slate-200 rounded-lg p-4 hover:bg-slate-50 transition-colors"
+                        >
+                          <div className="flex flex-col gap-4 mb-4">
+                            <div className="space-y-3 flex-1">
+                              <div className="flex flex-wrap items-center gap-2">
+                                <h3 className="font-semibold text-slate-900">{request.jenisPengajuanCuti}</h3>
+                                {getTicketStatusBadge(request)}
+                                {request.status === "tiket_issued" && (request.namaPesawat || request.lamaOnsite) && (
+                                  <Badge variant="outline" className="bg-green-50 text-green-700 border-green-300">
+                                    Data Lengkap
+                                  </Badge>
+                                )}
+                                {request.status === "tiket_issued" && (!request.namaPesawat || !request.lamaOnsite) && (
+                                  <Badge variant="outline" className="bg-yellow-50 text-yellow-700 border-yellow-300">
+                                    Data Belum Lengkap
+                                  </Badge>
+                                )}
+                              </div>
 
-                            <div className="grid grid-cols-1 xs:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3 text-sm">
-                              <div>
-                                <p className="text-xs text-slate-500">NIK</p>
-                                <p className="font-medium text-slate-900">{request.userNik || "-"}</p>
-                              </div>
-                              <div>
-                                <p className="text-xs text-slate-500">Nama</p>
-                                <p className="font-medium text-slate-900 truncate">
-                                  {request.userName || "Nama tidak tersedia"}
-                                </p>
-                              </div>
-                              <div>
-                                <p className="text-xs text-slate-500">Jabatan</p>
-                                <p className="font-medium text-slate-900">{request.jabatan || "-"}</p>
-                              </div>
-                              <div>
-                                <p className="text-xs text-slate-500">Departemen</p>
-                                <p className="font-medium text-slate-900">{request.departemen || "-"}</p>
-                              </div>
-                              <div className="flex items-start gap-2">
-                                <Calendar className="h-4 w-4 text-slate-500 mt-0.5 flex-shrink-0" />
+                              <div className="grid grid-cols-1 xs:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3 text-sm">
                                 <div>
-                                  <p className="text-xs text-slate-500 font-bold uppercase">Tgl Keberangkatan</p>
-                                  <p className="font-medium text-slate-900">
-                                    {request.tanggalKeberangkatan ? formatDate(request.tanggalKeberangkatan) : "-"}
+                                  <p className="text-xs text-slate-500">NIK</p>
+                                  <p className="font-medium text-slate-900">{request.userNik || "-"}</p>
+                                </div>
+                                <div>
+                                  <p className="text-xs text-slate-500">Nama</p>
+                                  <p className="font-medium text-slate-900 truncate">
+                                    {request.userName || "Nama tidak tersedia"}
                                   </p>
+                                </div>
+                                <div>
+                                  <p className="text-xs text-slate-500">Jabatan</p>
+                                  <p className="font-medium text-slate-900">{request.jabatan || "-"}</p>
+                                </div>
+                                <div>
+                                  <p className="text-xs text-slate-500">Departemen</p>
+                                  <p className="font-medium text-slate-900">{request.departemen || "-"}</p>
+                                </div>
+                                <div className="flex items-start gap-2">
+                                  <Calendar className="h-4 w-4 text-slate-500 mt-0.5 flex-shrink-0" />
+                                  <div>
+                                    <p className="text-xs text-slate-500 font-bold uppercase">Tgl Keberangkatan</p>
+                                    <p className="font-medium text-slate-900">
+                                      {request.tanggalKeberangkatan ? formatDate(request.tanggalKeberangkatan) : "-"}
+                                    </p>
+                                  </div>
                                 </div>
                               </div>
                             </div>
                           </div>
-                        </div>
 
-                        <div className="pt-3 border-t border-slate-200 flex flex-col sm:flex-row gap-2">
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => setSelectedRequest(request)}
-                            className="flex-1"
-                          >
-                            Lihat Detail
-                          </Button>
-                          {request.status === "tiket_issued" && (
+                          <div className="pt-3 border-t border-slate-200 flex flex-col sm:flex-row gap-2">
                             <Button
                               variant="outline"
                               size="sm"
-                              onClick={() => handleEditTicket(request)}
+                              onClick={() => setSelectedRequest(request)}
                               className="flex-1"
                             >
-                              <Edit className="h-4 w-4 mr-2" />
-                              Edit Tiket
+                              Lihat Detail
                             </Button>
-                          )}
+                            {request.status === "tiket_issued" && (
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => handleEditTicket(request)}
+                                className="flex-1"
+                              >
+                                <Edit className="h-4 w-4 mr-2" />
+                                Edit Tiket
+                              </Button>
+                            )}
+                          </div>
+                        </div>
+                      )
+                    })}
+                    {totalPages > 1 && (
+                      <div className="flex items-center justify-between mt-4">
+                        <div className="text-sm text-muted-foreground">
+                          Menampilkan {(currentPage - 1) * itemsPerPage + 1}-
+                          {Math.min(currentPage * itemsPerPage, filteredRequests.length)} dari {filteredRequests.length}{" "}
+                          pengajuan
+                        </div>
+                        <div className="flex gap-2">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
+                            disabled={currentPage === 1}
+                          >
+                            Sebelumnya
+                          </Button>
+                          {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
+                            <Button
+                              key={page}
+                              variant={currentPage === page ? "default" : "outline"}
+                              size="sm"
+                              onClick={() => setCurrentPage(page)}
+                            >
+                              {page}
+                            </Button>
+                          ))}
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setCurrentPage((prev) => Math.min(totalPages, prev + 1))}
+                            disabled={currentPage === totalPages}
+                          >
+                            Berikutnya
+                          </Button>
                         </div>
                       </div>
-                    ))}
+                    )}
                   </div>
                 )}
               </TabsContent>
