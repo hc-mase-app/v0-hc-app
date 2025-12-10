@@ -139,15 +139,21 @@ export function NewLeaveRequestDialog({ open, onOpenChange, onSuccess }: NewLeav
       if (selectedUser && jenisPengajuanCuti === "Cuti Periodik") {
         setIsLoadingPreviousLeave(true)
         try {
+          console.log("[v0] Fetching previous leave for user:", selectedUser.nik)
           const response = await fetch(`/api/leave-requests/previous?nik=${encodeURIComponent(selectedUser.nik)}`)
+
           if (response.ok) {
             const result = await response.json()
+            console.log("[v0] Previous leave response:", result)
+            console.log("[v0] Previous leave data periodeAwal:", result.data?.periodeAwal)
+            console.log("[v0] Previous leave data periodeAkhir:", result.data?.periodeAkhir)
             setPreviousPeriodicLeave(result.data)
           } else {
+            console.error("[v0] Failed to fetch previous leave, status:", response.status)
             setPreviousPeriodicLeave(null)
           }
         } catch (error) {
-          console.error("Error fetching previous leave:", error)
+          console.error("[v0] Error fetching previous leave:", error)
           setPreviousPeriodicLeave(null)
         } finally {
           setIsLoadingPreviousLeave(false)
@@ -162,11 +168,31 @@ export function NewLeaveRequestDialog({ open, onOpenChange, onSuccess }: NewLeav
 
   useEffect(() => {
     if (previousPeriodicLeave && tanggalMulai) {
-      const previousEndDate = new Date(previousPeriodicLeave.periodeAkhir)
+      console.log("[v0] Calculating lama onsite with previousPeriodicLeave:", previousPeriodicLeave)
+      console.log("[v0] Previous periodeAkhir:", previousPeriodicLeave.periodeAkhir)
+
+      const periodeAkhir = previousPeriodicLeave.periodeAkhir || previousPeriodicLeave.tanggalSelesai
+      if (!periodeAkhir) {
+        console.error("[v0] No end date found in previous periodic leave")
+        setCalculatedLamaOnsite(null)
+        setLamaOnsite("")
+        return
+      }
+
+      const previousEndDate = new Date(periodeAkhir)
       const currentStartDate = new Date(tanggalMulai)
+
+      if (isNaN(previousEndDate.getTime()) || isNaN(currentStartDate.getTime())) {
+        console.error("[v0] Invalid date values:", { periodeAkhir, tanggalMulai })
+        setCalculatedLamaOnsite(null)
+        setLamaOnsite("")
+        return
+      }
 
       const diffTime = currentStartDate.getTime() - previousEndDate.getTime()
       const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24))
+
+      console.log("[v0] Calculated lama onsite:", diffDays, "days")
 
       if (diffDays > 0) {
         setCalculatedLamaOnsite(diffDays)
@@ -182,7 +208,20 @@ export function NewLeaveRequestDialog({ open, onOpenChange, onSuccess }: NewLeav
 
   useEffect(() => {
     if (previousPeriodicLeave && selectedUser && jenisPengajuanCuti === "Cuti Periodik") {
-      const previousEndDate = new Date(previousPeriodicLeave.periodeAkhir)
+      const periodeAkhir = previousPeriodicLeave.periodeAkhir || previousPeriodicLeave.tanggalSelesai
+      if (!periodeAkhir) {
+        console.error("[v0] No end date found for calculating next periodic leave")
+        setTanggalCutiPeriodikBerikutnya("")
+        return
+      }
+
+      const previousEndDate = new Date(periodeAkhir)
+      if (isNaN(previousEndDate.getTime())) {
+        console.error("[v0] Invalid date value for periodeAkhir:", periodeAkhir)
+        setTanggalCutiPeriodikBerikutnya("")
+        return
+      }
+
       const jabatan = selectedUser.jabatan.toLowerCase()
 
       let daysToAdd = 70 // Default for Admin, GL, SPV
@@ -196,6 +235,7 @@ export function NewLeaveRequestDialog({ open, onOpenChange, onSuccess }: NewLeav
       nextLeaveDate.setDate(nextLeaveDate.getDate() + daysToAdd)
 
       const formattedDate = nextLeaveDate.toISOString().split("T")[0]
+      console.log("[v0] Calculated next periodic leave date:", formattedDate)
       setTanggalCutiPeriodikBerikutnya(formattedDate)
     } else {
       setTanggalCutiPeriodikBerikutnya("")
@@ -483,16 +523,14 @@ export function NewLeaveRequestDialog({ open, onOpenChange, onSuccess }: NewLeav
             </div>
           </div>
 
-          {tanggalMulai && tanggalSelesai && new Date(tanggalSelesai) >= new Date(tanggalMulai) && (
-            <div className="space-y-1">
-              <div className="text-sm text-slate-600">
-                Durasi: {calculateDaysBetween(tanggalMulai, tanggalSelesai)} hari
-              </div>
-              {jenisPengajuanCuti === "Cuti Periodik" && calculatedLamaOnsite !== null && (
-                <div className="text-sm text-slate-600">Lama Onsite: {calculatedLamaOnsite} hari</div>
-              )}
+          <div className="space-y-1">
+            <div className="text-sm text-slate-600">
+              Durasi: {calculateDaysBetween(tanggalMulai, tanggalSelesai)} hari
             </div>
-          )}
+            {jenisPengajuanCuti === "Cuti Periodik" && calculatedLamaOnsite !== null && (
+              <div className="text-sm text-slate-600">Lama Onsite: {calculatedLamaOnsite} hari</div>
+            )}
+          </div>
 
           {jenisPengajuanCuti === "Cuti Periodik" && selectedUser && (
             <div className="p-4 bg-blue-50 border-2 border-blue-200 rounded-lg space-y-2">
@@ -503,18 +541,29 @@ export function NewLeaveRequestDialog({ open, onOpenChange, onSuccess }: NewLeav
               ) : previousPeriodicLeave ? (
                 <div className="text-sm">
                   <p className="text-blue-700">
-                    <span className="font-medium">Cuti Periodik Terakhir:</span>{" "}
-                    {new Date(previousPeriodicLeave.periodeAwal).toLocaleDateString("id-ID", {
-                      day: "2-digit",
-                      month: "long",
-                      year: "numeric",
-                    })}{" "}
-                    -{" "}
-                    {new Date(previousPeriodicLeave.periodeAkhir).toLocaleDateString("id-ID", {
-                      day: "2-digit",
-                      month: "long",
-                      year: "numeric",
-                    })}
+                    <span className="font-medium">Cuti Periodik Terakhir:</span> {(() => {
+                      const periodeAwal = previousPeriodicLeave.periodeAwal || previousPeriodicLeave.tanggalMulai
+                      const periodeAkhir = previousPeriodicLeave.periodeAkhir || previousPeriodicLeave.tanggalSelesai
+
+                      if (!periodeAwal || !periodeAkhir) {
+                        return "Data tanggal tidak tersedia"
+                      }
+
+                      try {
+                        return `${new Date(periodeAwal).toLocaleDateString("id-ID", {
+                          day: "2-digit",
+                          month: "long",
+                          year: "numeric",
+                        })} - ${new Date(periodeAkhir).toLocaleDateString("id-ID", {
+                          day: "2-digit",
+                          month: "long",
+                          year: "numeric",
+                        })}`
+                      } catch (error) {
+                        console.error("[v0] Error formatting date:", error)
+                        return "Format tanggal tidak valid"
+                      }
+                    })()}
                   </p>
                 </div>
               ) : (
