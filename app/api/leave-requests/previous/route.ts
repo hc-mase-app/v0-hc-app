@@ -1,5 +1,6 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { getUserLeaveRequests } from "@/lib/leave-request-service"
+import { mapDbRowToLeaveRequest } from "@/lib/db-mapper"
 
 export async function GET(request: NextRequest) {
   try {
@@ -27,7 +28,7 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      data: mostRecent,
+      data: mostRecent ? mapDbRowToLeaveRequest(mostRecent) : null,
     })
   } catch (error) {
     console.error("[API] Error fetching previous leave:", error)
