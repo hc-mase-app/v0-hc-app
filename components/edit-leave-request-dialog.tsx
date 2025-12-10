@@ -48,12 +48,13 @@ export function EditLeaveRequestDialog({ open, onOpenChange, onSuccess, leaveReq
 
   useEffect(() => {
     const fetchPreviousLeave = async () => {
-      if (leaveRequest && jenisPengajuanCuti === "Cuti Periodik") {
+      if (leaveRequest?.nik && jenisPengajuanCuti === "Cuti Periodik") {
         setIsLoadingPreviousLeave(true)
         try {
           const response = await fetch(`/api/leave-requests/previous?nik=${encodeURIComponent(leaveRequest.nik)}`)
           if (response.ok) {
             const result = await response.json()
+            // Don't show the current request as "previous leave"
             if (result.data && result.data.id !== leaveRequest.id) {
               setPreviousPeriodicLeave(result.data)
             } else {
@@ -63,7 +64,7 @@ export function EditLeaveRequestDialog({ open, onOpenChange, onSuccess, leaveReq
             setPreviousPeriodicLeave(null)
           }
         } catch (error) {
-          console.error("Error fetching previous leave:", error)
+          console.error("[v0] Error fetching previous leave:", error)
           setPreviousPeriodicLeave(null)
         } finally {
           setIsLoadingPreviousLeave(false)
@@ -74,7 +75,7 @@ export function EditLeaveRequestDialog({ open, onOpenChange, onSuccess, leaveReq
     }
 
     fetchPreviousLeave()
-  }, [leaveRequest, jenisPengajuanCuti])
+  }, [leaveRequest?.nik, leaveRequest?.id, jenisPengajuanCuti])
 
   useEffect(() => {
     if (previousPeriodicLeave && tanggalMulai) {

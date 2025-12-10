@@ -9,6 +9,7 @@ import {
   createLeaveRequest,
   updateBookingCode,
   getApprovalHistory,
+  updateLeaveRequest, // Import new update function
 } from "@/lib/leave-request-service"
 import { processApproval } from "@/lib/workflow-service"
 
@@ -113,6 +114,28 @@ export async function POST(request: NextRequest) {
     }
   } catch (error) {
     console.error("[API] Error:", error)
+    return NextResponse.json({ error: String(error) }, { status: 500 })
+  }
+}
+
+export async function PUT(request: NextRequest) {
+  try {
+    const data = await request.json()
+    const { id, ...updateData } = data
+
+    if (!id) {
+      return NextResponse.json({ error: "ID pengajuan diperlukan" }, { status: 400 })
+    }
+
+    const result = await updateLeaveRequest(id, updateData)
+
+    if (!result.success) {
+      return NextResponse.json({ error: result.error }, { status: 500 })
+    }
+
+    return NextResponse.json(result)
+  } catch (error) {
+    console.error("[API] Error in PUT:", error)
     return NextResponse.json({ error: String(error) }, { status: 500 })
   }
 }

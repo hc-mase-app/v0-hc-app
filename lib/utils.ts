@@ -111,11 +111,16 @@ export function getDetailedTicketStatus(
   status: string,
   statusTiketBerangkat?: string,
   statusTiketBalik?: string,
+  jenisPengajuan?: string, // Added jenisPengajuan parameter to handle local leave
 ): string {
   const tiketBerangkatIssued = statusTiketBerangkat === "issued"
   const tiketBalikIssued = statusTiketBalik === "issued"
 
-  // Priority 1: Check if tickets are issued
+  if (status === "approved" && jenisPengajuan === "lokal") {
+    return "Cuti Lokal Disetujui"
+  }
+
+  // Priority 2: Check if tickets are issued
   if (tiketBerangkatIssued && tiketBalikIssued) {
     return "Tiket Lengkap"
   } else if (tiketBerangkatIssued && !tiketBalikIssued) {
@@ -124,12 +129,11 @@ export function getDetailedTicketStatus(
     return "Tiket Balik Terbit"
   }
 
-  // Priority 2: Check status for in-progress tickets
-  if (status === "di_proses") {
+  // Priority 3: Check status for in-progress tickets (only for dengan_tiket)
+  if (status === "di_proses" && jenisPengajuan !== "lokal") {
     return "Di Proses HR Ticketing"
   }
 
-  // Priority 3: Check for approved local leave
   if (status === "approved") {
     return "Cuti Lokal Disetujui"
   }

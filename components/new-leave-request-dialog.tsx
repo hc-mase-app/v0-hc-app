@@ -136,20 +136,15 @@ export function NewLeaveRequestDialog({ open, onOpenChange, onSuccess }: NewLeav
 
   useEffect(() => {
     const fetchPreviousLeave = async () => {
-      if (selectedUser && jenisPengajuanCuti === "Cuti Periodik") {
+      if (selectedUser?.nik && jenisPengajuanCuti === "Cuti Periodik") {
         setIsLoadingPreviousLeave(true)
         try {
-          console.log("[v0] Fetching previous leave for user:", selectedUser.nik)
           const response = await fetch(`/api/leave-requests/previous?nik=${encodeURIComponent(selectedUser.nik)}`)
 
           if (response.ok) {
             const result = await response.json()
-            console.log("[v0] Previous leave response:", result)
-            console.log("[v0] Previous leave data periodeAwal:", result.data?.periodeAwal)
-            console.log("[v0] Previous leave data periodeAkhir:", result.data?.periodeAkhir)
             setPreviousPeriodicLeave(result.data)
           } else {
-            console.error("[v0] Failed to fetch previous leave, status:", response.status)
             setPreviousPeriodicLeave(null)
           }
         } catch (error) {
@@ -164,7 +159,7 @@ export function NewLeaveRequestDialog({ open, onOpenChange, onSuccess }: NewLeav
     }
 
     fetchPreviousLeave()
-  }, [selectedUser, jenisPengajuanCuti])
+  }, [selectedUser?.nik, jenisPengajuanCuti])
 
   useEffect(() => {
     if (previousPeriodicLeave && tanggalMulai) {

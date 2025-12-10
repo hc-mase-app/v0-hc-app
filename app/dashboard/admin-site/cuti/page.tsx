@@ -556,7 +556,12 @@ function RequestCard({
 }) {
   const canEdit = !request.bookingCode && !request.bookingCodeBalik
 
-  const displayStatus = getDetailedTicketStatus(request.status, request.statusTiketBerangkat, request.statusTiketBalik)
+  const displayStatus = getDetailedTicketStatus(
+    request.status,
+    request.statusTiketBerangkat,
+    request.statusTiketBalik,
+    request.jenisPengajuanCuti, // Updated to pass jenisPengajuanCuti parameter
+  )
 
   const getEnhancedStatusColor = (status: string, displayStatus: string): string => {
     if (displayStatus === "Tiket Lengkap") {

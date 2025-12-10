@@ -160,3 +160,31 @@ export async function getApprovalHistory(requestId: string) {
     return []
   }
 }
+
+export async function updateLeaveRequest(id: string, data: any) {
+  try {
+    const result = await sql`
+      UPDATE leave_requests 
+      SET 
+        jenis_cuti = ${data.jenisCuti},
+        jenis_pengajuan = ${data.jenisPengajuan},
+        tanggal_pengajuan = ${data.tanggalPengajuan},
+        periode_awal = ${data.periodeAwal},
+        periode_akhir = ${data.periodeAkhir},
+        jumlah_hari = ${data.jumlahHari},
+        berangkat_dari = ${data.berangkatDari},
+        tujuan = ${data.tujuan},
+        tanggal_keberangkatan = ${data.tanggalKeberangkatan},
+        cuti_periodik_berikutnya = ${data.cutiPeriodikBerikutnya},
+        catatan = ${data.catatan},
+        lama_onsite = ${data.lamaOnsite},
+        updated_at = CURRENT_TIMESTAMP
+      WHERE id = ${id}
+      RETURNING *
+    `
+    return { success: true, data: result[0] }
+  } catch (error) {
+    console.error("[LeaveRequest] Error updating request:", error)
+    return { success: false, error: String(error) }
+  }
+}

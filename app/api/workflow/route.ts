@@ -7,7 +7,6 @@ import {
   approveRequest,
   rejectRequest,
   createLeaveRequest,
-  updateBookingCode,
   updateBookingCodeSeparate, // Menambahkan import fungsi baru
   getApprovalHistory,
   getStatisticsForRole,
@@ -228,12 +227,12 @@ export async function POST(request: NextRequest) {
       }
 
       case "update-booking": {
-        const { 
-          requestId, 
+        const {
+          requestId,
           tiketBerangkat,
           tiketBalik,
-          bookingCode, 
-          namaPesawat, 
+          bookingCode,
+          namaPesawat,
           jamKeberangkatan,
           bookingCodeBalik,
           namaPesawatBalik,
@@ -241,24 +240,24 @@ export async function POST(request: NextRequest) {
           tanggalBerangkatBalik,
           berangkatDariBalik,
           tujuanBalik,
-          updatedBy 
+          updatedBy,
         } = data
-        
+
         if (!tiketBerangkat && !tiketBalik) {
           return errorResponse("Pilih minimal satu tiket (berangkat atau balik)", 400)
         }
-        
+
         if (tiketBerangkat && (!bookingCode || bookingCode.trim() === "")) {
           return errorResponse("Kode booking tiket berangkat harus diisi", 400)
         }
-        
+
         if (tiketBalik && (!bookingCodeBalik || bookingCodeBalik.trim() === "")) {
           return errorResponse("Kode booking tiket balik harus diisi", 400)
         }
 
         const [result, error] = await withErrorHandling(() =>
           updateBookingCodeSeparate(
-            requestId, 
+            requestId,
             {
               tiketBerangkat,
               tiketBalik,
@@ -272,7 +271,7 @@ export async function POST(request: NextRequest) {
               berangkatDariBalik,
               tujuanBalik,
             },
-            updatedBy
+            updatedBy,
           ),
         )
 

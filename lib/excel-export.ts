@@ -15,7 +15,6 @@ function getSiteFullName(site: string): string {
 function getHakTiket(jabatan: string): string {
   const jabatanUpper = jabatan?.toUpperCase() || ""
 
-  // Operator, Mekanik, Admin, Driver: 12 MINGGU
   if (
     jabatanUpper.includes("OPERATOR") ||
     jabatanUpper.includes("MEKANIK") ||
@@ -25,7 +24,6 @@ function getHakTiket(jabatan: string): string {
     return "12 MINGGU"
   }
 
-  // GL, SPV, Head: varies
   if (jabatanUpper.includes("GL") || jabatanUpper.includes("GENERAL LEADER")) {
     return "10 MINGGU"
   }
@@ -38,7 +36,6 @@ function getHakTiket(jabatan: string): string {
     return "10 MINGGU"
   }
 
-  // PJO: 8 MINGGU
   if (jabatanUpper.includes("PJO") || jabatanUpper.includes("PROJECT OFFICER")) {
     return "8 MINGGU"
   }
@@ -46,13 +43,30 @@ function getHakTiket(jabatan: string): string {
   return "-"
 }
 
-export async function exportToExcel(data: any[], fileName: string) {
-  console.log("[v0] ========== EXCEL EXPORT START ==========")
-  console.log("[v0] exportToExcel called with", data.length, "records")
-  console.log("[v0] fileName:", fileName)
+function calculateLamaCuti(tanggalKeberangkatan: string | Date, tanggalBerangkatBalik: string | Date): number {
+  try {
+    const departDate = new Date(tanggalKeberangkatan)
+    const returnDate = new Date(tanggalBerangkatBalik)
 
+    if (isNaN(departDate.getTime()) || isNaN(returnDate.getTime())) {
+      return 0
+    }
+
+    const diffTime = Math.abs(returnDate.getTime() - departDate.getTime())
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24))
+    return diffDays
+  } catch {
+    return 0
+  }
+}
+
+interface ExcelRowWithTimestamp {
+  row: any[]
+  timestamp: Date
+}
+
+export async function exportToExcel(data: any[], fileName: string) {
   if (!data || data.length === 0) {
-    console.error("[v0] No data provided for export")
     throw new Error("Tidak ada data untuk di-export")
   }
 
@@ -80,37 +94,38 @@ export async function exportToExcel(data: any[], fileName: string) {
       "KETERANGAN REFUND",
       "HARGA",
       "DPP",
+      "KETERANGAN",
     ]
 
-    console.log("[v0] ========== HEADERS ==========")
-    console.log("[v0] Total headers:", headers.length)
-    headers.forEach((header, index) => {
-      console.log(`[v0] Header ${index}: "${header}"`)
-    })
+    const berangkatRows: ExcelRowWithTimestamp[] = []
+    const balikRows: ExcelRowWithTimestamp[] = []
 
-    const rows = data.map((item, index) => {
-      const namaPesawatValue = item.namaPesawat || "-"
-      const lamaOnsiteValue = item.lamaOnsite ? String(item.lamaOnsite) : "-"
-
+    data.forEach((item) => {
       const hakTiketValue = getHakTiket(item.jabatan || "")
-
       const siteFullName = getSiteFullName(item.site || "")
 
-      const row = [
+      // ROW BERANGKAT CUTI - use tanggalIssueTiketBerangkat or createdAt as timestamp
+      const timestampBerangkat = item.tanggalIssueTiketBerangkat
+        ? new Date(item.tanggalIssueTiketBerangkat)
+        : item.createdAt
+          ? new Date(item.createdAt)
+          : new Date(0)
+
+      const rowBerangkat = [
         "", // 0: NAMA (blank)
         "", // 1: TGL INVOICE (blank)
         "", // 2: NOMOR INVOICE (blank)
-        siteFullName, // 3: SITE (with full name mapping)
+        siteFullName, // 3: SITE
         item.userNik || "-", // 4: NIK KARYAWAN
         item.userName || "-", // 5: NAMA KARYAWAN
         item.jabatan || "-", // 6: JABATAN
-        hakTiketValue, // 7: HAK TIKET KARYAWAN (auto-filled based on jabatan including Driver)
+        hakTiketValue, // 7: HAK TIKET KARYAWAN
         item.poh || "-", // 8: POH TIKET KARYAWAN
-        namaPesawatValue, // 9: NAMA PESAWAT
-        lamaOnsiteValue, // 10: LAMA ONSITE
+        item.namaPesawat || "-", // 9: NAMA PESAWAT (tiket berangkat)
+        item.lamaOnsite ? String(item.lamaOnsite) : "-", // 10: LAMA ONSITE
         "", // 11: NOTES (blank)
-        item.catatan || "-", // 12: NOTES LAINNYA (catatan dari Admin Site saat pengajuan)
-        item.tanggalIssueTiketBerangkat ? formatDateForExcel(item.tanggalIssueTiketBerangkat) : "-", // 13: TGL ISSUED TIKET (tanggal HR Ticketing issued tiket)
+        item.catatan || "-", // 12: NOTES LAINNYA
+        item.tanggalIssueTiketBerangkat ? formatDateForExcel(item.tanggalIssueTiketBerangkat) : "-", // 13: TGL ISSUED TIKET
         item.tanggalKeberangkatan ? formatDateForExcel(item.tanggalKeberangkatan) : "-", // 14: TGL TIKET
         item.berangkatDari && item.tujuan ? `${item.berangkatDari} - ${item.tujuan}` : "-", // 15: RUTE PESAWAT
         "", // 16: KETERANGAN POTONGAN GAJI (blank)
@@ -119,38 +134,88 @@ export async function exportToExcel(data: any[], fileName: string) {
         "", // 19: KETERANGAN REFUND (blank)
         "", // 20: HARGA (blank)
         "", // 21: DPP (blank)
+        "BERANGKAT CUTI", // 22: KETERANGAN
       ]
 
-      if (index === 0) {
-        console.log("[v0] ========== FIRST DATA ROW ==========")
-        console.log(`[v0] Row ${index + 1} - ID: ${item.id}, User: ${item.userName}`)
-        console.log(`[v0] Total columns in row: ${row.length}`)
-        row.forEach((value, colIndex) => {
-          console.log(`[v0] Column ${colIndex} (${headers[colIndex]}): "${value}"`)
+      berangkatRows.push({
+        row: rowBerangkat,
+        timestamp: timestampBerangkat,
+      })
+
+      // Check if return ticket data exists
+      const hasReturnTicket =
+        item.statusTiketBalik === "issued" ||
+        item.tanggalBerangkatBalik ||
+        item.bookingCodeBalik ||
+        item.namaPesawatBalik
+
+      if (hasReturnTicket) {
+        // ROW BALIK CUTI - use tanggalIssueTiketBalik as timestamp
+        const timestampBalik = item.tanggalIssueTiketBalik
+          ? new Date(item.tanggalIssueTiketBalik)
+          : item.updatedAt
+            ? new Date(item.updatedAt)
+            : new Date()
+
+        // Calculate lama cuti = tanggalBerangkatBalik - tanggalKeberangkatan
+        const lamaCuti =
+          item.tanggalKeberangkatan && item.tanggalBerangkatBalik
+            ? calculateLamaCuti(item.tanggalKeberangkatan, item.tanggalBerangkatBalik)
+            : 0
+
+        // Determine return route: use berangkatDariBalik/tujuanBalik if available, otherwise reverse original route
+        const ruteBalik =
+          item.berangkatDariBalik && item.tujuanBalik
+            ? `${item.berangkatDariBalik} - ${item.tujuanBalik}`
+            : item.tujuan && item.berangkatDari
+              ? `${item.tujuan} - ${item.berangkatDari}`
+              : "-"
+
+        const rowBalik = [
+          "", // 0: NAMA (blank)
+          "", // 1: TGL INVOICE (blank)
+          "", // 2: NOMOR INVOICE (blank)
+          siteFullName, // 3: SITE
+          item.userNik || "-", // 4: NIK KARYAWAN
+          item.userName || "-", // 5: NAMA KARYAWAN
+          item.jabatan || "-", // 6: JABATAN
+          hakTiketValue, // 7: HAK TIKET KARYAWAN
+          item.poh || "-", // 8: POH TIKET KARYAWAN
+          item.namaPesawatBalik || "-", // 9: NAMA PESAWAT (tiket balik)
+          lamaCuti > 0 ? String(lamaCuti) : "-", // 10: LAMA ONSITE (berisi LAMA CUTI untuk row balik)
+          "", // 11: NOTES (blank)
+          item.catatan || "-", // 12: NOTES LAINNYA
+          item.tanggalIssueTiketBalik ? formatDateForExcel(item.tanggalIssueTiketBalik) : "-", // 13: TGL ISSUED TIKET
+          item.tanggalBerangkatBalik ? formatDateForExcel(item.tanggalBerangkatBalik) : "-", // 14: TGL TIKET
+          ruteBalik, // 15: RUTE PESAWAT (reversed route)
+          "", // 16: KETERANGAN POTONGAN GAJI (blank)
+          "", // 17: NILAI POTONGAN GAJI (blank)
+          "", // 18: NILAI REFUND TIKET (blank)
+          "", // 19: KETERANGAN REFUND (blank)
+          "", // 20: HARGA (blank)
+          "", // 21: DPP (blank)
+          "BALIK CUTI", // 22: KETERANGAN
+        ]
+
+        balikRows.push({
+          row: rowBalik,
+          timestamp: timestampBalik,
         })
       }
-
-      return row
     })
 
-    console.log("[v0] ========== ROWS SUMMARY ==========")
-    console.log("[v0] Total rows created:", rows.length)
+    berangkatRows.sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime())
+    balikRows.sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime())
 
-    console.log("[v0] ========== CREATING WORKSHEET ==========")
-    const worksheet = XLSX.utils.aoa_to_sheet([headers, ...rows])
-    console.log("[v0] Worksheet created successfully")
+    const allRows = [...berangkatRows.map((item) => item.row), ...balikRows.map((item) => item.row)]
 
-    // Verify worksheet structure
-    const range = XLSX.utils.decode_range(worksheet["!ref"] || "A1")
-    console.log("[v0] Worksheet range:", worksheet["!ref"])
-    console.log("[v0] Worksheet columns:", range.e.c + 1)
-    console.log("[v0] Worksheet rows:", range.e.r + 1)
+    const worksheet = XLSX.utils.aoa_to_sheet([headers, ...allRows])
 
     worksheet["!cols"] = [
       { wch: 20 }, // NAMA
       { wch: 15 }, // TGL INVOICE
       { wch: 20 }, // NOMOR INVOICE
-      { wch: 25 }, // SITE (wider for full names)
+      { wch: 25 }, // SITE
       { wch: 15 }, // NIK KARYAWAN
       { wch: 25 }, // NAMA KARYAWAN
       { wch: 20 }, // JABATAN
@@ -169,39 +234,24 @@ export async function exportToExcel(data: any[], fileName: string) {
       { wch: 25 }, // KETERANGAN REFUND
       { wch: 15 }, // HARGA
       { wch: 15 }, // DPP
+      { wch: 20 }, // KETERANGAN (new column)
     ]
-    console.log("[v0] Column widths set for", worksheet["!cols"].length, "columns")
 
-    console.log("[v0] ========== CREATING WORKBOOK ==========")
     const workbook = XLSX.utils.book_new()
     XLSX.utils.book_append_sheet(workbook, worksheet, "Leave Requests")
-    console.log("[v0] Workbook created with sheet: Leave Requests")
 
-    console.log("[v0] ========== WRITING EXCEL FILE ==========")
     const excelBuffer = XLSX.write(workbook, {
       bookType: "xlsx",
       type: "array",
     })
-    console.log("[v0] Excel file written successfully")
-    console.log("[v0] File size:", excelBuffer.byteLength, "bytes")
 
     if (!excelBuffer || excelBuffer.byteLength === 0) {
       throw new Error("Failed to generate Excel file - buffer is empty")
     }
 
-    console.log("[v0] ========== TRIGGERING DOWNLOAD ==========")
     await downloadExcel(excelBuffer, `${fileName}.xlsx`)
-
-    console.log("[v0] ========== EXCEL EXPORT COMPLETE ==========")
-    console.log("[v0] File downloaded:", `${fileName}.xlsx`)
-    console.log("[v0] VERIFICATION:")
-    console.log("[v0] - Total columns in Excel: 22")
-    console.log("[v0] ==========================================")
   } catch (error) {
-    console.error("[v0] ========== EXCEL EXPORT ERROR ==========")
-    console.error("[v0] Error in exportToExcel:", error)
-    console.error("[v0] Error stack:", error instanceof Error ? error.stack : "No stack trace")
-    console.error("[v0] ==========================================")
+    console.error("Error in exportToExcel:", error)
     throw error
   }
 }
@@ -210,7 +260,6 @@ function formatDateForExcel(date: string | Date): string {
   try {
     const d = new Date(date)
     if (isNaN(d.getTime())) {
-      console.error("[v0] Invalid date:", date)
       return "-"
     }
 
@@ -234,8 +283,7 @@ function formatDateForExcel(date: string | Date): string {
     const year = d.getFullYear()
 
     return `${day} ${month} ${year}`
-  } catch (error) {
-    console.error("[v0] Error formatting date:", date, error)
+  } catch {
     return "-"
   }
 }
