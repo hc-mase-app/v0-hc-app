@@ -560,7 +560,7 @@ function RequestCard({
     request.status,
     request.statusTiketBerangkat,
     request.statusTiketBalik,
-    request.jenisPengajuanCuti, // Updated to pass jenisPengajuanCuti parameter
+    request.jenisPengajuanCuti,
   )
 
   const getEnhancedStatusColor = (status: string, displayStatus: string): string => {
@@ -577,47 +577,45 @@ function RequestCard({
 
   return (
     <div
-      className="border border-slate-200 rounded-lg p-6 hover:bg-slate-50 cursor-pointer transition-colors"
+      className="border border-slate-200 rounded-lg hover:bg-slate-50 cursor-pointer transition-colors overflow-hidden"
       onClick={onSelect}
     >
-      <div className="flex justify-between items-start gap-8">
-        <div className="flex-1 grid grid-cols-2 gap-x-12 gap-y-3">
-          <div className="space-y-3">
-            <div className="flex items-start gap-3">
-              <span className="text-sm font-medium text-slate-500 min-w-[90px]">NIK:</span>
-              <span className="text-sm text-slate-900 font-medium">{request.userNik || "-"}</span>
-            </div>
-            <div className="flex items-start gap-3">
-              <span className="text-sm font-medium text-slate-500 min-w-[90px]">Jabatan:</span>
-              <span className="text-sm text-slate-900">{request.jabatan || "-"}</span>
-            </div>
-            <div className="flex items-start gap-3">
-              <span className="text-sm font-medium text-slate-500 min-w-[90px]">Tanggal Cuti:</span>
-              <span className="text-sm text-slate-900">{formatDate(request.tanggalKeberangkatan)}</span>
-            </div>
-          </div>
+      {/* Header: Badge + Edit Button */}
+      <div className="flex items-center justify-between gap-2 px-4 py-3 bg-slate-50/50 border-b border-slate-200">
+        <Badge className={`${getEnhancedStatusColor(request.status, displayStatus)} px-3 py-1 text-xs font-medium`}>
+          {displayStatus}
+        </Badge>
+        {canEdit && (
+          <Button variant="ghost" size="sm" onClick={onEdit} className="h-8 px-3 -mr-2">
+            <Edit className="h-3.5 w-3.5 mr-1.5" />
+            <span className="text-xs">Edit</span>
+          </Button>
+        )}
+      </div>
 
-          <div className="space-y-3">
-            <div className="flex items-start gap-3">
-              <span className="text-sm font-medium text-slate-500 min-w-[90px]">Nama:</span>
-              <span className="text-sm text-slate-900 font-semibold">{request.userName || "-"}</span>
-            </div>
-            <div className="flex items-start gap-3">
-              <span className="text-sm font-medium text-slate-500 min-w-[90px]">Departemen:</span>
-              <span className="text-sm text-slate-900">{request.departemen || "-"}</span>
-            </div>
-          </div>
+      {/* Content: Compact information display */}
+      <div className="px-4 py-3 space-y-2">
+        {/* Primary: Name (Large & Bold) */}
+        <div className="text-base font-semibold text-slate-900">{request.userName || "-"}</div>
+
+        {/* Secondary: Jabatan • Departemen • NIK (Single line with dots) */}
+        <div className="text-sm text-slate-600 flex items-center gap-1.5 flex-wrap">
+          <span>{request.jabatan || "-"}</span>
+          <span className="text-slate-400">•</span>
+          <span>{request.departemen || "-"}</span>
+          <span className="text-slate-400">•</span>
+          <span>{request.userNik || "-"}</span>
         </div>
 
-        <div className="flex flex-col items-end gap-2 flex-shrink-0">
-          <Badge className={`${getEnhancedStatusColor(request.status, displayStatus)} px-4 py-1.5 text-sm`}>
-            {displayStatus}
-          </Badge>
-          {canEdit && (
-            <Button variant="ghost" size="sm" onClick={onEdit} className="h-8">
-              <Edit className="h-3.5 w-3.5 mr-1" />
-              Edit
-            </Button>
+        {/* Date with icon */}
+        <div className="flex items-center gap-2 text-sm text-slate-700">
+          <Calendar className="h-4 w-4 text-slate-400" />
+          <span>{formatDate(request.tanggalKeberangkatan)}</span>
+          {request.lamaOnsite && (
+            <>
+              <span className="text-slate-400">•</span>
+              <span className="text-slate-600">{request.lamaOnsite} hari</span>
+            </>
           )}
         </div>
       </div>
