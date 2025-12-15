@@ -66,6 +66,13 @@ export default function Home() {
       requiresLogin: false,
       allowedRoles: [],
     },
+    {
+      title: "DEVELOPMENT",
+      icon: "HCD", // Custom badge instead of icon
+      href: "/development",
+      requiresLogin: false,
+      allowedRoles: [],
+    },
   ]
 
   const hasAccess = (feature: (typeof features)[0]) => {
@@ -108,6 +115,7 @@ export default function Home() {
             const Icon = feature.icon
             const userHasAccess = hasAccess(feature)
             const isDisabled = isAuthenticated && !userHasAccess
+            const isHCDCard = feature.icon === "HCD"
 
             return (
               <button
@@ -140,15 +148,42 @@ export default function Home() {
                   >
                     <div className="absolute inset-0 rounded-[22%] bg-gradient-to-b from-white/3 via-transparent to-transparent"></div>
 
-                    {/* Icon */}
-                    <Icon
-                      className={`relative w-10 h-10 md:w-12 md:h-12 ${
-                        isDisabled ? "text-gray-600" : "text-[#D4AF37]"
-                      } drop-shadow-[0_0_6px_rgba(212,175,55,0.6)] ${
-                        isDisabled ? "" : "group-hover:drop-shadow-[0_0_10px_rgba(212,175,55,0.9)]"
-                      } transition-all duration-300`}
-                      strokeWidth={1.8}
-                    />
+                    {isHCDCard ? (
+                      <div className="relative flex flex-col items-center justify-center">
+                        {/* Corner ornaments */}
+                        <div className="absolute -top-1 -left-1 w-3 h-3 border-t-2 border-l-2 border-[#D4AF37]/50 group-hover:border-[#D4AF37] transition-colors duration-300"></div>
+                        <div className="absolute -top-1 -right-1 w-3 h-3 border-t-2 border-r-2 border-[#D4AF37]/50 group-hover:border-[#D4AF37] transition-colors duration-300"></div>
+                        <div className="absolute -bottom-1 -left-1 w-3 h-3 border-b-2 border-l-2 border-[#D4AF37]/50 group-hover:border-[#D4AF37] transition-colors duration-300"></div>
+                        <div className="absolute -bottom-1 -right-1 w-3 h-3 border-b-2 border-r-2 border-[#D4AF37]/50 group-hover:border-[#D4AF37] transition-colors duration-300"></div>
+
+                        {/* HCD Text Badge */}
+                        <div className="relative">
+                          <span className="text-[#D4AF37] font-mono font-bold text-xl md:text-2xl drop-shadow-[0_0_8px_rgba(212,175,55,0.8)] group-hover:drop-shadow-[0_0_12px_rgba(212,175,55,1)] transition-all duration-300 tracking-wider">
+                            HCD
+                          </span>
+                          {/* Underline decoration */}
+                          <div className="absolute -bottom-1 left-0 right-0 h-[2px] bg-gradient-to-r from-transparent via-[#D4AF37] to-transparent opacity-60 group-hover:opacity-100 transition-opacity duration-300"></div>
+                        </div>
+
+                        {/* Code brackets decoration */}
+                        <div className="absolute -left-2 top-1/2 -translate-y-1/2 text-[#D4AF37]/40 font-mono text-sm group-hover:text-[#D4AF37]/70 transition-colors duration-300">
+                          {"<"}
+                        </div>
+                        <div className="absolute -right-2 top-1/2 -translate-y-1/2 text-[#D4AF37]/40 font-mono text-sm group-hover:text-[#D4AF37]/70 transition-colors duration-300">
+                          {">"}
+                        </div>
+                      </div>
+                    ) : (
+                      /* Regular icon for other cards */
+                      <Icon
+                        className={`relative w-10 h-10 md:w-12 md:h-12 ${
+                          isDisabled ? "text-gray-600" : "text-[#D4AF37]"
+                        } drop-shadow-[0_0_6px_rgba(212,175,55,0.6)] ${
+                          isDisabled ? "" : "group-hover:drop-shadow-[0_0_10px_rgba(212,175,55,0.9)]"
+                        } transition-all duration-300`}
+                        strokeWidth={1.8}
+                      />
+                    )}
                   </div>
 
                   {/* Lock badge for login required or no access */}
