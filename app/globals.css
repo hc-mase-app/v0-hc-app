@@ -1,7 +1,7 @@
 @import "tailwindcss";
 @import "tw-animate-css";
 
-/* Removed @custom-variant which was causing syntax error */
+@custom-variant dark (&:is(.dark *));
 
 :root {
   --background: oklch(0.99 0 0);
@@ -10,7 +10,6 @@
   --card-foreground: oklch(0.15 0 0);
   --popover: oklch(1 0 0);
   --popover-foreground: oklch(0.15 0 0);
-  /* Updated primary to professional blue */
   --primary: oklch(0.45 0.15 250);
   --primary-foreground: oklch(0.99 0 0);
   --secondary: oklch(0.96 0 0);
@@ -19,13 +18,11 @@
   --muted-foreground: oklch(0.5 0 0);
   --accent: oklch(0.96 0.005 250);
   --accent-foreground: oklch(0.15 0 0);
-  /* Updated destructive to professional red */
   --destructive: oklch(0.55 0.22 25);
   --destructive-foreground: oklch(0.99 0 0);
   --border: oklch(0.9 0 0);
   --input: oklch(0.9 0 0);
   --ring: oklch(0.45 0.15 250);
-  /* Updated chart colors to match professional theme */
   --chart-1: oklch(0.45 0.15 250);
   --chart-2: oklch(0.55 0.18 160);
   --chart-3: oklch(0.6 0.2 50);
@@ -49,7 +46,6 @@
   --card-foreground: oklch(0.95 0 0);
   --popover: oklch(0.15 0 0);
   --popover-foreground: oklch(0.95 0 0);
-  /* Gold primary color for dark theme */
   --primary: oklch(0.75 0.12 85);
   --primary-foreground: oklch(0.12 0 0);
   --secondary: oklch(0.2 0 0);
@@ -80,7 +76,6 @@
 
 @theme inline {
   /* optional: --font-sans, --font-serif, --font-mono if they are applied in the layout.tsx */
-  --font-sans: "Inter", "Inter Fallback";
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --color-card: var(--card);
@@ -127,7 +122,6 @@
     @apply bg-background text-foreground;
   }
 
-  /* Make calendar icon gold color */
   input[type="date"]::-webkit-calendar-picker-indicator {
     filter: invert(65%) sepia(50%) saturate(500%) hue-rotate(10deg) brightness(95%) contrast(90%);
     cursor: pointer;

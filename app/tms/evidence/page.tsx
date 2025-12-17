@@ -1,7 +1,7 @@
 "use client"
 
 import type React from "react"
-
+import { useAuth } from "@/lib/auth-context"
 import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { ChevronLeft, Upload, FileText, Calendar, User, MapPin, AlertCircle, CheckCircle2 } from "lucide-react"
@@ -27,6 +27,7 @@ interface SubordinateOption {
 
 export default function TmsEvidencePage() {
   const router = useRouter()
+  const { user, isAuthenticated } = useAuth()
   const [isLoading, setIsLoading] = useState(true)
   const [isUploading, setIsUploading] = useState(false)
   const [uploadSuccess, setUploadSuccess] = useState(false)
@@ -58,11 +59,12 @@ export default function TmsEvidencePage() {
         setActivityTypes(data)
       }
 
-      // Load subordinates (bawahan langsung user)
-      const subordinatesRes = await fetch("/api/tms/subordinates")
-      if (subordinatesRes.ok) {
-        const data = await subordinatesRes.json()
-        setSubordinates(data)
+      if (user?.nik) {
+        const subordinatesRes = await fetch(`/api/tms/subordinates?managerNik=${user.nik}`)
+        if (subordinatesRes.ok) {
+          const data = await subordinatesRes.json()
+          setSubordinates(data.subordinates || [])
+        }
       }
     } catch (error) {
       console.error("[v0] Load options error:", error)
@@ -126,6 +128,9 @@ export default function TmsEvidencePage() {
 
       const response = await fetch("/api/tms/evidence/upload", {
         method: "POST",
+        headers: {
+          "x-user-nik": user?.nik || "",
+        },
         body: formData,
       })
 
@@ -156,6 +161,11 @@ export default function TmsEvidencePage() {
     }
   }
 
+  if (!isAuthenticated) {
+    router.push("/login?returnUrl=/tms/evidence")
+    return null
+  }
+
   if (isLoading) {
     return (
       <div className="min-h-screen bg-[#0a0a0a] flex items-center justify-center">
@@ -174,7 +184,7 @@ export default function TmsEvidencePage() {
               <Button
                 variant="ghost"
                 size="icon"
-                onClick={() => router.back()}
+                onClick={() => router.push("/")}
                 className="text-[#D4AF37] hover:bg-[#D4AF37]/10"
               >
                 <ChevronLeft className="w-5 h-5" />
@@ -266,7 +276,7 @@ export default function TmsEvidencePage() {
                     <SelectContent>
                       {subordinates.map((sub) => (
                         <SelectItem key={sub.id} value={sub.id.toString()}>
-                          {sub.name} ({sub.nik}) - {sub.jabatan}
+                          {sub.name} - {sub.jabatan}
                         </SelectItem>
                       ))}
                     </SelectContent>

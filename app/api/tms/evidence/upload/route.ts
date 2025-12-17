@@ -8,19 +8,45 @@ export async function POST(request: NextRequest) {
   try {
     const formData = await request.formData()
     const file = formData.get("file") as File
-    const leader_id = formData.get("leader_id") as string
     const subordinate_id = formData.get("subordinate_id") as string
     const activity_type_id = formData.get("activity_type_id") as string
     const activity_date = formData.get("activity_date") as string
-    const activity_description = formData.get("activity_description") as string
     const location = formData.get("location") as string
 
+    const currentUserNik = request.headers.get("x-user-nik")
+
+    if (!currentUserNik) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    }
+
     // Validation
-    if (!file || !leader_id || !subordinate_id || !activity_type_id || !activity_date) {
+    if (!file || !subordinate_id || !activity_type_id || !activity_date) {
       return NextResponse.json({ error: "Data tidak lengkap" }, { status: 400 })
     }
 
-    // Parse activity date to get month
+    // Get leader info
+    const leaderResult = await sql`
+      SELECT id, nrp, nama_karyawan, site, departemen FROM karyawan WHERE nrp = ${currentUserNik}
+    `
+
+    if (leaderResult.length === 0) {
+      return NextResponse.json({ error: "Leader tidak ditemukan" }, { status: 404 })
+    }
+
+    const leader = leaderResult[0]
+
+    // Get subordinate info
+    const subordinateResult = await sql`
+      SELECT id, nrp, nama_karyawan FROM karyawan WHERE id = ${subordinate_id}
+    `
+
+    if (subordinateResult.length === 0) {
+      return NextResponse.json({ error: "Bawahan tidak ditemukan" }, { status: 404 })
+    }
+
+    const subordinate = subordinateResult[0]
+
+    // Parse activity date to get month (first day of month)
     const activityDateObj = new Date(activity_date)
     const activity_month = `${activityDateObj.getFullYear()}-${String(activityDateObj.getMonth() + 1).padStart(2, "0")}-01`
 
@@ -30,39 +56,19 @@ export async function POST(request: NextRequest) {
     const randomNum = Math.floor(1000 + Math.random() * 9000)
     const evidence_number = `EVD-${yearMonth}-${randomNum}`
 
-    const leaderResult = await sql`SELECT site, departemen FROM karyawan WHERE id = ${leader_id}`
-    if (leaderResult.length === 0) {
-      return NextResponse.json({ error: "Leader tidak ditemukan" }, { status: 400 })
-    }
+    const folderPath = `TMS-Evidence/${leader.site}/${leader.departemen}/${activityDateObj.getFullYear()}-${String(activityDateObj.getMonth() + 1).padStart(2, "0")}`
 
-    const leader = leaderResult[0]
-    const monthYear = `${activityDateObj.toLocaleString("id-ID", { month: "long" })}-${activityDateObj.getFullYear()}`
-    const folderPath = `${leader.site}/${leader.departemen}/${monthYear}`
+    console.log("[v0] Uploading to Google Drive:", {
+      leader: leader.nama_karyawan,
+      subordinate: subordinate.nama_karyawan,
+      activity_date,
+      file: file.name,
+      folderPath,
+    })
 
-    let gdrive_file_id: string
-    let gdrive_file_url: string
-    let gdrive_file_name: string
-    let gdrive_file_type: string
+    const uploadResult = await uploadToGoogleDrive(file, folderPath)
 
-    try {
-      const uploadResult = await uploadToGoogleDrive(file, folderPath)
-      gdrive_file_id = uploadResult.fileId
-      gdrive_file_url = uploadResult.fileUrl
-      gdrive_file_name = uploadResult.fileName
-      gdrive_file_type = uploadResult.fileType
-    } catch (uploadError) {
-      console.error("[v0] Google Drive upload error:", uploadError)
-      // Fallback: Create temporary reference if Google Drive is not configured
-      if (uploadError instanceof Error && uploadError.message.includes("Google Drive credentials not configured")) {
-        gdrive_file_id = `temp_${Date.now()}_${Math.random().toString(36).substring(7)}`
-        gdrive_file_url = `https://drive.google.com/file/d/${gdrive_file_id}/view`
-        gdrive_file_name = file.name
-        gdrive_file_type = file.type
-        console.warn("[v0] Using temporary Google Drive reference - please configure credentials")
-      } else {
-        throw uploadError
-      }
-    }
+    console.log("[v0] Google Drive upload success:", uploadResult)
 
     // Insert to database
     const result = await sql`
@@ -73,7 +79,6 @@ export async function POST(request: NextRequest) {
         activity_type_id,
         activity_date,
         activity_month,
-        activity_description,
         location,
         gdrive_file_id,
         gdrive_file_url,
@@ -84,31 +89,35 @@ export async function POST(request: NextRequest) {
         created_by
       ) VALUES (
         ${evidence_number},
-        ${leader_id},
+        ${leader.id},
         ${subordinate_id},
         ${activity_type_id},
         ${activity_date},
         ${activity_month},
-        ${activity_description || null},
         ${location || null},
-        ${gdrive_file_id},
-        ${gdrive_file_url},
-        ${gdrive_file_name},
-        ${gdrive_file_type},
+        ${uploadResult.fileId},
+        ${uploadResult.fileUrl},
+        ${uploadResult.fileName},
+        ${uploadResult.fileType},
         CURRENT_TIMESTAMP,
-        'DRAFT',
-        ${leader_id}
+        'ACTIVE',
+        ${leader.id}
       )
       RETURNING *
     `
 
     return NextResponse.json({
       success: true,
-      message: "Evidence berhasil diupload",
+      message: "Evidence berhasil diupload ke Google Drive",
       data: result[0],
     })
   } catch (error) {
     console.error("[v0] Upload evidence error:", error)
-    return NextResponse.json({ error: "Gagal upload evidence" }, { status: 500 })
+    return NextResponse.json(
+      {
+        error: error instanceof Error ? error.message : "Gagal upload evidence",
+      },
+      { status: 500 },
+    )
   }
 }

@@ -2,9 +2,11 @@
 
 import { useEffect, useState } from "react"
 import { Button } from "@/components/ui/button"
-import { ArrowLeft, ShieldX } from "lucide-react"
+import { ArrowLeft } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { useAuth } from "@/lib/auth-context"
+import { hasFeatureAccess } from "@/lib/permissions"
+import { AccessDenied } from "@/components/access-denied"
 import AssessmentForm from "@/components/assessment-form"
 
 export default function AssessmentKaryawanPage() {
@@ -31,26 +33,16 @@ export default function AssessmentKaryawanPage() {
     )
   }
 
-  if (user?.role !== "dic") {
+  if (!hasFeatureAccess("assessmentKaryawan", user?.role)) {
     return (
-      <div className="min-h-screen bg-[#0a0a0a] flex items-center justify-center p-4">
-        <div className="max-w-md w-full">
-          <div className="bg-[#1a1a1a] border-2 border-[#D4AF37]/20 rounded-lg p-8 text-center">
-            <ShieldX className="w-16 h-16 text-[#D4AF37] mx-auto mb-4" />
-            <h1 className="text-2xl font-bold text-[#D4AF37] mb-6">ANDA TIDAK MEMILIKI AKSES UNTUK MENU INI</h1>
-            <Button
-              onClick={() => router.push("/")}
-              className="bg-[#D4AF37] hover:bg-[#B4941F] text-black font-semibold w-full"
-            >
-              <ArrowLeft className="w-4 h-4 mr-2" />
-              Kembali ke Menu Utama
-            </Button>
-          </div>
-        </div>
-      </div>
+      <AccessDenied
+        title="Akses Ditolak"
+        message="Anda tidak memiliki izin untuk mengakses halaman Assessment Karyawan. Fitur ini hanya tersedia untuk DIC, PJO Site, HR Site, Manager HO, HR HO, dan Super Admin."
+        returnPath="/"
+        returnLabel="Kembali ke Beranda"
+      />
     )
   }
-  // </CHANGE>
 
   return (
     <div className="min-h-screen bg-[#0a0a0a]">
@@ -58,11 +50,11 @@ export default function AssessmentKaryawanPage() {
         <div className="container mx-auto px-4 sm:px-6 py-4 sm:py-6">
           <Button
             variant="ghost"
-            onClick={() => router.push("/dashboard/dic")}
+            onClick={() => router.push("/")}
             className="mb-2 text-[#D4AF37] hover:text-[#D4AF37] hover:bg-[#1a1a1a] text-sm sm:text-base"
           >
             <ArrowLeft className="h-4 w-4 mr-2" />
-            Kembali ke Dashboard DIC
+            Kembali ke Menu Utama
           </Button>
           <h1 className="text-2xl sm:text-3xl font-bold text-[#D4AF37]">Assessment Karyawan</h1>
         </div>

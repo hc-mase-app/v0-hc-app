@@ -10,11 +10,11 @@ import {
   Download,
   Upload,
   Search,
-  Filter,
   AlertCircle,
   CheckCircle,
   ChevronUp,
   ChevronDown,
+  Lock,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -27,7 +27,8 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { useAuth } from "@/lib/auth-context"
 
 const ITEMS_PER_PAGE = 50
 const VISIBLE_ROWS = 15
@@ -63,21 +64,6 @@ const LEVEL_HIERARCHY = [
   "Helper",
 ] as const
 
-const MANAGER_LEVEL_RULES: Record<string, string[]> = {
-  "General Manager": [], // No manager
-  Manager: ["General Manager"],
-  PJO: ["Manager"],
-  "Deputy PJO": ["PJO"],
-  Head: ["Deputy PJO", "PJO", "Manager"],
-  Supervisor: ["Head", "Deputy PJO", "PJO"],
-  "Group Leader": ["Supervisor", "Head", "Deputy PJO"],
-  Admin: ["Group Leader", "Supervisor", "Head"],
-  Operator: ["Group Leader", "Supervisor"],
-  Driver: ["Group Leader", "Supervisor"],
-  Mekanik: ["Group Leader", "Supervisor"],
-  Helper: ["Admin", "Group Leader"],
-}
-
 interface User {
   id: string
   nik: string
@@ -92,8 +78,46 @@ interface User {
   bawahan?: number
 }
 
+const normalizeLevel = (level: string | undefined | null): string => {
+  if (!level) return ""
+  return level.trim().toLowerCase()
+}
+
+const levelMatches = (level: string, target: string): boolean => {
+  const normalized = normalizeLevel(level)
+  const normalizedTarget = target.toLowerCase()
+
+  // Exact match
+  if (normalized === normalizedTarget) return true
+
+  // Handle variations
+  if (normalizedTarget === "pjo" && normalized === "pjo") return true
+  if (
+    normalizedTarget === "deputy pjo" &&
+    (normalized === "deputy pjo" || normalized === "deputy-pjo" || normalized === "deputypjo")
+  )
+    return true
+  if (
+    normalizedTarget === "group leader" &&
+    (normalized === "group leader" ||
+      normalized === "group-leader" ||
+      normalized === "groupleader" ||
+      normalized === "gl")
+  )
+    return true
+  if (
+    normalizedTarget === "general manager" &&
+    (normalized === "general manager" || normalized === "general-manager" || normalized === "gm")
+  )
+    return true
+
+  return false
+}
+
 export default function HierarchyPage() {
   const router = useRouter()
+  const { user, isAuthenticated } = useAuth()
+  const [accessDenied, setAccessDenied] = useState(false)
   const [isLoading, setIsLoading] = useState(true)
   const [hierarchyData, setHierarchyData] = useState<HierarchyUser[]>([])
   const [filteredData, setFilteredData] = useState<HierarchyUser[]>([])
@@ -113,7 +137,7 @@ export default function HierarchyPage() {
 
   // Edit modal
   const [editingUser, setEditingUser] = useState<HierarchyUser | null>(null)
-  const [selectedManagerId, setSelectedManagerId] = useState<number | null>(null)
+  const [selectedManagerId, setSelectedManagerId] = useState<string | null>(null)
   const [isEditModalOpen, setIsEditModalOpen] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
 
@@ -127,12 +151,23 @@ export default function HierarchyPage() {
   const [departments, setDepartments] = useState<string[]>([])
 
   useEffect(() => {
+    if (!isAuthenticated) {
+      router.push("/login?returnUrl=/tms/hierarchy")
+      return
+    }
+
+    if (user?.role !== "super_admin") {
+      setAccessDenied(true)
+      setIsLoading(false)
+      return
+    }
+
     const timer = setTimeout(() => {
       setDebouncedSearchQuery(searchQuery)
       setCurrentPage(1) // Reset to first page on search
     }, 300)
     return () => clearTimeout(timer)
-  }, [searchQuery])
+  }, [searchQuery, isAuthenticated, user, router])
 
   useEffect(() => {
     // Set current month
@@ -151,6 +186,9 @@ export default function HierarchyPage() {
       if (hierarchyRes.ok) {
         const data = await hierarchyRes.json()
         console.log("[v0] Hierarchy data loaded:", data.length, "records")
+        const uniqueLevels = [...new Set(data.map((u: HierarchyUser) => u.level).filter(Boolean))]
+        console.log("[v0] Unique levels in database:", uniqueLevels)
+
         setHierarchyData(data)
         setFilteredData(data)
 
@@ -165,7 +203,6 @@ export default function HierarchyPage() {
     } catch (error) {
       console.error("[v0] Load hierarchy error:", error)
     } finally {
-      // Changed setIsLoading to false after data loading is complete
       setIsLoading(false)
     }
   }
@@ -223,7 +260,7 @@ export default function HierarchyPage() {
 
   const handleEditClick = (user: HierarchyUser) => {
     setEditingUser(user)
-    setSelectedManagerId(user.manager_id)
+    setSelectedManagerId(user.manager_id?.toString() || null)
     setIsEditModalOpen(true)
   }
 
@@ -232,6 +269,7 @@ export default function HierarchyPage() {
 
     try {
       setIsSaving(true)
+      console.log("[v0] Saving hierarchy - user:", editingUser.name, "manager_id:", selectedManagerId)
       const response = await fetch("/api/tms/hierarchy", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
@@ -247,6 +285,7 @@ export default function HierarchyPage() {
         await loadData(currentMonth)
         setIsEditModalOpen(false)
         setEditingUser(null)
+        setSelectedManagerId(null)
       } else {
         alert("Gagal menyimpan perubahan hierarki")
       }
@@ -295,20 +334,180 @@ export default function HierarchyPage() {
     window.URL.revokeObjectURL(url)
   }
 
-  const getAvailableManagers = (editingUser: User | null): User[] => {
+  const getAvailableManagers = (editingUser: HierarchyUser | null): HierarchyUser[] => {
     if (!editingUser) return []
 
-    const editingUserObj = hierarchyData.find((u) => u.id === (editingUser?.id ? Number(editingUser.id) : null)) as any
-    if (!editingUserObj?.level) return hierarchyData as any
+    const userLevel = normalizeLevel(editingUser.level)
+    const userSite = (editingUser.site || "").trim().toLowerCase()
+    const userDept = (editingUser.departemen || "").trim().toLowerCase()
 
-    const allowedLevels = MANAGER_LEVEL_RULES[editingUserObj.level] || []
-    return hierarchyData.filter((u: any) => allowedLevels.includes(u.level)) as any
+    console.log("[v0] ========== FILTERING MANAGERS ==========")
+    console.log(
+      "[v0] User:",
+      editingUser.name,
+      "| Level:",
+      editingUser.level,
+      "| Site:",
+      editingUser.site,
+      "| Dept:",
+      editingUser.departemen,
+    )
+
+    const getValidManagerLevels = (
+      userLvl: string,
+    ): { level: string; requireSameSite: boolean; requireSameDept: boolean }[] => {
+      const lvl = userLvl.toLowerCase()
+
+      // Rule: General Manager tidak punya atasan
+      if (lvl.includes("general manager") || lvl === "gm") {
+        return []
+      }
+
+      // Rule 3: Manager -> atasan adalah General Manager
+      if (lvl === "manager") {
+        return [{ level: "general manager", requireSameSite: false, requireSameDept: false }]
+      }
+
+      // Rule 2: PJO -> atasan adalah Manager
+      if (lvl === "pjo") {
+        return [{ level: "manager", requireSameSite: false, requireSameDept: false }]
+      }
+
+      // Rule 7: Deputy PJO -> atasan adalah PJO di site sama
+      if (lvl.includes("deputy") && lvl.includes("pjo")) {
+        return [{ level: "pjo", requireSameSite: true, requireSameDept: false }]
+      }
+
+      // Rule 7: Head -> atasan adalah PJO atau Deputy PJO di site sama
+      if (lvl === "head") {
+        return [
+          { level: "pjo", requireSameSite: true, requireSameDept: false },
+          { level: "deputy pjo", requireSameSite: true, requireSameDept: false },
+        ]
+      }
+
+      if (lvl === "supervisor") {
+        return [
+          { level: "pjo", requireSameSite: true, requireSameDept: false },
+          { level: "deputy pjo", requireSameSite: true, requireSameDept: false },
+          { level: "head", requireSameSite: true, requireSameDept: true },
+        ]
+      }
+
+      if ((lvl.includes("group") && lvl.includes("leader")) || lvl === "gl") {
+        return [
+          { level: "pjo", requireSameSite: true, requireSameDept: false },
+          { level: "deputy pjo", requireSameSite: true, requireSameDept: false },
+          { level: "head", requireSameSite: true, requireSameDept: true },
+          { level: "supervisor", requireSameSite: true, requireSameDept: true },
+        ]
+      }
+
+      if (lvl === "admin" || lvl === "operator" || lvl === "driver" || lvl === "mekanik") {
+        return [
+          { level: "pjo", requireSameSite: true, requireSameDept: false },
+          { level: "deputy pjo", requireSameSite: true, requireSameDept: false },
+          { level: "supervisor", requireSameSite: true, requireSameDept: true },
+          { level: "group leader", requireSameSite: true, requireSameDept: true },
+          { level: "admin", requireSameSite: true, requireSameDept: true },
+        ]
+      }
+
+      // Rule 6 + 4 + 5 + 1: Helper -> Admin, Group Leader, Supervisor di site+dept sama, PJO/Deputy PJO di site sama
+      if (lvl === "helper") {
+        return [
+          { level: "pjo", requireSameSite: true, requireSameDept: false },
+          { level: "deputy pjo", requireSameSite: true, requireSameDept: false },
+          { level: "supervisor", requireSameSite: true, requireSameDept: true },
+          { level: "group leader", requireSameSite: true, requireSameDept: true },
+          { level: "admin", requireSameSite: true, requireSameDept: true },
+        ]
+      }
+
+      // Default: jika level tidak dikenali, tampilkan semua yang levelnya lebih tinggi di site yang sama
+      console.log("[v0] Level tidak dikenali:", lvl, "- menampilkan pilihan default")
+      return [
+        { level: "pjo", requireSameSite: true, requireSameDept: false },
+        { level: "deputy pjo", requireSameSite: true, requireSameDept: false },
+        { level: "head", requireSameSite: true, requireSameDept: true },
+        { level: "supervisor", requireSameSite: true, requireSameDept: true },
+        { level: "group leader", requireSameSite: true, requireSameDept: true },
+      ]
+    }
+
+    const validManagerRules = getValidManagerLevels(userLevel)
+    console.log("[v0] Valid manager rules:", validManagerRules)
+
+    if (validManagerRules.length === 0) {
+      console.log("[v0] No valid managers for this user level")
+      return []
+    }
+
+    const availableManagers = hierarchyData.filter((manager) => {
+      // Don't allow selecting self
+      if (manager.id === editingUser.id) return false
+
+      const managerLevel = normalizeLevel(manager.level)
+      const managerSite = (manager.site || "").trim().toLowerCase()
+      const managerDept = (manager.departemen || "").trim().toLowerCase()
+
+      // Check against each rule
+      for (const rule of validManagerRules) {
+        const levelMatch = levelMatches(manager.level || "", rule.level)
+        const siteMatch = !rule.requireSameSite || managerSite === userSite
+        const deptMatch = !rule.requireSameDept || managerDept === userDept
+
+        if (levelMatch && siteMatch && deptMatch) {
+          return true
+        }
+      }
+
+      return false
+    })
+
+    console.log("[v0] Available managers count:", availableManagers.length)
+    if (availableManagers.length > 0) {
+      console.log(
+        "[v0] Sample managers:",
+        availableManagers.slice(0, 5).map((m) => `${m.name} (${m.level})`),
+      )
+    }
+
+    return availableManagers.sort((a, b) => {
+      // Sort by level hierarchy, then by name
+      const aIndex = LEVEL_HIERARCHY.findIndex((l) => levelMatches(a.level || "", l))
+      const bIndex = LEVEL_HIERARCHY.findIndex((l) => levelMatches(b.level || "", l))
+      if (aIndex !== bIndex) return aIndex - bIndex
+      return (a.name || "").localeCompare(b.name || "")
+    })
   }
 
   const getLevelName = (level?: string): string => {
     if (!level) return "N/A"
     const index = LEVEL_HIERARCHY.indexOf(level as any)
     return index !== -1 ? level : "N/A"
+  }
+
+  if (accessDenied) {
+    return (
+      <div className="min-h-screen bg-[#0a0a0a] flex items-center justify-center">
+        <Card className="max-w-md w-full mx-4 bg-red-950/20 border-red-500/30">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-red-400">
+              <Lock className="w-6 h-6" />
+              Akses Ditolak
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <p className="text-gray-300">Halaman Manajemen Hierarki hanya dapat diakses oleh Admin Master.</p>
+            <p className="text-sm text-gray-400">Role Anda saat ini: {user?.role}</p>
+            <Button onClick={() => router.push("/tms")} className="w-full bg-[#D4AF37] hover:bg-[#D4AF37]/80">
+              Kembali ke Menu TMS
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+    )
   }
 
   if (isLoading) {
@@ -406,146 +605,169 @@ export default function HierarchyPage() {
               </SelectContent>
             </Select>
 
-            <div className="flex items-center gap-2 text-sm text-gray-400">
-              <Filter className="w-4 h-4" />
-              <span>
-                {startRecord}-{endRecord} dari {filteredData.length} karyawan
-              </span>
-            </div>
+            <div className="text-sm text-gray-400 flex items-center">Total: {filteredData.length} karyawan</div>
           </div>
         </div>
 
-        {/* Table */}
-        <Card className="bg-[#1a1a1a] border-[#D4AF37]/30">
-          <CardHeader>
-            <CardTitle className="text-white">Daftar Karyawan & Atasan Langsung</CardTitle>
-            <CardDescription className="text-gray-400">
-              Klik "Edit" untuk mengubah atasan langsung setiap karyawan
-            </CardDescription>
+        {/* Info Card */}
+        <Card className="mb-6 bg-[#1a1a1a] border-[#D4AF37]/30">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-white text-lg">Petunjuk</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="overflow-x-auto">
-              <div
-                ref={setTableScrollContainer}
-                onScroll={handleTableScroll}
-                style={{ height: `${VISIBLE_ROWS * ROW_HEIGHT}px`, overflow: "auto" }}
-                className="border border-[#D4AF37]/20 rounded-lg"
-              >
-                <table className="w-full">
-                  <thead className="sticky top-0 bg-[#0a0a0a] z-20">
-                    <tr className="border-b border-[#D4AF37]/20">
-                      <th className="text-left py-3 px-4 text-sm font-semibold text-[#D4AF37]">NIK</th>
-                      <th className="text-left py-3 px-4 text-sm font-semibold text-[#D4AF37]">Nama</th>
-                      <th className="text-left py-3 px-4 text-sm font-semibold text-[#D4AF37]">Jabatan</th>
-                      <th className="text-left py-3 px-4 text-sm font-semibold text-[#D4AF37]">Level</th>
-                      <th className="text-left py-3 px-4 text-sm font-semibold text-[#D4AF37]">Site</th>
-                      <th className="text-left py-3 px-4 text-sm font-semibold text-[#D4AF37]">Departemen</th>
-                      <th className="text-left py-3 px-4 text-sm font-semibold text-[#D4AF37]">Atasan Langsung</th>
-                      <th className="text-left py-3 px-4 text-sm font-semibold text-[#D4AF37]">Bawahan</th>
-                      <th className="text-center py-3 px-4 text-sm font-semibold text-[#D4AF37]">Aksi</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {visibleRows.map((user, index) => (
-                      <tr key={`${user.id}-${index}`} className="border-b border-gray-800 hover:bg-[#D4AF37]/5">
-                        <td className="py-3 px-4 text-sm text-white">{user.nik}</td>
-                        <td className="py-3 px-4 text-sm text-white">{user.name}</td>
-                        <td className="py-3 px-4 text-sm text-gray-300">{user.jabatan}</td>
-                        <td className="py-3 px-4 text-sm text-gray-300">{getLevelName(user.level)}</td>
-                        <td className="py-3 px-4 text-sm text-gray-300">{user.site}</td>
-                        <td className="py-3 px-4 text-sm text-gray-300">{user.departemen}</td>
-                        <td className="py-3 px-4 text-sm text-gray-300">
-                          {user.manager_name ? (
-                            <div>
-                              <div className="font-medium text-white">{user.manager_name}</div>
-                              <div className="text-xs text-gray-500">{user.manager_nik}</div>
-                            </div>
-                          ) : (
-                            <span className="text-gray-600 italic">Tidak ada</span>
-                          )}
-                        </td>
-                        <td className="py-3 px-4 text-sm text-center">
-                          <span className="inline-flex items-center justify-center w-8 h-8 rounded-full bg-[#D4AF37]/20 text-[#D4AF37] font-semibold">
-                            {user.direct_reports_count}
-                          </span>
-                        </td>
-                        <td className="py-3 px-4 text-center">
-                          <Button
-                            size="sm"
-                            onClick={() => handleEditClick(user)}
-                            className="bg-[#D4AF37] text-black hover:bg-[#D4AF37]/90"
-                          >
-                            Edit
-                          </Button>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-
-              <div className="flex items-center justify-between mt-4 px-4">
-                <div className="text-sm text-gray-400">
-                  Halaman {currentPage} dari {totalPages}
-                </div>
-                <div className="flex gap-2">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
-                    disabled={currentPage === 1}
-                    className="border-[#D4AF37]/30 text-gray-400 hover:text-white"
-                  >
-                    <ChevronUp className="w-4 h-4" />
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
-                    disabled={currentPage === totalPages}
-                    className="border-[#D4AF37]/30 text-gray-400 hover:text-white"
-                  >
-                    <ChevronDown className="w-4 h-4" />
-                  </Button>
-                </div>
-              </div>
-            </div>
+            <p className="text-gray-400 text-sm">
+              Klik &quot;Edit&quot; untuk mengubah atasan langsung karyawan. Pilihan atasan akan disesuaikan berdasarkan
+              level, site, dan departemen karyawan.
+            </p>
           </CardContent>
         </Card>
+
+        {/* Data Table */}
+        <div className="bg-[#1a1a1a] rounded-lg border border-[#D4AF37]/30 overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead className="bg-[#D4AF37]/10">
+                <tr>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-[#D4AF37] uppercase tracking-wider">
+                    NIK
+                  </th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-[#D4AF37] uppercase tracking-wider">
+                    Nama
+                  </th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-[#D4AF37] uppercase tracking-wider">
+                    Jabatan
+                  </th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-[#D4AF37] uppercase tracking-wider">
+                    Level
+                  </th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-[#D4AF37] uppercase tracking-wider">
+                    Site
+                  </th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-[#D4AF37] uppercase tracking-wider">
+                    Dept
+                  </th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-[#D4AF37] uppercase tracking-wider">
+                    Atasan Langsung
+                  </th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-[#D4AF37] uppercase tracking-wider">
+                    Bawahan
+                  </th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-[#D4AF37] uppercase tracking-wider">
+                    Aksi
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-[#D4AF37]/10">
+                {paginatedData.map((user) => (
+                  <tr key={user.id} className="hover:bg-[#D4AF37]/5">
+                    <td className="px-4 py-3 text-sm text-gray-300">{user.nik}</td>
+                    <td className="px-4 py-3 text-sm text-white font-medium">{user.name}</td>
+                    <td className="px-4 py-3 text-sm text-gray-300">{user.jabatan}</td>
+                    <td className="px-4 py-3 text-sm text-gray-300">{user.level || "-"}</td>
+                    <td className="px-4 py-3 text-sm text-gray-300">{user.site}</td>
+                    <td className="px-4 py-3 text-sm text-gray-300">{user.departemen}</td>
+                    <td className="px-4 py-3 text-sm">
+                      {user.manager_name ? (
+                        <span className="text-[#D4AF37]">{user.manager_name}</span>
+                      ) : (
+                        <span className="text-red-400">Tidak ada</span>
+                      )}
+                    </td>
+                    <td className="px-4 py-3 text-sm">
+                      <span className="inline-flex items-center justify-center w-8 h-8 rounded-full bg-[#D4AF37]/20 text-[#D4AF37] font-medium">
+                        {user.direct_reports_count || 0}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3 text-sm">
+                      <Button
+                        size="sm"
+                        onClick={() => handleEditClick(user)}
+                        className="bg-[#D4AF37] text-black hover:bg-[#D4AF37]/90"
+                      >
+                        Edit
+                      </Button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          {/* Pagination */}
+          {totalPages > 1 && (
+            <div className="px-4 py-3 border-t border-[#D4AF37]/20 flex items-center justify-between">
+              <p className="text-sm text-gray-400">
+                Menampilkan {startRecord} - {endRecord} dari {filteredData.length} data
+              </p>
+              <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                  disabled={currentPage === 1}
+                  className="border-[#D4AF37]/30 text-[#D4AF37]"
+                >
+                  <ChevronUp className="w-4 h-4 rotate-[-90deg]" />
+                  Prev
+                </Button>
+                <span className="flex items-center px-3 text-sm text-gray-400">
+                  {currentPage} / {totalPages}
+                </span>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                  disabled={currentPage === totalPages}
+                  className="border-[#D4AF37]/30 text-[#D4AF37]"
+                >
+                  Next
+                  <ChevronDown className="w-4 h-4 rotate-[-90deg]" />
+                </Button>
+              </div>
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Edit Modal */}
       <Dialog open={isEditModalOpen} onOpenChange={setIsEditModalOpen}>
         <DialogContent className="bg-[#1a1a1a] border-[#D4AF37]/30 text-white">
           <DialogHeader>
-            <DialogTitle className="text-[#D4AF37]">Edit Atasan Langsung</DialogTitle>
+            <DialogTitle className="text-white">Edit Atasan Langsung</DialogTitle>
             <DialogDescription className="text-gray-400">Tetapkan atasan langsung untuk karyawan ini</DialogDescription>
           </DialogHeader>
 
           {editingUser && (
-            <div className="space-y-4 py-4">
-              <div className="p-4 bg-[#0a0a1a] rounded-lg border border-[#D4AF37]/20">
-                <div className="text-sm text-gray-400">Karyawan:</div>
-                <div className="text-lg font-semibold text-white">{editingUser.name}</div>
-                <div className="text-sm text-gray-400">
-                  NIK: {editingUser.nik} | {editingUser.jabatan} | Level: {getLevelName(editingUser.level)}
-                </div>
+            <div className="space-y-4">
+              <div className="p-4 bg-[#0a0a0a] rounded-lg">
+                <p className="text-sm text-gray-400">Karyawan:</p>
+                <p className="text-lg font-medium text-white">{editingUser.name}</p>
+                <p className="text-sm text-gray-400">
+                  NIK: {editingUser.nik} | {editingUser.jabatan} | Level: {editingUser.level || "-"}
+                </p>
+                <p className="text-sm text-gray-400">
+                  Site: {editingUser.site} | Dept: {editingUser.departemen}
+                </p>
               </div>
 
               <div>
                 <label className="text-sm text-gray-400 mb-2 block">Pilih Atasan Langsung:</label>
                 <Select
-                  value={selectedManagerId?.toString() || "none"}
-                  onValueChange={(value) => setSelectedManagerId(value === "none" ? null : Number.parseInt(value))}
+                  value={selectedManagerId || "none"}
+                  onValueChange={(value) => {
+                    const newValue = value === "none" ? null : value
+                    console.log("[v0] Manager selected:", newValue)
+                    setSelectedManagerId(newValue)
+                  }}
                 >
-                  <SelectTrigger className="bg-[#0a0a1a] border-[#D4AF37]/30 text-white placeholder:text-gray-300">
+                  <SelectTrigger className="bg-[#0a0a0a] border-[#D4AF37]/30 text-white">
                     <SelectValue placeholder="Pilih atasan..." />
                   </SelectTrigger>
-                  <SelectContent>
+                  <SelectContent className="max-h-[300px]">
                     <SelectItem value="none">Tidak ada atasan</SelectItem>
                     {getAvailableManagers(editingUser).map((manager) => (
                       <SelectItem key={manager.id} value={manager.id.toString()}>
-                        {manager.name} ({manager.nik}) - {manager.jabatan} - {getLevelName(manager.level)}
+                        {manager.name} ({manager.nik}) - {manager.jabatan} - {manager.level || "N/A"}
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -558,7 +780,7 @@ export default function HierarchyPage() {
             <Button
               variant="outline"
               onClick={() => setIsEditModalOpen(false)}
-              className="border-gray-600 text-gray-400 hover:bg-gray-800"
+              className="border-[#D4AF37]/30 text-[#D4AF37]"
             >
               Batal
             </Button>
@@ -577,69 +799,38 @@ export default function HierarchyPage() {
       <Dialog open={isUploadModalOpen} onOpenChange={setIsUploadModalOpen}>
         <DialogContent className="bg-[#1a1a1a] border-[#D4AF37]/30 text-white">
           <DialogHeader>
-            <DialogTitle className="text-[#D4AF37]">Bulk Import Hierarki (CSV)</DialogTitle>
+            <DialogTitle className="text-white">Bulk Import Hierarki</DialogTitle>
             <DialogDescription className="text-gray-400">
-              Upload file CSV dengan format: NIK, Nama, NIK_Atasan
+              Upload file CSV untuk mengatur hierarki secara massal
             </DialogDescription>
           </DialogHeader>
 
-          <div className="space-y-4 py-4">
-            <div className="p-4 bg-[#0a1a1a] rounded-lg border border-[#D4AF37]/20">
-              <div className="text-sm text-gray-400 mb-2">Format CSV:</div>
-              <code className="text-xs text-[#D4AF37] block">
-                NIK,Nama,NIK_Atasan
-                <br />
-                USR001,Andi Wijaya,MGR001
-                <br />
-                USR002,Budi Santoso,MGR001
-              </code>
+          <div className="space-y-4">
+            <div>
+              <label className="text-sm text-gray-400 mb-2 block">Pilih File CSV:</label>
+              <Input
+                type="file"
+                accept=".csv"
+                onChange={(e) => setCsvFile(e.target.files?.[0] || null)}
+                className="bg-[#0a0a0a] border-[#D4AF37]/30 text-white"
+              />
             </div>
-
-            <Input
-              type="file"
-              accept=".csv"
-              onChange={(e) => setCsvFile(e.target.files?.[0] || null)}
-              className="bg-[#0a1a1a] border-[#D4AF37]/30 text-white"
-            />
-
-            {csvFile && (
-              <div className="flex items-center gap-2 text-sm text-gray-400">
-                <CheckCircle className="w-4 h-4 text-green-500" />
-                <span>File terpilih: {csvFile.name}</span>
-              </div>
-            )}
 
             {uploadResult && (
               <div
-                className={`p-4 rounded-lg border ${
-                  uploadResult.success
-                    ? "bg-green-500/10 border-green-500/30 text-green-400"
-                    : "bg-red-500/10 border-red-500/30 text-red-400"
-                }`}
+                className={`p-4 rounded-lg ${uploadResult.success ? "bg-green-900/20 border border-green-500/30" : "bg-red-900/20 border border-red-500/30"}`}
               >
-                <div className="flex items-start gap-2">
-                  {uploadResult.success ? (
-                    <CheckCircle className="w-5 h-5 mt-0.5" />
-                  ) : (
-                    <AlertCircle className="w-5 h-5 mt-0.5" />
-                  )}
-                  <div>
-                    <div className="font-semibold">{uploadResult.message}</div>
-                    {uploadResult.imported && (
-                      <div className="text-sm mt-1">Berhasil import: {uploadResult.imported} baris</div>
-                    )}
-                    {uploadResult.errors && uploadResult.errors.length > 0 && (
-                      <div className="text-sm mt-2">
-                        <div>Error:</div>
-                        <ul className="list-disc list-inside">
-                          {uploadResult.errors.slice(0, 5).map((err: string, i: number) => (
-                            <li key={i}>{err}</li>
-                          ))}
-                        </ul>
-                      </div>
-                    )}
+                {uploadResult.success ? (
+                  <div className="flex items-center gap-2 text-green-400">
+                    <CheckCircle className="w-5 h-5" />
+                    <span>{uploadResult.message || "Upload berhasil"}</span>
                   </div>
-                </div>
+                ) : (
+                  <div className="flex items-center gap-2 text-red-400">
+                    <AlertCircle className="w-5 h-5" />
+                    <span>{uploadResult.message || "Upload gagal"}</span>
+                  </div>
+                )}
               </div>
             )}
           </div>
@@ -652,7 +843,7 @@ export default function HierarchyPage() {
                 setCsvFile(null)
                 setUploadResult(null)
               }}
-              className="border-gray-600 text-gray-400 hover:bg-gray-800"
+              className="border-[#D4AF37]/30 text-[#D4AF37]"
             >
               Tutup
             </Button>
@@ -661,8 +852,7 @@ export default function HierarchyPage() {
               disabled={!csvFile}
               className="bg-[#D4AF37] text-black hover:bg-[#D4AF37]/90"
             >
-              <Upload className="w-4 h-4 mr-2" />
-              Upload & Import
+              Upload
             </Button>
           </DialogFooter>
         </DialogContent>

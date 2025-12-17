@@ -10,8 +10,6 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Alert, AlertDescription } from "@/components/ui/alert"
-import { ArrowLeft } from "lucide-react"
-import Link from "next/link"
 import Image from "next/image"
 
 export default function LoginPage() {
@@ -35,7 +33,7 @@ export default function LoginPage() {
       if (returnUrl) {
         router.push(returnUrl)
       } else {
-        router.push("/dashboard")
+        router.push("/") // Homepage with 8 cards
       }
     } else {
       setError("NIK atau password salah. Silakan coba lagi.")
@@ -46,14 +44,6 @@ export default function LoginPage() {
 
   return (
     <div className="min-h-screen flex flex-col items-center justify-center bg-[#0a0a0a] p-4 relative">
-      <Link
-        href="/"
-        className="absolute top-8 left-8 flex items-center gap-2 text-[#D4AF37] hover:text-[#f0d98f] transition-colors"
-      >
-        <ArrowLeft className="w-5 h-5" />
-        <span>Kembali</span>
-      </Link>
-
       <div className="mb-8">
         <Image src="/hcga-logo.png" alt="HCGA Logo" width={120} height={120} className="mx-auto" />
       </div>

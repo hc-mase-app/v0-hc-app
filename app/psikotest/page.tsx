@@ -1,11 +1,25 @@
 "use client"
 
+import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import { BrainCircuit, ArrowLeft } from "lucide-react"
 import { Button } from "@/components/ui/button"
+import { useAuth } from "@/lib/auth-context"
+import { hasFeatureAccess } from "@/lib/permissions"
+import { AccessDenied } from "@/components/access-denied"
 
 export default function PsikotestPage() {
   const router = useRouter()
+  const { user, isAuthenticated } = useAuth()
+  const [isLoading, setIsLoading] = useState(true)
+
+  useEffect(() => {
+    if (!isAuthenticated) {
+      router.push("/login?returnUrl=/psikotest")
+      return
+    }
+    setIsLoading(false)
+  }, [isAuthenticated, router])
 
   const psikotestTypes = [
     {
@@ -14,12 +28,31 @@ export default function PsikotestPage() {
     },
     {
       title: "Psikotest ODP Batch 3",
-      url: "https://hc-mase-app.github.io/Psikotest_ODP/", // Updated URL to new GitHub Pages link
+      url: "https://hc-mase-app.github.io/Psikotest_ODP/",
     },
   ]
 
   const handleCardClick = (url: string) => {
     window.open(url, "_blank", "noopener,noreferrer")
+  }
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-[#0a0a0a] flex items-center justify-center">
+        <div className="text-[#D4AF37]">Loading...</div>
+      </div>
+    )
+  }
+
+  if (!hasFeatureAccess("psikotest", user?.role)) {
+    return (
+      <AccessDenied
+        title="Akses Ditolak"
+        message="Anda tidak memiliki izin untuk mengakses halaman Psikotest. Fitur ini hanya tersedia untuk HR HO dan Super Admin."
+        returnPath="/"
+        returnLabel="Kembali ke Beranda"
+      />
+    )
   }
 
   return (

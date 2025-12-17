@@ -1,19 +1,51 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { Button } from "@/components/ui/button"
 import { ArrowLeft, Save } from "lucide-react"
 import { useRouter } from "next/navigation"
+import { useAuth } from "@/lib/auth-context"
+import { hasFeatureAccess } from "@/lib/permissions"
+import { AccessDenied } from "@/components/access-denied"
 import PresentationAssessmentForm from "@/components/presentation-assessment-form"
 
 export default function PenilaianPresentasiPage() {
   const router = useRouter()
+  const { user, isAuthenticated } = useAuth()
   const [isSaving, setIsSaving] = useState(false)
+  const [isLoading, setIsLoading] = useState(true)
+
+  useEffect(() => {
+    if (!isAuthenticated) {
+      router.push("/login?returnUrl=/penilaian-presentasi")
+      return
+    }
+    setIsLoading(false)
+  }, [isAuthenticated, router])
 
   const handleSave = async () => {
     setIsSaving(true)
     // Save logic will be handled by the form component
     setTimeout(() => setIsSaving(false), 1000)
+  }
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-[#0a0a0a] flex items-center justify-center">
+        <div className="text-[#D4AF37]">Loading...</div>
+      </div>
+    )
+  }
+
+  if (!hasFeatureAccess("penilaianPresentasi", user?.role)) {
+    return (
+      <AccessDenied
+        title="Akses Ditolak"
+        message="Anda tidak memiliki izin untuk mengakses halaman Penilaian Presentasi. Fitur ini hanya tersedia untuk DIC, PJO Site, HR Site, Manager HO, HR HO, dan Super Admin."
+        returnPath="/"
+        returnLabel="Kembali ke Beranda"
+      />
+    )
   }
 
   return (

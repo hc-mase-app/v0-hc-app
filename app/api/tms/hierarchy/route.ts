@@ -38,6 +38,8 @@ export async function PUT(request: NextRequest) {
     const body = await request.json()
     const { user_id, manager_id } = body
 
+    console.log("[v0] PUT hierarchy - user_id:", user_id, "manager_id:", manager_id)
+
     // Validate
     if (!user_id) {
       return NextResponse.json({ error: "Parameter tidak lengkap" }, { status: 400 })
@@ -48,9 +50,14 @@ export async function PUT(request: NextRequest) {
       return NextResponse.json({ error: "Karyawan tidak bisa menjadi atasan dirinya sendiri" }, { status: 400 })
     }
 
+    let validManagerId = manager_id
+    if (!manager_id || manager_id === "0" || manager_id === "" || manager_id === "null") {
+      validManagerId = null
+    }
+
     await sql`
       UPDATE karyawan
-      SET manager_id = ${manager_id}, updated_at = CURRENT_TIMESTAMP
+      SET manager_id = ${validManagerId}, updated_at = CURRENT_TIMESTAMP
       WHERE id = ${user_id}
     `
 

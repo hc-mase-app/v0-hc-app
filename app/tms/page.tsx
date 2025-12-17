@@ -1,10 +1,12 @@
 "use client"
 
 import { useRouter } from "next/navigation"
-import { ChevronLeft, Users, Upload, BarChart3 } from "lucide-react"
+import { ChevronLeft, Users, Upload, BarChart3, Lock } from "lucide-react"
+import { useAuth } from "@/lib/auth-context"
 
 export default function TmsPage() {
   const router = useRouter()
+  const { user } = useAuth()
 
   const menus = [
     {
@@ -12,6 +14,8 @@ export default function TmsPage() {
       description: "Kelola atasan & bawahan langsung",
       icon: Users,
       href: "/tms/hierarchy",
+      restricted: true,
+      allowedRoles: ["super_admin"],
     },
     {
       title: "Upload Evidence",
@@ -26,6 +30,20 @@ export default function TmsPage() {
       href: "/tms/monitoring",
     },
   ]
+
+  const hasAccess = (menu: (typeof menus)[0]) => {
+    if (!menu.restricted) return true
+    if (!user) return false
+    return menu.allowedRoles?.includes(user.role) || false
+  }
+
+  const handleMenuClick = (menu: (typeof menus)[0]) => {
+    if (!hasAccess(menu)) {
+      alert("Akses ditolak! Menu ini hanya dapat diakses oleh Admin Master.")
+      return
+    }
+    router.push(menu.href)
+  }
 
   return (
     <div className="min-h-screen bg-[#0a0a0a]">
@@ -49,19 +67,36 @@ export default function TmsPage() {
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-5xl mx-auto">
           {menus.map((menu) => {
             const Icon = menu.icon
+            const locked = !hasAccess(menu)
 
             return (
               <button
                 key={menu.title}
-                onClick={() => router.push(menu.href)}
-                className="group flex flex-col items-center gap-4 p-8 rounded-2xl border-2 border-[#D4AF37]/30 hover:border-[#D4AF37] hover:bg-[#D4AF37]/5 active:scale-95 transition-all duration-300"
+                onClick={() => handleMenuClick(menu)}
+                className={`group flex flex-col items-center gap-4 p-8 rounded-2xl border-2 transition-all duration-300 ${
+                  locked
+                    ? "border-gray-600/30 bg-gray-900/20 cursor-not-allowed opacity-60"
+                    : "border-[#D4AF37]/30 hover:border-[#D4AF37] hover:bg-[#D4AF37]/5 active:scale-95"
+                }`}
               >
-                <div className="w-16 h-16 rounded-2xl flex items-center justify-center transition-all duration-300 bg-[#D4AF37]/10 group-hover:bg-[#D4AF37]/20">
-                  <Icon className="w-8 h-8 text-[#D4AF37]" />
+                <div
+                  className={`w-16 h-16 rounded-2xl flex items-center justify-center transition-all duration-300 relative ${
+                    locked ? "bg-gray-700/20" : "bg-[#D4AF37]/10 group-hover:bg-[#D4AF37]/20"
+                  }`}
+                >
+                  <Icon className={`w-8 h-8 ${locked ? "text-gray-500" : "text-[#D4AF37]"}`} />
+                  {locked && (
+                    <div className="absolute -top-2 -right-2 bg-red-500 rounded-full p-1">
+                      <Lock className="w-3 h-3 text-white" />
+                    </div>
+                  )}
                 </div>
                 <div className="text-center">
-                  <h3 className="text-lg font-semibold mb-2 text-white">{menu.title}</h3>
+                  <h3 className={`text-lg font-semibold mb-2 ${locked ? "text-gray-500" : "text-white"}`}>
+                    {menu.title}
+                  </h3>
                   <p className="text-sm text-gray-400">{menu.description}</p>
+                  {locked && <p className="text-xs text-red-400 mt-2">Khusus Admin Master</p>}
                 </div>
               </button>
             )

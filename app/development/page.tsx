@@ -1,11 +1,44 @@
 "use client"
 
+import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Code, ArrowLeft, Hammer } from "lucide-react"
+import { useAuth } from "@/lib/auth-context"
+import { hasFeatureAccess } from "@/lib/permissions"
+import { AccessDenied } from "@/components/access-denied"
 
 export default function DevelopmentPage() {
   const router = useRouter()
+  const { user, isAuthenticated } = useAuth()
+  const [isLoading, setIsLoading] = useState(true)
+
+  useEffect(() => {
+    if (!isAuthenticated) {
+      router.push("/login?returnUrl=/development")
+      return
+    }
+    setIsLoading(false)
+  }, [isAuthenticated, router])
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-[#0a0a0a] flex items-center justify-center">
+        <div className="text-[#D4AF37]">Loading...</div>
+      </div>
+    )
+  }
+
+  if (!hasFeatureAccess("development", user?.role)) {
+    return (
+      <AccessDenied
+        title="Akses Ditolak"
+        message="Anda tidak memiliki izin untuk mengakses halaman Development. Fitur ini hanya tersedia untuk HR HO dan Super Admin."
+        returnPath="/"
+        returnLabel="Kembali ke Beranda"
+      />
+    )
+  }
 
   return (
     <div className="min-h-screen bg-[#0a0a0a] dark flex flex-col items-center justify-center px-4">

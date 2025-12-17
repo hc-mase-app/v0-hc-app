@@ -16,114 +16,111 @@ export async function GET(request: NextRequest) {
     let details: any[] = []
 
     if (view === "site") {
-      // Aggregate by site
       details = await sql`
         WITH hierarchy_targets AS (
           SELECT 
-            u.site,
-            h.user_id as leader_id,
-            h.direct_reports_count as target
-          FROM tms_organizational_hierarchy h
-          JOIN users u ON h.user_id = u.id
-          WHERE h.effective_month = ${effectiveMonth}
-          AND h.is_active = true
-          AND h.direct_reports_count > 0
+            k.site,
+            k.manager_id as leader_id,
+            COUNT(*) as target
+          FROM karyawan k
+          WHERE k.manager_id IS NOT NULL
+          AND k.status = 'AKTIF'
+          GROUP BY k.site, k.manager_id
         ),
         evidence_realization AS (
           SELECT 
-            u.site,
+            k.site,
             e.leader_id,
             COUNT(DISTINCT e.subordinate_id) as realized_subordinates
           FROM tms_leadership_evidence e
-          JOIN users u ON e.leader_id = u.id
+          JOIN karyawan k ON e.leader_id = k.id
           WHERE e.activity_month = ${effectiveMonth}
-          AND e.is_deleted = false
-          GROUP BY u.site, e.leader_id
+          GROUP BY k.site, e.leader_id
         )
         SELECT 
           ht.site,
-          SUM(ht.target) as target,
-          COALESCE(SUM(er.realized_subordinates), 0) as realization,
+          NULL::varchar as department,
+          NULL::uuid as leader_id,
+          NULL::varchar as leader_name,
+          SUM(ht.target)::integer as target,
+          COALESCE(SUM(er.realized_subordinates), 0)::integer as realization,
           CASE 
             WHEN SUM(ht.target) > 0 THEN (COALESCE(SUM(er.realized_subordinates), 0)::decimal / SUM(ht.target)::decimal * 100)
             ELSE 0
-          END as percentage
+          END::numeric as percentage
         FROM hierarchy_targets ht
         LEFT JOIN evidence_realization er ON ht.site = er.site AND ht.leader_id = er.leader_id
         GROUP BY ht.site
         ORDER BY ht.site
       `
     } else if (view === "department") {
-      // Aggregate by department within a site
       details = await sql`
         WITH hierarchy_targets AS (
           SELECT 
-            u.site,
-            u.departemen as department,
-            h.user_id as leader_id,
-            h.direct_reports_count as target
-          FROM tms_organizational_hierarchy h
-          JOIN users u ON h.user_id = u.id
-          WHERE h.effective_month = ${effectiveMonth}
-          AND u.site = ${site}
-          AND h.is_active = true
-          AND h.direct_reports_count > 0
+            k.site,
+            k.departemen as department,
+            k.manager_id as leader_id,
+            COUNT(*) as target
+          FROM karyawan k
+          WHERE k.manager_id IS NOT NULL
+          AND k.status = 'AKTIF'
+          AND k.site = ${site}
+          GROUP BY k.site, k.departemen, k.manager_id
         ),
         evidence_realization AS (
           SELECT 
-            u.site,
-            u.departemen as department,
+            k.site,
+            k.departemen as department,
             e.leader_id,
             COUNT(DISTINCT e.subordinate_id) as realized_subordinates
           FROM tms_leadership_evidence e
-          JOIN users u ON e.leader_id = u.id
+          JOIN karyawan k ON e.leader_id = k.id
           WHERE e.activity_month = ${effectiveMonth}
-          AND u.site = ${site}
-          AND e.is_deleted = false
-          GROUP BY u.site, u.departemen, e.leader_id
+          AND k.site = ${site}
+          GROUP BY k.site, k.departemen, e.leader_id
         )
         SELECT 
           ht.site,
           ht.department,
-          SUM(ht.target) as target,
-          COALESCE(SUM(er.realized_subordinates), 0) as realization,
+          NULL::uuid as leader_id,
+          NULL::varchar as leader_name,
+          SUM(ht.target)::integer as target,
+          COALESCE(SUM(er.realized_subordinates), 0)::integer as realization,
           CASE 
             WHEN SUM(ht.target) > 0 THEN (COALESCE(SUM(er.realized_subordinates), 0)::decimal / SUM(ht.target)::decimal * 100)
             ELSE 0
-          END as percentage
+          END::numeric as percentage
         FROM hierarchy_targets ht
         LEFT JOIN evidence_realization er ON ht.site = er.site AND ht.department = er.department AND ht.leader_id = er.leader_id
         GROUP BY ht.site, ht.department
         ORDER BY ht.department
       `
     } else if (view === "individual") {
-      // Individual leaders within department
       details = await sql`
         WITH hierarchy_targets AS (
           SELECT 
-            u.site,
-            u.departemen as department,
-            h.user_id as leader_id,
-            u.name as leader_name,
-            h.direct_reports_count as target
-          FROM tms_organizational_hierarchy h
-          JOIN users u ON h.user_id = u.id
-          WHERE h.effective_month = ${effectiveMonth}
-          AND u.site = ${site}
-          AND u.departemen = ${department}
-          AND h.is_active = true
-          AND h.direct_reports_count > 0
+            k.site,
+            k.departemen as department,
+            k.manager_id as leader_id,
+            m.nama as leader_name,
+            COUNT(*) as target
+          FROM karyawan k
+          JOIN karyawan m ON k.manager_id = m.id
+          WHERE k.manager_id IS NOT NULL
+          AND k.status = 'AKTIF'
+          AND k.site = ${site}
+          AND k.departemen = ${department}
+          GROUP BY k.site, k.departemen, k.manager_id, m.nama
         ),
         evidence_realization AS (
           SELECT 
             e.leader_id,
             COUNT(DISTINCT e.subordinate_id) as realized_subordinates
           FROM tms_leadership_evidence e
-          JOIN users u ON e.leader_id = u.id
+          JOIN karyawan k ON e.leader_id = k.id
           WHERE e.activity_month = ${effectiveMonth}
-          AND u.site = ${site}
-          AND u.departemen = ${department}
-          AND e.is_deleted = false
+          AND k.site = ${site}
+          AND k.departemen = ${department}
           GROUP BY e.leader_id
         )
         SELECT 
@@ -131,12 +128,12 @@ export async function GET(request: NextRequest) {
           ht.department,
           ht.leader_id,
           ht.leader_name,
-          ht.target,
-          COALESCE(er.realized_subordinates, 0) as realization,
+          ht.target::integer as target,
+          COALESCE(er.realized_subordinates, 0)::integer as realization,
           CASE 
             WHEN ht.target > 0 THEN (COALESCE(er.realized_subordinates, 0)::decimal / ht.target::decimal * 100)
             ELSE 0
-          END as percentage
+          END::numeric as percentage
         FROM hierarchy_targets ht
         LEFT JOIN evidence_realization er ON ht.leader_id = er.leader_id
         ORDER BY ht.leader_name
