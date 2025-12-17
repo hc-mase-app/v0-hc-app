@@ -1,8 +1,21 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import type React from "react"
+
+import { useState, useEffect, useCallback, useMemo } from "react"
 import { useRouter } from "next/navigation"
-import { ChevronLeft, Users, Download, Upload, Search, Filter, AlertCircle, CheckCircle } from "lucide-react"
+import {
+  ChevronLeft,
+  Users,
+  Download,
+  Upload,
+  Search,
+  Filter,
+  AlertCircle,
+  CheckCircle,
+  ChevronUp,
+  ChevronDown,
+} from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
@@ -15,6 +28,10 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+
+const ITEMS_PER_PAGE = 50
+const VISIBLE_ROWS = 15
+const ROW_HEIGHT = 65
 
 interface HierarchyUser {
   id: number
@@ -82,11 +99,17 @@ export default function HierarchyPage() {
   const [filteredData, setFilteredData] = useState<HierarchyUser[]>([])
   const [allUsers, setAllUsers] = useState<any[]>([])
 
+  const [currentPage, setCurrentPage] = useState(1)
+  const [scrollTop, setScrollTop] = useState(0)
+  const [tableScrollContainer, setTableScrollContainer] = useState<HTMLDivElement | null>(null)
+
   // Filters
   const [searchQuery, setSearchQuery] = useState("")
   const [selectedSite, setSelectedSite] = useState<string>("all")
   const [selectedDept, setSelectedDept] = useState<string>("all")
   const [currentMonth, setCurrentMonth] = useState<string>("")
+
+  const [debouncedSearchQuery, setDebouncedSearchQuery] = useState("")
 
   // Edit modal
   const [editingUser, setEditingUser] = useState<HierarchyUser | null>(null)
@@ -104,6 +127,14 @@ export default function HierarchyPage() {
   const [departments, setDepartments] = useState<string[]>([])
 
   useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearchQuery(searchQuery)
+      setCurrentPage(1) // Reset to first page on search
+    }, 300)
+    return () => clearTimeout(timer)
+  }, [searchQuery])
+
+  useEffect(() => {
     // Set current month
     const now = new Date()
     const monthStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`
@@ -116,11 +147,10 @@ export default function HierarchyPage() {
     try {
       setIsLoading(true)
 
-      // Load hierarchy data
       const hierarchyRes = await fetch(`/api/tms/hierarchy?month=${month}`)
       if (hierarchyRes.ok) {
         const data = await hierarchyRes.json()
-        console.log("[v0] Hierarchy data loaded:", data.length, "Sample:", data[0])
+        console.log("[v0] Hierarchy data loaded:", data.length, "records")
         setHierarchyData(data)
         setFilteredData(data)
 
@@ -135,17 +165,17 @@ export default function HierarchyPage() {
     } catch (error) {
       console.error("[v0] Load hierarchy error:", error)
     } finally {
+      // Changed setIsLoading to false after data loading is complete
       setIsLoading(false)
     }
   }
 
-  // Filter logic
   useEffect(() => {
     let filtered = hierarchyData
 
     // Search filter
-    if (searchQuery) {
-      const query = searchQuery.toLowerCase()
+    if (debouncedSearchQuery) {
+      const query = debouncedSearchQuery.toLowerCase()
       filtered = filtered.filter(
         (u) =>
           u.nik.toLowerCase().includes(query) ||
@@ -165,7 +195,31 @@ export default function HierarchyPage() {
     }
 
     setFilteredData(filtered)
-  }, [searchQuery, selectedSite, selectedDept, hierarchyData])
+    setCurrentPage(1) // Reset to first page on filter change
+  }, [debouncedSearchQuery, selectedSite, selectedDept, hierarchyData])
+
+  const paginatedData = useMemo(() => {
+    const startIndex = (currentPage - 1) * ITEMS_PER_PAGE
+    const endIndex = startIndex + ITEMS_PER_PAGE
+    return filteredData.slice(startIndex, endIndex)
+  }, [filteredData, currentPage])
+
+  const totalPages = Math.ceil(filteredData.length / ITEMS_PER_PAGE)
+  const startRecord = (currentPage - 1) * ITEMS_PER_PAGE + 1
+  const endRecord = Math.min(currentPage * ITEMS_PER_PAGE, filteredData.length)
+
+  const visibleRows = useMemo(() => {
+    if (!tableScrollContainer) return paginatedData
+
+    const startIndex = Math.floor(scrollTop / ROW_HEIGHT)
+    const endIndex = Math.ceil((scrollTop + VISIBLE_ROWS * ROW_HEIGHT) / ROW_HEIGHT)
+
+    return paginatedData.slice(Math.max(0, startIndex), Math.min(paginatedData.length, endIndex + 2))
+  }, [scrollTop, paginatedData, tableScrollContainer])
+
+  const handleTableScroll = useCallback((e: React.UIEvent<HTMLDivElement>) => {
+    setScrollTop((e.target as HTMLDivElement).scrollTop)
+  }, [])
 
   const handleEditClick = (user: HierarchyUser) => {
     setEditingUser(user)
@@ -244,58 +298,17 @@ export default function HierarchyPage() {
   const getAvailableManagers = (editingUser: User | null): User[] => {
     if (!editingUser) return []
 
-    const currentLevel = editingUser.level
-    const allowedManagerLevels = currentLevel ? MANAGER_LEVEL_RULES[currentLevel] : []
+    const editingUserObj = hierarchyData.find((u) => u.id === (editingUser?.id ? Number(editingUser.id) : null)) as any
+    if (!editingUserObj?.level) return hierarchyData as any
 
-    if (!allowedManagerLevels || allowedManagerLevels.length === 0) {
-      console.log("[v0] No manager rules for level:", currentLevel, "Job:", editingUser.jabatan)
-      return []
-    }
-
-    console.log(
-      "[v0] Filtering managers for:",
-      editingUser.name,
-      "Level:",
-      currentLevel,
-      "Job:",
-      editingUser.jabatan,
-      "Dept:",
-      editingUser.departemen,
-      "Site:",
-      editingUser.site,
-      "Allowed manager levels:",
-      allowedManagerLevels,
-    )
-
-    const availableManagers = allUsers
-      .filter((u) => {
-        if (u.id === editingUser.id) return false
-        if (u.departemen !== editingUser.departemen) return false
-        if (u.site !== editingUser.site) return false
-
-        const managerLevel = u.level
-        const isAllowed = managerLevel && allowedManagerLevels.includes(managerLevel)
-
-        if (isAllowed) {
-          console.log("[v0] Found eligible manager:", u.name, "Level:", u.level, u.jabatan, u.departemen, u.site)
-        }
-
-        return isAllowed
-      })
-      .sort((a, b) => {
-        const levelA = a.level ? LEVEL_HIERARCHY.indexOf(a.level as any) : 999
-        const levelB = b.level ? LEVEL_HIERARCHY.indexOf(b.level as any) : 999
-        if (levelA !== levelB) return levelA - levelB
-        return (a.name || "").localeCompare(b.name || "")
-      })
-
-    console.log("[v0] Available managers count:", availableManagers.length)
-    return availableManagers
+    const allowedLevels = MANAGER_LEVEL_RULES[editingUserObj.level] || []
+    return hierarchyData.filter((u: any) => allowedLevels.includes(u.level)) as any
   }
 
   const getLevelName = (level?: string): string => {
-    if (!level) return "-"
-    return level
+    if (!level) return "N/A"
+    const index = LEVEL_HIERARCHY.indexOf(level as any)
+    return index !== -1 ? level : "N/A"
   }
 
   if (isLoading) {
@@ -396,7 +409,7 @@ export default function HierarchyPage() {
             <div className="flex items-center gap-2 text-sm text-gray-400">
               <Filter className="w-4 h-4" />
               <span>
-                {filteredData.length} dari {hierarchyData.length} karyawan
+                {startRecord}-{endRecord} dari {filteredData.length} karyawan
               </span>
             </div>
           </div>
@@ -412,57 +425,90 @@ export default function HierarchyPage() {
           </CardHeader>
           <CardContent>
             <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead>
-                  <tr className="border-b border-[#D4AF37]/20">
-                    <th className="text-left py-3 px-4 text-sm font-semibold text-[#D4AF37]">NIK</th>
-                    <th className="text-left py-3 px-4 text-sm font-semibold text-[#D4AF37]">Nama</th>
-                    <th className="text-left py-3 px-4 text-sm font-semibold text-[#D4AF37]">Jabatan</th>
-                    <th className="text-left py-3 px-4 text-sm font-semibold text-[#D4AF37]">Level</th>
-                    <th className="text-left py-3 px-4 text-sm font-semibold text-[#D4AF37]">Site</th>
-                    <th className="text-left py-3 px-4 text-sm font-semibold text-[#D4AF37]">Departemen</th>
-                    <th className="text-left py-3 px-4 text-sm font-semibold text-[#D4AF37]">Atasan Langsung</th>
-                    <th className="text-left py-3 px-4 text-sm font-semibold text-[#D4AF37]">Bawahan</th>
-                    <th className="text-center py-3 px-4 text-sm font-semibold text-[#D4AF37]">Aksi</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {filteredData.map((user) => (
-                    <tr key={user.id} className="border-b border-gray-800 hover:bg-[#D4AF37]/5">
-                      <td className="py-3 px-4 text-sm text-white">{user.nik}</td>
-                      <td className="py-3 px-4 text-sm text-white">{user.name}</td>
-                      <td className="py-3 px-4 text-sm text-gray-300">{user.jabatan}</td>
-                      <td className="py-3 px-4 text-sm text-gray-300">{getLevelName(user.level)}</td>
-                      <td className="py-3 px-4 text-sm text-gray-300">{user.site}</td>
-                      <td className="py-3 px-4 text-sm text-gray-300">{user.departemen}</td>
-                      <td className="py-3 px-4 text-sm text-gray-300">
-                        {user.manager_name ? (
-                          <div>
-                            <div className="font-medium text-white">{user.manager_name}</div>
-                            <div className="text-xs text-gray-500">{user.manager_nik}</div>
-                          </div>
-                        ) : (
-                          <span className="text-gray-600 italic">Tidak ada</span>
-                        )}
-                      </td>
-                      <td className="py-3 px-4 text-sm text-center">
-                        <span className="inline-flex items-center justify-center w-8 h-8 rounded-full bg-[#D4AF37]/20 text-[#D4AF37] font-semibold">
-                          {user.direct_reports_count}
-                        </span>
-                      </td>
-                      <td className="py-3 px-4 text-center">
-                        <Button
-                          size="sm"
-                          onClick={() => handleEditClick(user)}
-                          className="bg-[#D4AF37] text-black hover:bg-[#D4AF37]/90"
-                        >
-                          Edit
-                        </Button>
-                      </td>
+              <div
+                ref={setTableScrollContainer}
+                onScroll={handleTableScroll}
+                style={{ height: `${VISIBLE_ROWS * ROW_HEIGHT}px`, overflow: "auto" }}
+                className="border border-[#D4AF37]/20 rounded-lg"
+              >
+                <table className="w-full">
+                  <thead className="sticky top-0 bg-[#0a0a0a] z-20">
+                    <tr className="border-b border-[#D4AF37]/20">
+                      <th className="text-left py-3 px-4 text-sm font-semibold text-[#D4AF37]">NIK</th>
+                      <th className="text-left py-3 px-4 text-sm font-semibold text-[#D4AF37]">Nama</th>
+                      <th className="text-left py-3 px-4 text-sm font-semibold text-[#D4AF37]">Jabatan</th>
+                      <th className="text-left py-3 px-4 text-sm font-semibold text-[#D4AF37]">Level</th>
+                      <th className="text-left py-3 px-4 text-sm font-semibold text-[#D4AF37]">Site</th>
+                      <th className="text-left py-3 px-4 text-sm font-semibold text-[#D4AF37]">Departemen</th>
+                      <th className="text-left py-3 px-4 text-sm font-semibold text-[#D4AF37]">Atasan Langsung</th>
+                      <th className="text-left py-3 px-4 text-sm font-semibold text-[#D4AF37]">Bawahan</th>
+                      <th className="text-center py-3 px-4 text-sm font-semibold text-[#D4AF37]">Aksi</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody>
+                    {visibleRows.map((user, index) => (
+                      <tr key={`${user.id}-${index}`} className="border-b border-gray-800 hover:bg-[#D4AF37]/5">
+                        <td className="py-3 px-4 text-sm text-white">{user.nik}</td>
+                        <td className="py-3 px-4 text-sm text-white">{user.name}</td>
+                        <td className="py-3 px-4 text-sm text-gray-300">{user.jabatan}</td>
+                        <td className="py-3 px-4 text-sm text-gray-300">{getLevelName(user.level)}</td>
+                        <td className="py-3 px-4 text-sm text-gray-300">{user.site}</td>
+                        <td className="py-3 px-4 text-sm text-gray-300">{user.departemen}</td>
+                        <td className="py-3 px-4 text-sm text-gray-300">
+                          {user.manager_name ? (
+                            <div>
+                              <div className="font-medium text-white">{user.manager_name}</div>
+                              <div className="text-xs text-gray-500">{user.manager_nik}</div>
+                            </div>
+                          ) : (
+                            <span className="text-gray-600 italic">Tidak ada</span>
+                          )}
+                        </td>
+                        <td className="py-3 px-4 text-sm text-center">
+                          <span className="inline-flex items-center justify-center w-8 h-8 rounded-full bg-[#D4AF37]/20 text-[#D4AF37] font-semibold">
+                            {user.direct_reports_count}
+                          </span>
+                        </td>
+                        <td className="py-3 px-4 text-center">
+                          <Button
+                            size="sm"
+                            onClick={() => handleEditClick(user)}
+                            className="bg-[#D4AF37] text-black hover:bg-[#D4AF37]/90"
+                          >
+                            Edit
+                          </Button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+
+              <div className="flex items-center justify-between mt-4 px-4">
+                <div className="text-sm text-gray-400">
+                  Halaman {currentPage} dari {totalPages}
+                </div>
+                <div className="flex gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
+                    disabled={currentPage === 1}
+                    className="border-[#D4AF37]/30 text-gray-400 hover:text-white"
+                  >
+                    <ChevronUp className="w-4 h-4" />
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
+                    disabled={currentPage === totalPages}
+                    className="border-[#D4AF37]/30 text-gray-400 hover:text-white"
+                  >
+                    <ChevronDown className="w-4 h-4" />
+                  </Button>
+                </div>
+              </div>
             </div>
           </CardContent>
         </Card>
