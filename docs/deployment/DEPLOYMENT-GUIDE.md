@@ -8,9 +8,9 @@
 
 ## Environment Variables
 
-\`\`\`env
+```env
 DATABASE_URL=postgresql://...
-\`\`\`
+```
 
 ## Deployment Steps
 

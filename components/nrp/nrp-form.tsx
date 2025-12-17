@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Card, CardContent } from "@/components/ui/card"
 import { addKaryawan } from "@/app/nrp-generator/actions"
-import { ENTITAS_OPTIONS, DEPARTEMEN_OPTIONS, SITE_OPTIONS } from "@/lib/nrp-types"
+import { ENTITAS_OPTIONS, DEPARTEMEN_OPTIONS, SITE_OPTIONS, LEVEL_OPTIONS } from "@/lib/nrp-types"
 import { UserPlus, Loader2 } from "lucide-react"
 
 interface NRPFormProps {
@@ -22,6 +22,7 @@ export function NRPForm({ onSuccess }: NRPFormProps) {
   const [entitas, setEntitas] = useState<string>("")
   const [departemen, setDepartemen] = useState<string>("")
   const [site, setSite] = useState<string>("")
+  const [level, setLevel] = useState<string>("")
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
@@ -34,6 +35,7 @@ export function NRPForm({ onSuccess }: NRPFormProps) {
     const input = {
       nama_karyawan: formData.get("nama_karyawan") as string,
       jabatan: formData.get("jabatan") as string,
+      level: formData.get("level") as string,
       departemen: formData.get("departemen") as string,
       tanggal_masuk_kerja: formData.get("tanggal_masuk_kerja") as string,
       site: formData.get("site") as string,
@@ -47,6 +49,7 @@ export function NRPForm({ onSuccess }: NRPFormProps) {
       setEntitas("")
       setDepartemen("")
       setSite("")
+      setLevel("")
       ;(e.target as HTMLFormElement).reset()
       onSuccess?.()
     } else {
@@ -78,6 +81,24 @@ export function NRPForm({ onSuccess }: NRPFormProps) {
                 Jabatan
               </Label>
               <Input id="jabatan" name="jabatan" required className="bg-[#1a1a1a] border-[#333] text-white" />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="level" className="text-white/80">
+                Level
+              </Label>
+              <Select name="level" value={level} onValueChange={setLevel} required>
+                <SelectTrigger className="bg-[#1a1a1a] border-[#333] text-white">
+                  <SelectValue placeholder="Pilih Level" />
+                </SelectTrigger>
+                <SelectContent className="bg-[#1a1a1a] border-[#333]">
+                  {LEVEL_OPTIONS.map((lvl) => (
+                    <SelectItem key={lvl} value={lvl} className="text-white">
+                      {lvl}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
 
             <div className="space-y-2">

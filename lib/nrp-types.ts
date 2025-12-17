@@ -7,6 +7,7 @@ export interface Karyawan {
   tanggal_masuk_kerja: string
   site: string
   entitas: string
+  level?: string // Changed level from number to string for text-based hierarchy
   created_at: string
   updated_at: string
 }
@@ -18,7 +19,8 @@ export interface KaryawanInput {
   tanggal_masuk_kerja: string
   site: string
   entitas: string
-  nrp?: string // Added optional NRP field for CSV import
+  nrp?: string
+  level?: string // Changed level to string only (text-based)
 }
 
 export interface PaginationParams {
@@ -67,4 +69,19 @@ export const SITE_OPTIONS = [
   "TCM",
   "TCMM",
   "WBN",
+] as const
+
+export const LEVEL_OPTIONS = [
+  "General Manager",
+  "Manager",
+  "PJO",
+  "Deputy PJO",
+  "Head",
+  "Supervisor",
+  "Group Leader",
+  "Admin",
+  "Operator",
+  "Driver",
+  "Mekanik",
+  "Helper",
 ] as const

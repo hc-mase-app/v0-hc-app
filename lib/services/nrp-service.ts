@@ -64,8 +64,8 @@ export async function addKaryawan(
     const nrp = generateNRP(input.entitas, tanggalMasuk, nomorUrut)
 
     const result = await sql`
-      INSERT INTO karyawan (nrp, nama_karyawan, jabatan, departemen, tanggal_masuk_kerja, site, entitas)
-      VALUES (${nrp}, ${input.nama_karyawan}, ${input.jabatan}, ${input.departemen}, ${input.tanggal_masuk_kerja}, ${input.site}, ${input.entitas})
+      INSERT INTO karyawan (nrp, nama_karyawan, jabatan, departemen, tanggal_masuk_kerja, site, entitas, level)
+      VALUES (${nrp}, ${input.nama_karyawan}, ${input.jabatan}, ${input.departemen}, ${input.tanggal_masuk_kerja}, ${input.site}, ${input.entitas}, ${input.level || null})
       RETURNING *
     `
 
@@ -181,6 +181,8 @@ export async function bulkAddKaryawan(inputs: KaryawanInput[]): Promise<{
 
   for (const input of inputs) {
     try {
+      console.log("[v0] bulkAddKaryawan - processing:", input.nama_karyawan, "level:", input.level)
+
       const tanggalMasuk = new Date(input.tanggal_masuk_kerja)
       const tahun = tanggalMasuk.getFullYear().toString().slice(-2)
       const kodeEntitas = getEntitasCode(input.entitas)
@@ -197,15 +199,21 @@ export async function bulkAddKaryawan(inputs: KaryawanInput[]): Promise<{
         nrp = generateNRP(input.entitas, tanggalMasuk, nomorUrut)
       }
 
+      const levelValue = input.level || null
+      console.log("[v0] About to insert with level value:", levelValue)
+
       await sql`
-        INSERT INTO karyawan (nrp, nama_karyawan, jabatan, departemen, tanggal_masuk_kerja, site, entitas)
-        VALUES (${nrp}, ${input.nama_karyawan}, ${input.jabatan}, ${input.departemen}, ${input.tanggal_masuk_kerja}, ${input.site}, ${input.entitas})
+        INSERT INTO karyawan (nrp, nama_karyawan, jabatan, departemen, tanggal_masuk_kerja, site, entitas, level)
+        VALUES (${nrp}, ${input.nama_karyawan}, ${input.jabatan}, ${input.departemen}, ${input.tanggal_masuk_kerja}, ${input.site}, ${input.entitas}, ${levelValue}::varchar)
       `
 
+      console.log("[v0] Successfully inserted:", input.nama_karyawan, "with level:", levelValue)
       successCount++
     } catch (error) {
       failedCount++
-      errors.push(error instanceof Error ? error.message : "Unknown error")
+      const errorMsg = error instanceof Error ? error.message : "Unknown error"
+      console.error("[v0] Failed to insert:", input.nama_karyawan, "error:", errorMsg)
+      errors.push(errorMsg)
     }
   }
 

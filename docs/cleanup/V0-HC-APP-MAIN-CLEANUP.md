@@ -32,11 +32,11 @@ Folder ini adalah **duplicate lengkap dari project lama** yang tersisa saat ZIP 
 Jika folder masih terlihat di File Explorer setelah deployment, Anda dapat:
 
 1. **Via Git:**
-   \`\`\`bash
+   ```bash
    git rm -rf v0-hc-app-main
    git commit -m "Remove duplicate v0-hc-app-main folder"
    git push
-   \`\`\`
+   ```
 
 2. **Via Vercel Dashboard:**
    - Folder akan otomatis hilang setelah deployment baru karena tidak ada di Git

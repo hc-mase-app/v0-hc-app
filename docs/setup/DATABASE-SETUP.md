@@ -11,10 +11,10 @@
 Migrations are stored in `migrations/` folder and tracked via `schema_migrations` table.
 
 ### 3. Verify Connection
-\`\`\`typescript
+```typescript
 import { sql } from "@/lib/neon-db"
 const result = await sql`SELECT NOW()`
-\`\`\`
+```
 
 ## Tables Overview
 
@@ -25,7 +25,7 @@ const result = await sql`SELECT NOW()`
 - `karyawan` - NRP employee data
 - `nrp_counters` - NRP sequence counters
 - `admin_documents` - HCGA IMS documents
-\`\`\`
+```
 
-\`\`\`md file="CARA_JALANKAN_MIGRATION.md" isDeleted="true"
+```md file="CARA_JALANKAN_MIGRATION.md" isDeleted="true"
 ...deleted...

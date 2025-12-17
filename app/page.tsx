@@ -17,9 +17,9 @@ export default function Home() {
 
   const features = [
     {
-      title: "Leadership Activity",
+      title: "LEADTMS",
       icon: Users,
-      href: "/leadership-activity",
+      href: "/leadtms",
       requiresLogin: false,
       allowedRoles: [], // Empty means all roles
     },
@@ -206,6 +206,15 @@ export default function Home() {
                   }`}
                 >
                   {feature.title}
+                  {feature.title === "LEADTMS" && (
+                    <span
+                      className={`block text-[10px] mt-0.5 font-light ${
+                        isDisabled ? "text-gray-700" : "text-gray-500"
+                      }`}
+                    >
+                      Leadership Activity Monitoring System
+                    </span>
+                  )}
                 </h3>
               </button>
             )

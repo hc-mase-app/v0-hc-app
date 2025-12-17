@@ -71,19 +71,21 @@ export function ExcelUpload({ onSuccess }: { onSuccess: () => void }) {
         nrp: "(Opsional) atau kosongkan untuk auto-generate",
         nama_karyawan: "Contoh: Budi Santoso",
         jabatan: "Staff",
+        level: "Admin",
         departemen: "HCGA",
-        tanggal_masuk_kerja: "06/08/2016",
         site: "HEAD OFFICE",
         entitas: "PT GSM",
+        tanggal_masuk_kerja: "06/08/2016",
       },
       {
         nrp: "",
         nama_karyawan: "Contoh: Ani Wijaya",
         jabatan: "Manager",
+        level: "Manager",
         departemen: "FINANCE",
-        tanggal_masuk_kerja: "01/02/2025",
         site: "HSM",
         entitas: "PT SSS",
+        tanggal_masuk_kerja: "01/02/2025",
       },
     ]
 
@@ -91,7 +93,16 @@ export function ExcelUpload({ onSuccess }: { onSuccess: () => void }) {
     const wb = XLSX.utils.book_new()
     XLSX.utils.book_append_sheet(wb, ws, "Template")
 
-    ws["!cols"] = [{ wch: 35 }, { wch: 25 }, { wch: 15 }, { wch: 15 }, { wch: 20 }, { wch: 15 }, { wch: 15 }]
+    ws["!cols"] = [
+      { wch: 35 },
+      { wch: 25 },
+      { wch: 15 },
+      { wch: 18 },
+      { wch: 15 },
+      { wch: 20 },
+      { wch: 15 },
+      { wch: 20 },
+    ]
 
     XLSX.writeFile(wb, "template-import-karyawan.xlsx")
   }
@@ -103,6 +114,8 @@ export function ExcelUpload({ onSuccess }: { onSuccess: () => void }) {
 
     const nama_karyawan = String(row.nama_karyawan || "").trim()
     const jabatan = String(row.jabatan || "").trim()
+    const level = row.level ? String(row.level || "").trim() : undefined
+    console.log("[v0] validateRow - level from CSV:", level, "raw value:", row.level)
     const departemen = String(row.departemen || "").trim()
     const site = String(row.site || "").trim()
     const entitas = String(row.entitas || "").trim()
@@ -185,6 +198,7 @@ export function ExcelUpload({ onSuccess }: { onSuccess: () => void }) {
       nrp,
       nama_karyawan,
       jabatan,
+      level,
       departemen,
       tanggal_masuk_kerja,
       site,
@@ -232,6 +246,7 @@ export function ExcelUpload({ onSuccess }: { onSuccess: () => void }) {
     const inputs: KaryawanInput[] = validRows.map((row) => ({
       nama_karyawan: row.nama_karyawan,
       jabatan: row.jabatan,
+      level: row.level,
       departemen: row.departemen,
       tanggal_masuk_kerja: row.tanggal_masuk_kerja,
       site: row.site,
@@ -376,10 +391,11 @@ export function ExcelUpload({ onSuccess }: { onSuccess: () => void }) {
                         <TableHead className="text-[#D4AF37]">NRP</TableHead>
                         <TableHead className="text-[#D4AF37]">Nama</TableHead>
                         <TableHead className="text-[#D4AF37]">Jabatan</TableHead>
+                        <TableHead className="text-[#D4AF37]">Level</TableHead>
                         <TableHead className="text-[#D4AF37]">Departemen</TableHead>
-                        <TableHead className="text-[#D4AF37]">Tgl Masuk</TableHead>
                         <TableHead className="text-[#D4AF37]">Site</TableHead>
                         <TableHead className="text-[#D4AF37]">Entitas</TableHead>
+                        <TableHead className="text-[#D4AF37]">Tanggal Masuk</TableHead>
                         <TableHead className="text-[#D4AF37]">Status</TableHead>
                       </TableRow>
                     </TableHeader>
@@ -392,10 +408,11 @@ export function ExcelUpload({ onSuccess }: { onSuccess: () => void }) {
                           </TableCell>
                           <TableCell className="text-white">{row.nama_karyawan}</TableCell>
                           <TableCell className="text-white/70">{row.jabatan}</TableCell>
+                          <TableCell className="text-white/70">{row.level || "-"}</TableCell>
                           <TableCell className="text-white/70">{row.departemen}</TableCell>
-                          <TableCell className="text-white/70">{row.tanggal_masuk_kerja}</TableCell>
                           <TableCell className="text-white/70">{row.site}</TableCell>
                           <TableCell className="text-white/70">{row.entitas}</TableCell>
+                          <TableCell className="text-white/70">{row.tanggal_masuk_kerja}</TableCell>
                           <TableCell>
                             {row.isValid ? (
                               <Check className="h-4 w-4 text-emerald-500" />
