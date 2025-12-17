@@ -54,6 +54,7 @@ export const DEPARTEMEN_OPTIONS = [
   "FINANCE",
   "ACCOUNTING & TAX", // Changed "FAT" to "ACCOUNTING & TAX"
   "IT",
+  "HSE", // Added HSE department
 ] as const
 
 export const SITE_OPTIONS = [
