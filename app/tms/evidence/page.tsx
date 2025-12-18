@@ -4,7 +4,7 @@ import type React from "react"
 import { useAuth } from "@/lib/auth-context"
 import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
-import { ChevronLeft, Upload, FileText, Calendar, User, MapPin, AlertCircle, CheckCircle2 } from "lucide-react"
+import { ChevronLeft, Upload, FileText, Calendar, User, MapPin, AlertCircle, CheckCircle2, Home } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
@@ -192,7 +192,17 @@ export default function TmsEvidencePage() {
                 <p className="text-sm text-gray-400">Upload bukti aktivitas kepemimpinan</p>
               </div>
             </div>
-            <Upload className="w-8 h-8 text-[#D4AF37]" />
+            <div className="flex items-center gap-3">
+              <button
+                onClick={() => router.push("/tms")}
+                className="flex items-center gap-2 text-[#D4AF37] hover:text-[#D4AF37]/80 transition-colors px-3 py-2 hover:bg-[#D4AF37]/10 rounded-lg"
+                title="Kembali ke Menu Utama"
+              >
+                <Home className="w-5 h-5" />
+                <span className="text-sm font-medium">Menu Utama</span>
+              </button>
+              <Upload className="w-8 h-8 text-[#D4AF37]" />
+            </div>
           </div>
         </div>
       </div>

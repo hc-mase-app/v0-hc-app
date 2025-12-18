@@ -15,6 +15,7 @@ import {
   ChevronUp,
   ChevronDown,
   Lock,
+  Home,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -400,6 +401,7 @@ export default function HierarchyPage() {
           { level: "deputy pjo", requireSameSite: true, requireSameDept: false },
           { level: "head", requireSameSite: true, requireSameDept: true },
           { level: "supervisor", requireSameSite: true, requireSameDept: true },
+          { level: "group leader", requireSameSite: true, requireSameDept: true },
         ]
       }
 
@@ -538,7 +540,17 @@ export default function HierarchyPage() {
                 <p className="text-sm text-gray-400">Periode: {currentMonth}</p>
               </div>
             </div>
-            <Users className="w-8 h-8 text-[#D4AF37]" />
+            <div className="flex items-center gap-3">
+              <Button
+                variant="ghost"
+                onClick={() => router.push("/tms")}
+                className="text-[#D4AF37] hover:bg-[#D4AF37]/10 flex items-center gap-2"
+              >
+                <Home className="w-5 h-5" />
+                <span className="text-sm font-medium">Menu Utama</span>
+              </Button>
+              <Users className="w-8 h-8 text-[#D4AF37]" />
+            </div>
           </div>
         </div>
       </div>

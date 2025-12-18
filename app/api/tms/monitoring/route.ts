@@ -13,19 +13,25 @@ export async function GET(request: NextRequest) {
 
     const effectiveMonth = `${month}-01`
 
+    console.log("[v0] Monitoring query:", { month, effectiveMonth, view, site, department })
+
     let details: any[] = []
 
     if (view === "site") {
       details = await sql`
         WITH hierarchy_targets AS (
           SELECT 
-            k.site,
-            k.manager_id as leader_id,
+            m.site,
+            m.id as leader_id,
             COUNT(*) as target
           FROM karyawan k
+          JOIN karyawan m ON k.manager_id = m.id
           WHERE k.manager_id IS NOT NULL
-          AND k.status = 'AKTIF'
-          GROUP BY k.site, k.manager_id
+          AND (
+            m.level != 'Manager' 
+            OR (m.level = 'Manager' AND m.site IN ('Head Office', 'BSF'))
+          )
+          GROUP BY m.site, m.id
         ),
         evidence_realization AS (
           SELECT 
@@ -35,6 +41,7 @@ export async function GET(request: NextRequest) {
           FROM tms_leadership_evidence e
           JOIN karyawan k ON e.leader_id = k.id
           WHERE e.activity_month = ${effectiveMonth}
+          AND e.status = 'ACTIVE'
           GROUP BY k.site, e.leader_id
         )
         SELECT 
@@ -57,27 +64,48 @@ export async function GET(request: NextRequest) {
       details = await sql`
         WITH hierarchy_targets AS (
           SELECT 
-            k.site,
-            k.departemen as department,
-            k.manager_id as leader_id,
+            m.site,
+            CASE 
+              WHEN m.level IN ('PJO', 'Deputy PJO') THEN 'Operasional'
+              ELSE m.departemen
+            END as department,
+            m.id as leader_id,
             COUNT(*) as target
           FROM karyawan k
+          JOIN karyawan m ON k.manager_id = m.id
           WHERE k.manager_id IS NOT NULL
-          AND k.status = 'AKTIF'
-          AND k.site = ${site}
-          GROUP BY k.site, k.departemen, k.manager_id
+          AND m.site = ${site}
+          AND (
+            m.level != 'Manager' 
+            OR (m.level = 'Manager' AND m.site IN ('Head Office', 'BSF'))
+          )
+          GROUP BY m.site, 
+            CASE 
+              WHEN m.level IN ('PJO', 'Deputy PJO') THEN 'Operasional'
+              ELSE m.departemen
+            END, 
+            m.id
         ),
         evidence_realization AS (
           SELECT 
             k.site,
-            k.departemen as department,
+            CASE 
+              WHEN k.level IN ('PJO', 'Deputy PJO') THEN 'Operasional'
+              ELSE k.departemen
+            END as department,
             e.leader_id,
             COUNT(DISTINCT e.subordinate_id) as realized_subordinates
           FROM tms_leadership_evidence e
           JOIN karyawan k ON e.leader_id = k.id
           WHERE e.activity_month = ${effectiveMonth}
+          AND e.status = 'ACTIVE'
           AND k.site = ${site}
-          GROUP BY k.site, k.departemen, e.leader_id
+          GROUP BY k.site, 
+            CASE 
+              WHEN k.level IN ('PJO', 'Deputy PJO') THEN 'Operasional'
+              ELSE k.departemen
+            END, 
+            e.leader_id
         )
         SELECT 
           ht.site,
@@ -99,18 +127,34 @@ export async function GET(request: NextRequest) {
       details = await sql`
         WITH hierarchy_targets AS (
           SELECT 
-            k.site,
-            k.departemen as department,
-            k.manager_id as leader_id,
-            m.nama as leader_name,
+            m.site,
+            CASE 
+              WHEN m.level IN ('PJO', 'Deputy PJO') THEN 'Operasional'
+              ELSE m.departemen
+            END as department,
+            m.id as leader_id,
+            m.nama_karyawan as leader_name,
             COUNT(*) as target
           FROM karyawan k
           JOIN karyawan m ON k.manager_id = m.id
           WHERE k.manager_id IS NOT NULL
-          AND k.status = 'AKTIF'
-          AND k.site = ${site}
-          AND k.departemen = ${department}
-          GROUP BY k.site, k.departemen, k.manager_id, m.nama
+          AND m.site = ${site}
+          AND (
+            CASE 
+              WHEN m.level IN ('PJO', 'Deputy PJO') THEN 'Operasional'
+              ELSE m.departemen
+            END
+          ) = ${department}
+          AND (
+            m.level != 'Manager' 
+            OR (m.level = 'Manager' AND m.site IN ('Head Office', 'BSF'))
+          )
+          GROUP BY m.site, 
+            CASE 
+              WHEN m.level IN ('PJO', 'Deputy PJO') THEN 'Operasional'
+              ELSE m.departemen
+            END,
+            m.id, m.nama_karyawan
         ),
         evidence_realization AS (
           SELECT 
@@ -119,8 +163,14 @@ export async function GET(request: NextRequest) {
           FROM tms_leadership_evidence e
           JOIN karyawan k ON e.leader_id = k.id
           WHERE e.activity_month = ${effectiveMonth}
+          AND e.status = 'ACTIVE'
           AND k.site = ${site}
-          AND k.departemen = ${department}
+          AND (
+            CASE 
+              WHEN k.level IN ('PJO', 'Deputy PJO') THEN 'Operasional'
+              ELSE k.departemen
+            END
+          ) = ${department}
           GROUP BY e.leader_id
         )
         SELECT 
@@ -140,6 +190,9 @@ export async function GET(request: NextRequest) {
       `
     }
 
+    console.log("[v0] Query result count:", details.length)
+    console.log("[v0] Sample data:", details[0])
+
     // Calculate summary
     const summary = {
       target: details.reduce((sum: number, item: any) => sum + Number(item.target), 0),
@@ -150,6 +203,8 @@ export async function GET(request: NextRequest) {
     if (summary.target > 0) {
       summary.percentage = (summary.realization / summary.target) * 100
     }
+
+    console.log("[v0] Summary:", summary)
 
     return NextResponse.json({
       summary,

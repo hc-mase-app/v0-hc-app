@@ -10,7 +10,7 @@
  * 3. Tinggal pakai!
  */
 
-import { put, del } from "@vercel/blob"
+import { put, del, list } from "@vercel/blob"
 
 export interface BlobUploadResult {
   key: string
@@ -63,6 +63,38 @@ export async function deleteFromBlob(url: string): Promise<void> {
     console.log("[v0] Vercel Blob delete successful:", url)
   } catch (error) {
     console.error("[v0] Vercel Blob delete error:", error)
+    throw error
+  }
+}
+
+/**
+ * List all files in Vercel Blob with optional prefix filter
+ */
+export async function listBlobFiles(prefix?: string): Promise<any[]> {
+  try {
+    const { blobs } = await list({
+      prefix: prefix || "",
+    })
+    return blobs
+  } catch (error) {
+    console.error("[v0] Vercel Blob list error:", error)
+    throw error
+  }
+}
+
+/**
+ * Get total storage usage from Vercel Blob
+ */
+export async function getBlobStorageUsage(): Promise<{ totalSize: number; fileCount: number }> {
+  try {
+    const { blobs } = await list()
+    const totalSize = blobs.reduce((sum, blob) => sum + blob.size, 0)
+    return {
+      totalSize,
+      fileCount: blobs.length,
+    }
+  } catch (error) {
+    console.error("[v0] Vercel Blob storage usage error:", error)
     throw error
   }
 }

@@ -2,7 +2,7 @@
 
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
-import { ArrowLeft, Hammer, Wrench, Cog } from "lucide-react"
+import { ArrowLeft, Hammer, Wrench, Cog, Home } from "lucide-react"
 
 export default function TMSUnderDevelopmentPage() {
   const router = useRouter()
@@ -18,6 +18,18 @@ export default function TMSUnderDevelopmentPage() {
         >
           <ArrowLeft className="h-4 w-4 mr-2" />
           Kembali
+        </Button>
+      </div>
+
+      {/* Home Button */}
+      <div className="absolute top-8 right-8">
+        <Button
+          variant="ghost"
+          onClick={() => router.push("/tms")}
+          className="text-[#D4AF37] hover:text-[#D4AF37] hover:bg-[#1a1a1a] flex items-center gap-2"
+        >
+          <Home className="h-5 w-5" />
+          <span className="text-sm font-medium">Menu Utama</span>
         </Button>
       </div>
 

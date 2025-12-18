@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
-import { ChevronLeft, Target, Calendar, Users, TrendingUp } from "lucide-react"
+import { ChevronLeft, Target, Calendar, Users, TrendingUp, Home } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { useAuth } from "@/lib/auth-context"
@@ -75,19 +75,29 @@ export default function LeadershipActivityPage() {
       {/* Header */}
       <div className="sticky top-0 z-10 bg-[#0a0a0a]/95 backdrop-blur-sm border-b border-[#D4AF37]/20">
         <div className="container mx-auto px-4 py-4">
-          <div className="flex items-center gap-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-4">
+              <Button
+                variant="ghost"
+                onClick={() => router.push("/tms")}
+                className="text-[#D4AF37] hover:text-[#D4AF37]/80 hover:bg-[#D4AF37]/10"
+              >
+                <ChevronLeft className="w-5 h-5 mr-2" />
+                Kembali ke Menu TMS
+              </Button>
+              <div className="flex-1">
+                <h1 className="text-2xl font-bold text-[#D4AF37]">Leadership Activity</h1>
+                <p className="text-sm text-gray-400">Kelola target aktivitas kepemimpinan</p>
+              </div>
+            </div>
             <Button
               variant="ghost"
               onClick={() => router.push("/tms")}
-              className="text-[#D4AF37] hover:text-[#D4AF37]/80 hover:bg-[#D4AF37]/10"
+              className="text-[#D4AF37] hover:bg-[#D4AF37]/10 flex items-center gap-2"
             >
-              <ChevronLeft className="w-5 h-5 mr-2" />
-              Kembali ke Menu TMS
+              <Home className="w-5 h-5" />
+              <span className="text-sm font-medium">Menu Utama</span>
             </Button>
-            <div className="flex-1">
-              <h1 className="text-2xl font-bold text-[#D4AF37]">Leadership Activity</h1>
-              <p className="text-sm text-gray-400">Kelola target aktivitas kepemimpinan</p>
-            </div>
           </div>
         </div>
       </div>

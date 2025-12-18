@@ -2,10 +2,22 @@
 
 import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
-import { ChevronLeft, BarChart3, Target, TrendingUp, ChevronRight, Calendar } from "lucide-react"
+import {
+  ChevronLeft,
+  BarChart3,
+  Target,
+  TrendingUp,
+  ChevronRight,
+  Calendar,
+  Home,
+  Users,
+  CheckCircle2,
+  XCircle,
+} from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 
 interface MonitoringData {
   site: string
@@ -17,6 +29,16 @@ interface MonitoringData {
   percentage: number
 }
 
+interface Subordinate {
+  id: string
+  nrp: string // Changed from nik to nrp to match database schema
+  nama_karyawan: string
+  departemen: string
+  level: string
+  has_evidence: boolean
+  evidence_count: number
+}
+
 type ViewMode = "site" | "department" | "individual"
 
 export default function TmsMonitoringPage() {
@@ -26,6 +48,11 @@ export default function TmsMonitoringPage() {
   // Data
   const [monitoringData, setMonitoringData] = useState<MonitoringData[]>([])
   const [summary, setSummary] = useState({ target: 0, realization: 0, percentage: 0 })
+
+  const [showSubordinatesModal, setShowSubordinatesModal] = useState(false)
+  const [selectedLeader, setSelectedLeader] = useState<MonitoringData | null>(null)
+  const [subordinates, setSubordinates] = useState<Subordinate[]>([])
+  const [loadingSubordinates, setLoadingSubordinates] = useState(false)
 
   // Filters & Navigation
   const [selectedMonth, setSelectedMonth] = useState<string>("")
@@ -72,13 +99,46 @@ export default function TmsMonitoringPage() {
       const response = await fetch(url)
       if (response.ok) {
         const data = await response.json()
-        setMonitoringData(data.details || [])
-        setSummary(data.summary || { target: 0, realization: 0, percentage: 0 })
+        const details = (data.details || []).map((item: any) => ({
+          ...item,
+          percentage: typeof item.percentage === "string" ? Number.parseFloat(item.percentage) : item.percentage,
+          target: Number(item.target),
+          realization: Number(item.realization),
+        }))
+        setMonitoringData(details)
+        setSummary({
+          target: Number(data.summary?.target || 0),
+          realization: Number(data.summary?.realization || 0),
+          percentage: Number(data.summary?.percentage || 0),
+        })
       }
     } catch (error) {
       console.error("[v0] Load monitoring data error:", error)
     } finally {
       setIsLoading(false)
+    }
+  }
+
+  const loadSubordinatesDetail = async (leader: MonitoringData) => {
+    if (!leader.leader_id) return
+
+    try {
+      setLoadingSubordinates(true)
+      setSelectedLeader(leader)
+      setShowSubordinatesModal(true)
+
+      const response = await fetch(
+        `/api/tms/monitoring/subordinates?leaderId=${leader.leader_id}&month=${selectedMonth}`,
+      )
+
+      if (response.ok) {
+        const data = await response.json()
+        setSubordinates(data.subordinates || [])
+      }
+    } catch (error) {
+      console.error("[v0] Load subordinates error:", error)
+    } finally {
+      setLoadingSubordinates(false)
     }
   }
 
@@ -107,6 +167,21 @@ export default function TmsMonitoringPage() {
     } else if (viewMode === "department" && item.department) {
       setSelectedDepartment(item.department)
       setViewMode("individual")
+    }
+  }
+
+  const handleBackNavigation = () => {
+    if (viewMode === "individual") {
+      // From individual view, go back to department view
+      setViewMode("department")
+      setSelectedDepartment(null)
+    } else if (viewMode === "department") {
+      // From department view, go back to site view
+      setViewMode("site")
+      setSelectedSite(null)
+    } else {
+      // From site view, go back to TMS main menu
+      router.push("/tms")
     }
   }
 
@@ -143,7 +218,7 @@ export default function TmsMonitoringPage() {
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
               <button
-                onClick={() => router.push("/tms")}
+                onClick={handleBackNavigation}
                 className="text-[#D4AF37] hover:text-[#D4AF37]/80 transition-colors"
               >
                 <ChevronLeft className="w-6 h-6" />
@@ -153,7 +228,16 @@ export default function TmsMonitoringPage() {
                 <p className="text-sm text-gray-400">Monitoring pencapaian target leadership bulanan</p>
               </div>
             </div>
-            <BarChart3 className="w-8 h-8 text-[#D4AF37]" />
+            <div className="flex items-center gap-3">
+              <button
+                onClick={() => router.push("/tms")}
+                className="flex items-center gap-2 text-[#D4AF37] hover:text-[#D4AF37]/80 transition-colors px-3 py-2 hover:bg-[#D4AF37]/10 rounded-lg"
+              >
+                <Home className="w-5 h-5" />
+                <span className="text-sm font-medium">Menu Utama</span>
+              </button>
+              <BarChart3 className="w-8 h-8 text-[#D4AF37]" />
+            </div>
           </div>
         </div>
       </div>
@@ -259,7 +343,9 @@ export default function TmsMonitoringPage() {
               {viewMode === "individual" && `Monitoring Individual - ${selectedDepartment}`}
             </CardTitle>
             <CardDescription className="text-gray-400">
-              Klik pada baris untuk melihat detail lebih lanjut
+              {viewMode === "individual"
+                ? "Klik pada target untuk melihat detail bawahan langsung"
+                : "Klik pada baris untuk melihat detail lebih lanjut"}
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -276,9 +362,7 @@ export default function TmsMonitoringPage() {
                     <th className="text-center py-3 px-4 text-sm font-semibold text-[#D4AF37]">Realisasi</th>
                     <th className="text-center py-3 px-4 text-sm font-semibold text-[#D4AF37]">Persentase</th>
                     <th className="text-center py-3 px-4 text-sm font-semibold text-[#D4AF37]">Status</th>
-                    {viewMode !== "individual" && (
-                      <th className="text-center py-3 px-4 text-sm font-semibold text-[#D4AF37]">Aksi</th>
-                    )}
+                    <th className="text-center py-3 px-4 text-sm font-semibold text-[#D4AF37]">Aksi</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -289,7 +373,18 @@ export default function TmsMonitoringPage() {
                         {viewMode === "department" && item.department}
                         {viewMode === "individual" && item.leader_name}
                       </td>
-                      <td className="py-3 px-4 text-center text-white">{item.target}</td>
+                      <td className="py-3 px-4 text-center text-white">
+                        {viewMode === "individual" ? (
+                          <button
+                            onClick={() => loadSubordinatesDetail(item)}
+                            className="text-[#D4AF37] hover:text-[#D4AF37]/80 font-semibold underline decoration-dotted"
+                          >
+                            {item.target}
+                          </button>
+                        ) : (
+                          item.target
+                        )}
+                      </td>
                       <td className="py-3 px-4 text-center text-white">{item.realization}</td>
                       <td className={`py-3 px-4 text-center font-bold ${getStatusColor(item.percentage)}`}>
                         {item.percentage.toFixed(1)}%
@@ -301,8 +396,17 @@ export default function TmsMonitoringPage() {
                           {getStatusLabel(item.percentage)}
                         </span>
                       </td>
-                      {viewMode !== "individual" && (
-                        <td className="py-3 px-4 text-center">
+                      <td className="py-3 px-4 text-center">
+                        {viewMode === "individual" ? (
+                          <Button
+                            size="sm"
+                            onClick={() => loadSubordinatesDetail(item)}
+                            className="bg-[#D4AF37] text-black hover:bg-[#D4AF37]/90"
+                          >
+                            <Users className="w-4 h-4 mr-1" />
+                            Bawahan
+                          </Button>
+                        ) : (
                           <Button
                             size="sm"
                             onClick={() => handleDrillDown(item)}
@@ -311,13 +415,13 @@ export default function TmsMonitoringPage() {
                             Detail
                             <ChevronRight className="w-4 h-4 ml-1" />
                           </Button>
-                        </td>
-                      )}
+                        )}
+                      </td>
                     </tr>
                   ))}
                   {monitoringData.length === 0 && (
                     <tr>
-                      <td colSpan={viewMode !== "individual" ? 6 : 5} className="py-8 text-center text-gray-500">
+                      <td colSpan={6} className="py-8 text-center text-gray-500">
                         Tidak ada data untuk periode ini
                       </td>
                     </tr>
@@ -328,6 +432,82 @@ export default function TmsMonitoringPage() {
           </CardContent>
         </Card>
       </div>
+
+      <Dialog open={showSubordinatesModal} onOpenChange={setShowSubordinatesModal}>
+        <DialogContent className="bg-[#1a1a1a] border-[#D4AF37]/30 text-white max-w-3xl">
+          <DialogHeader>
+            <DialogTitle className="text-xl font-bold text-[#D4AF37] flex items-center gap-2">
+              <Users className="w-6 h-6" />
+              Detail Bawahan Langsung
+            </DialogTitle>
+            <DialogDescription className="text-gray-400">
+              {selectedLeader?.leader_name} - Target: {selectedLeader?.target} | Realisasi:{" "}
+              {selectedLeader?.realization}
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="mt-4">
+            {loadingSubordinates ? (
+              <div className="text-center py-8 text-gray-400">Memuat data bawahan...</div>
+            ) : (
+              <div className="space-y-3 max-h-[500px] overflow-y-auto">
+                {subordinates.map((sub, index) => (
+                  <div
+                    key={sub.id}
+                    className={`p-4 rounded-lg border ${
+                      sub.has_evidence ? "bg-green-500/5 border-green-500/30" : "bg-red-500/5 border-red-500/30"
+                    }`}
+                  >
+                    <div className="flex items-start justify-between">
+                      <div className="flex-1">
+                        <div className="flex items-center gap-3">
+                          <span className="text-sm font-semibold text-gray-400">#{index + 1}</span>
+                          <div>
+                            <h4 className="font-semibold text-white">{sub.nama_karyawan}</h4>
+                            <p className="text-sm text-gray-400">NRP: {sub.nrp}</p>
+                          </div>
+                        </div>
+                        <div className="mt-2 flex flex-wrap gap-2">
+                          <span className="text-xs px-2 py-1 rounded bg-[#D4AF37]/10 text-[#D4AF37] border border-[#D4AF37]/30">
+                            {sub.level}
+                          </span>
+                          <span className="text-xs px-2 py-1 rounded bg-blue-500/10 text-blue-400 border border-blue-500/30">
+                            {sub.departemen}
+                          </span>
+                          {sub.has_evidence && (
+                            <span className="text-xs px-2 py-1 rounded bg-green-500/10 text-green-400 border border-green-500/30">
+                              {sub.evidence_count} Evidence
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                      <div>
+                        {sub.has_evidence ? (
+                          <CheckCircle2 className="w-6 h-6 text-green-500" />
+                        ) : (
+                          <XCircle className="w-6 h-6 text-red-500" />
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+                {subordinates.length === 0 && (
+                  <div className="text-center py-8 text-gray-500">Tidak ada data bawahan</div>
+                )}
+              </div>
+            )}
+          </div>
+
+          <div className="mt-6 flex justify-end">
+            <Button
+              onClick={() => setShowSubordinatesModal(false)}
+              className="bg-[#D4AF37] text-black hover:bg-[#D4AF37]/90"
+            >
+              Tutup
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

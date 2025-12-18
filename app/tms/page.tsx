@@ -1,7 +1,7 @@
 "use client"
 
 import { useRouter } from "next/navigation"
-import { ChevronLeft, Users, Upload, BarChart3, Lock, Target } from "lucide-react"
+import { ChevronLeft, Users, Upload, BarChart3, Lock, Target, ArchiveIcon } from "lucide-react"
 import { useAuth } from "@/lib/auth-context"
 
 export default function TmsPage() {
@@ -16,14 +16,6 @@ export default function TmsPage() {
       href: "/leadership-activity",
     },
     {
-      title: "Manajemen Hierarki",
-      description: "Kelola atasan & bawahan langsung",
-      icon: Users,
-      href: "/tms/hierarchy",
-      restricted: true,
-      allowedRoles: ["super_admin"],
-    },
-    {
       title: "Upload Evidence",
       description: "Upload bukti aktivitas kepemimpinan",
       icon: Upload,
@@ -34,6 +26,22 @@ export default function TmsPage() {
       description: "Monitor target vs realisasi",
       icon: BarChart3,
       href: "/tms/monitoring",
+    },
+    {
+      title: "Archive Evidence",
+      description: "Download & hapus evidence lama",
+      icon: ArchiveIcon,
+      href: "/tms/archive",
+      restricted: true,
+      allowedRoles: ["super_admin"],
+    },
+    {
+      title: "Manajemen Hierarki",
+      description: "Kelola atasan & bawahan langsung",
+      icon: Users,
+      href: "/tms/hierarchy",
+      restricted: true,
+      allowedRoles: ["super_admin"],
     },
   ]
 
