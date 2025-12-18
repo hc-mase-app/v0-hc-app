@@ -65,10 +65,12 @@ export async function GET(request: NextRequest) {
         WITH hierarchy_targets AS (
           SELECT 
             m.site,
-            CASE 
-              WHEN m.level IN ('PJO', 'Deputy PJO') THEN 'Operasional'
-              ELSE m.departemen
-            END as department,
+            UPPER(
+              CASE 
+                WHEN m.level IN ('PJO', 'Deputy PJO') THEN 'Operasional'
+                ELSE m.departemen
+              END
+            ) as department,
             m.id as leader_id,
             COUNT(*) as target
           FROM karyawan k
@@ -80,19 +82,23 @@ export async function GET(request: NextRequest) {
             OR (m.level = 'Manager' AND m.site IN ('Head Office', 'BSF'))
           )
           GROUP BY m.site, 
-            CASE 
-              WHEN m.level IN ('PJO', 'Deputy PJO') THEN 'Operasional'
-              ELSE m.departemen
-            END, 
+            UPPER(
+              CASE 
+                WHEN m.level IN ('PJO', 'Deputy PJO') THEN 'Operasional'
+                ELSE m.departemen
+              END
+            ), 
             m.id
         ),
         evidence_realization AS (
           SELECT 
             k.site,
-            CASE 
-              WHEN k.level IN ('PJO', 'Deputy PJO') THEN 'Operasional'
-              ELSE k.departemen
-            END as department,
+            UPPER(
+              CASE 
+                WHEN k.level IN ('PJO', 'Deputy PJO') THEN 'Operasional'
+                ELSE k.departemen
+              END
+            ) as department,
             e.leader_id,
             COUNT(DISTINCT e.subordinate_id) as realized_subordinates
           FROM tms_leadership_evidence e
@@ -101,10 +107,12 @@ export async function GET(request: NextRequest) {
           AND e.status = 'ACTIVE'
           AND k.site = ${site}
           GROUP BY k.site, 
-            CASE 
-              WHEN k.level IN ('PJO', 'Deputy PJO') THEN 'Operasional'
-              ELSE k.departemen
-            END, 
+            UPPER(
+              CASE 
+                WHEN k.level IN ('PJO', 'Deputy PJO') THEN 'Operasional'
+                ELSE k.departemen
+              END
+            ), 
             e.leader_id
         )
         SELECT 
@@ -128,10 +136,12 @@ export async function GET(request: NextRequest) {
         WITH hierarchy_targets AS (
           SELECT 
             m.site,
-            CASE 
-              WHEN m.level IN ('PJO', 'Deputy PJO') THEN 'Operasional'
-              ELSE m.departemen
-            END as department,
+            UPPER(
+              CASE 
+                WHEN m.level IN ('PJO', 'Deputy PJO') THEN 'Operasional'
+                ELSE m.departemen
+              END
+            ) as department,
             m.id as leader_id,
             m.nama_karyawan as leader_name,
             COUNT(*) as target
@@ -139,21 +149,23 @@ export async function GET(request: NextRequest) {
           JOIN karyawan m ON k.manager_id = m.id
           WHERE k.manager_id IS NOT NULL
           AND m.site = ${site}
-          AND (
+          AND UPPER(
             CASE 
               WHEN m.level IN ('PJO', 'Deputy PJO') THEN 'Operasional'
               ELSE m.departemen
             END
-          ) = ${department}
+          ) = UPPER(${department})
           AND (
             m.level != 'Manager' 
             OR (m.level = 'Manager' AND m.site IN ('Head Office', 'BSF'))
           )
           GROUP BY m.site, 
-            CASE 
-              WHEN m.level IN ('PJO', 'Deputy PJO') THEN 'Operasional'
-              ELSE m.departemen
-            END,
+            UPPER(
+              CASE 
+                WHEN m.level IN ('PJO', 'Deputy PJO') THEN 'Operasional'
+                ELSE m.departemen
+              END
+            ),
             m.id, m.nama_karyawan
         ),
         evidence_realization AS (
@@ -165,12 +177,12 @@ export async function GET(request: NextRequest) {
           WHERE e.activity_month = ${effectiveMonth}
           AND e.status = 'ACTIVE'
           AND k.site = ${site}
-          AND (
+          AND UPPER(
             CASE 
               WHEN k.level IN ('PJO', 'Deputy PJO') THEN 'Operasional'
               ELSE k.departemen
             END
-          ) = ${department}
+          ) = UPPER(${department})
           GROUP BY e.leader_id
         )
         SELECT 
