@@ -1,7 +1,7 @@
 "use client"
 
 import { useRouter } from "next/navigation"
-import { ChevronLeft, Users, Upload, BarChart3, Lock } from "lucide-react"
+import { ChevronLeft, Users, Upload, BarChart3, Lock, Target } from "lucide-react"
 import { useAuth } from "@/lib/auth-context"
 
 export default function TmsPage() {
@@ -9,6 +9,12 @@ export default function TmsPage() {
   const { user } = useAuth()
 
   const menus = [
+    {
+      title: "Leadership Activity",
+      description: "Kelola target aktivitas kepemimpinan",
+      icon: Target,
+      href: "/leadership-activity",
+    },
     {
       title: "Manajemen Hierarki",
       description: "Kelola atasan & bawahan langsung",
@@ -46,25 +52,27 @@ export default function TmsPage() {
   }
 
   return (
-    <div className="min-h-screen bg-[#0a0a0a]">
-      {/* Header */}
-      <div className="sticky top-0 z-10 bg-[#0a0a0a]/95 backdrop-blur-sm border-b border-[#D4AF37]/20">
-        <div className="container mx-auto px-4 py-4">
-          <div className="flex items-center gap-4">
-            <button onClick={() => router.back()} className="text-[#D4AF37] hover:text-[#D4AF37]/80 transition-colors">
-              <ChevronLeft className="w-6 h-6" />
-            </button>
-            <div>
-              <h1 className="text-2xl font-bold text-[#D4AF37]">TMS</h1>
-              <p className="text-sm text-gray-400">Target Monitoring System</p>
-            </div>
-          </div>
-        </div>
-      </div>
+    <div className="min-h-screen bg-[#0a0a0a] dark flex flex-col">
+      {/* Header - Back Button */}
+      <header className="absolute top-4 left-4">
+        <button
+          onClick={() => router.push("/")}
+          className="w-10 h-10 rounded-lg bg-[#1a1a1a] border border-[#D4AF37]/30 flex items-center justify-center text-[#D4AF37] hover:bg-[#D4AF37] hover:text-black transition-colors"
+        >
+          <ChevronLeft className="w-5 h-5" />
+        </button>
+      </header>
 
       {/* Main Content */}
-      <div className="container mx-auto px-4 py-12">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-5xl mx-auto">
+      <main className="flex-1 flex flex-col items-center justify-center px-4 py-12">
+        {/* Title */}
+        <div className="mb-16 text-center">
+          <h1 className="text-4xl md:text-5xl font-bold text-[#D4AF37] mb-2">LEADTMS</h1>
+          <p className="text-gray-400 text-sm md:text-base">Leadership Activity & Target Monitoring System</p>
+        </div>
+
+        {/* Menu Cards Grid */}
+        <div className="grid grid-cols-2 md:grid-cols-3 gap-6 md:gap-8 max-w-4xl w-full px-4">
           {menus.map((menu) => {
             const Icon = menu.icon
             const locked = !hasAccess(menu)
@@ -73,36 +81,77 @@ export default function TmsPage() {
               <button
                 key={menu.title}
                 onClick={() => handleMenuClick(menu)}
-                className={`group flex flex-col items-center gap-4 p-8 rounded-2xl border-2 transition-all duration-300 ${
-                  locked
-                    ? "border-gray-600/30 bg-gray-900/20 cursor-not-allowed opacity-60"
-                    : "border-[#D4AF37]/30 hover:border-[#D4AF37] hover:bg-[#D4AF37]/5 active:scale-95"
+                disabled={locked}
+                className={`group flex flex-col items-center gap-3 transition-all duration-300 ${
+                  locked ? "opacity-40 cursor-not-allowed" : "active:scale-95"
                 }`}
               >
-                <div
-                  className={`w-16 h-16 rounded-2xl flex items-center justify-center transition-all duration-300 relative ${
-                    locked ? "bg-gray-700/20" : "bg-[#D4AF37]/10 group-hover:bg-[#D4AF37]/20"
-                  }`}
-                >
-                  <Icon className={`w-8 h-8 ${locked ? "text-gray-500" : "text-[#D4AF37]"}`} />
+                <div className="relative">
+                  {/* Glow Effect */}
+                  <div
+                    className={`absolute inset-0 rounded-[22%] ${
+                      locked ? "bg-gray-500" : "bg-[#D4AF37]"
+                    } opacity-10 blur-xl transition-all duration-300 ${
+                      locked ? "" : "group-hover:opacity-30 group-hover:blur-2xl"
+                    }`}
+                  ></div>
+
+                  {/* Icon Container */}
+                  <div
+                    className={`relative w-20 h-20 md:w-24 md:h-24 rounded-[22%] 
+                    bg-gradient-to-br from-[#1a1a1a] via-[#0a0a0a] to-[#1a1a1a]
+                    flex items-center justify-center 
+                    ${
+                      locked
+                        ? "shadow-[0_0_10px_rgba(100,100,100,0.2)] border-2 border-gray-600/30"
+                        : "shadow-[0_0_20px_rgba(212,175,55,0.3),0_8px_16px_rgba(0,0,0,0.6)] border-2 border-[#D4AF37]/30 hover:border-[#D4AF37] hover:shadow-[0_0_40px_rgba(212,175,55,0.6),0_12px_24px_rgba(0,0,0,0.7)]"
+                    }
+                    transition-all duration-300 ${locked ? "" : "group-hover:scale-105"}`}
+                  >
+                    {/* Inner Gradient Overlay */}
+                    <div className="absolute inset-0 rounded-[22%] bg-gradient-to-b from-white/3 via-transparent to-transparent"></div>
+
+                    {/* Icon */}
+                    <Icon
+                      className={`relative w-10 h-10 md:w-12 md:h-12 ${
+                        locked ? "text-gray-600" : "text-[#D4AF37]"
+                      } drop-shadow-[0_0_6px_rgba(212,175,55,0.6)] ${
+                        locked ? "" : "group-hover:drop-shadow-[0_0_10px_rgba(212,175,55,0.9)]"
+                      } transition-all duration-300`}
+                      strokeWidth={1.8}
+                    />
+                  </div>
+
+                  {/* Lock Badge */}
                   {locked && (
-                    <div className="absolute -top-2 -right-2 bg-red-500 rounded-full p-1">
-                      <Lock className="w-3 h-3 text-white" />
+                    <div className="absolute -top-1 -right-1 w-6 h-6 bg-red-500 rounded-full flex items-center justify-center shadow-lg border border-red-600">
+                      <Lock className="w-3.5 h-3.5 text-white" strokeWidth={2.5} />
                     </div>
                   )}
                 </div>
-                <div className="text-center">
-                  <h3 className={`text-lg font-semibold mb-2 ${locked ? "text-gray-500" : "text-white"}`}>
-                    {menu.title}
-                  </h3>
-                  <p className="text-sm text-gray-400">{menu.description}</p>
-                  {locked && <p className="text-xs text-red-400 mt-2">Khusus Admin Master</p>}
-                </div>
+
+                {/* Menu Title */}
+                <h3
+                  className={`text-xs md:text-sm font-normal text-center max-w-[100px] md:max-w-[120px] leading-tight transition-colors duration-300 ${
+                    locked ? "text-gray-600" : "text-white group-hover:text-[#D4AF37]"
+                  }`}
+                >
+                  {menu.title}
+                  <span className={`block text-[10px] mt-0.5 font-light ${locked ? "text-gray-700" : "text-gray-500"}`}>
+                    {menu.description}
+                  </span>
+                  {locked && <span className="block text-[9px] text-red-400 mt-1">Khusus Admin Master</span>}
+                </h3>
               </button>
             )
           })}
         </div>
-      </div>
+      </main>
+
+      {/* Footer */}
+      <footer className="py-6 text-center">
+        <p className="text-[#666666] text-sm">© 2025 Yan Firdaus | HCD | HCGA | PT SSS - PT GSM</p>
+      </footer>
     </div>
   )
 }

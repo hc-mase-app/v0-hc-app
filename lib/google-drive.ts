@@ -51,14 +51,17 @@ export async function uploadToGoogleDrive(file: File, folderPath: string): Promi
       buffer.toString("base64") +
       closeDelimiter
 
-    const response = await fetch("https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${jwtToken}`,
-        "Content-Type": `multipart/related; boundary=${boundary}`,
+    const response = await fetch(
+      "https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&supportsAllDrives=true",
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${jwtToken}`,
+          "Content-Type": `multipart/related; boundary=${boundary}`,
+        },
+        body: multipartRequestBody,
       },
-      body: multipartRequestBody,
-    })
+    )
 
     if (!response.ok) {
       const error = await response.text()
@@ -67,8 +70,7 @@ export async function uploadToGoogleDrive(file: File, folderPath: string): Promi
 
     const result = await response.json()
 
-    // Set file permissions to anyone with link can view
-    await fetch(`https://www.googleapis.com/drive/v3/files/${result.id}/permissions`, {
+    await fetch(`https://www.googleapis.com/drive/v3/files/${result.id}/permissions?supportsAllDrives=true`, {
       method: "POST",
       headers: {
         Authorization: `Bearer ${jwtToken}`,
@@ -149,9 +151,8 @@ async function ensureFolderStructure(accessToken: string, parentFolderId: string
   let currentParentId = parentFolderId
 
   for (const folderName of folders) {
-    // Check if folder exists
     const searchResponse = await fetch(
-      `https://www.googleapis.com/drive/v3/files?q=name='${folderName}' and '${currentParentId}' in parents and mimeType='application/vnd.google-apps.folder' and trashed=false`,
+      `https://www.googleapis.com/drive/v3/files?q=name='${folderName}' and '${currentParentId}' in parents and mimeType='application/vnd.google-apps.folder' and trashed=false&supportsAllDrives=true&includeItemsFromAllDrives=true`,
       {
         headers: {
           Authorization: `Bearer ${accessToken}`,
@@ -165,8 +166,7 @@ async function ensureFolderStructure(accessToken: string, parentFolderId: string
       // Folder exists
       currentParentId = searchData.files[0].id
     } else {
-      // Create folder
-      const createResponse = await fetch("https://www.googleapis.com/drive/v3/files", {
+      const createResponse = await fetch("https://www.googleapis.com/drive/v3/files?supportsAllDrives=true", {
         method: "POST",
         headers: {
           Authorization: `Bearer ${accessToken}`,

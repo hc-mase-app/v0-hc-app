@@ -2,8 +2,8 @@
 
 import type React from "react"
 import { Button } from "@/components/ui/button"
-import { ArrowLeft, X, Edit, Loader2, Save, FolderOpen, Trash2 } from 'lucide-react'
-import { useRouter } from 'next/navigation'
+import { ArrowLeft, X, Edit, Loader2, Save, FolderOpen, Trash2 } from "lucide-react"
+import { useRouter } from "next/navigation"
 import { useState, useEffect } from "react"
 import Image from "next/image"
 import { SignatureModal } from "@/components/signature-modal"
@@ -67,7 +67,7 @@ export default function LeadershipActivityPage() {
       pjo: { ...prev.pjo, tanggal: today },
       hcga: { ...prev.hcga, tanggal: today },
     }))
-    
+
     loadAllDrafts()
   }, [])
 
@@ -132,7 +132,7 @@ export default function LeadershipActivityPage() {
       return
     }
 
-    const hasSignature = Object.values(signatures).some(sig => sig.data !== null)
+    const hasSignature = Object.values(signatures).some((sig) => sig.data !== null)
     if (!hasSignature) {
       alert("Minimal harus ada 1 tanda tangan")
       return
@@ -150,20 +150,20 @@ export default function LeadershipActivityPage() {
 
     try {
       console.log("[v0] Starting PDF generation...")
-      
+
       let logoDataURL = null
       const logoSrc = companyLogos[selectedCompany as keyof typeof companyLogos]
       if (logoSrc) {
         try {
           const response = await fetch(logoSrc)
-          if (!response.ok) throw new Error('Logo fetch failed')
-          
+          if (!response.ok) throw new Error("Logo fetch failed")
+
           const blob = await response.blob()
-          
+
           if (blob.size > 100 * 1024) {
-            console.warn('[v0] Logo size large:', blob.size, 'bytes')
+            console.warn("[v0] Logo size large:", blob.size, "bytes")
           }
-          
+
           logoDataURL = await new Promise<string>((resolve, reject) => {
             const reader = new FileReader()
             reader.onloadend = () => resolve(reader.result as string)
@@ -175,11 +175,11 @@ export default function LeadershipActivityPage() {
         }
       }
 
-      let processedPhotoData = photoData
+      const processedPhotoData = photoData
       let photoDimensions = null
       if (photoData) {
         try {
-          const img = document.createElement('img')
+          const img = document.createElement("img")
           await new Promise<void>((resolve, reject) => {
             img.onload = () => {
               photoDimensions = { width: img.width, height: img.height }
@@ -192,14 +192,14 @@ export default function LeadershipActivityPage() {
         } catch (e) {
           console.error("[v0] Error getting photo dimensions:", e)
         }
-        
+
         if (photoData.length > 500 * 1024) {
-          console.warn('[v0] Photo size large, may affect performance on mobile')
+          console.warn("[v0] Photo size large, may affect performance on mobile")
         }
       }
 
       console.log("[v0] Sending PDF generation request...")
-      
+
       const response = await fetch("/api/pdf/leadership-activity", {
         method: "POST",
         headers: {
@@ -219,38 +219,40 @@ export default function LeadershipActivityPage() {
       console.log("[v0] PDF response status:", response.status)
 
       if (!response.ok) {
-        const errorData = await response.json().catch(() => ({ message: 'Server error' }))
+        const errorData = await response.json().catch(() => ({ message: "Server error" }))
         throw new Error(errorData.message || "Failed to generate PDF")
       }
 
       const contentDisposition = response.headers.get("Content-Disposition")
       const filenameMatch = contentDisposition?.match(/filename="(.+)"/)
-      const filename = filenameMatch ? filenameMatch[1] : `Leadership_Activity_${formData.nama.replace(/[^a-zA-Z0-9]/g, '_')}_${new Date().toISOString().split('T')[0]}.pdf`
+      const filename = filenameMatch
+        ? filenameMatch[1]
+        : `Leadership_Activity_${formData.nama.replace(/[^a-zA-Z0-9]/g, "_")}_${new Date().toISOString().split("T")[0]}.pdf`
 
       const blob = await response.blob()
       console.log("[v0] PDF blob size:", blob.size, "bytes")
-      
+
       if (blob.size === 0) {
-        throw new Error('Generated PDF is empty')
+        throw new Error("Generated PDF is empty")
       }
-      
+
       objectUrl = window.URL.createObjectURL(blob)
       const a = document.createElement("a")
       a.style.display = "none"
       a.href = objectUrl
       a.download = filename
-      
+
       document.body.appendChild(a)
-      
+
       try {
         a.click()
         console.log("[v0] PDF download initiated successfully")
       } catch (e) {
         console.error("[v0] Click download failed, trying alternative:", e)
-        window.open(objectUrl, '_blank')
+        window.open(objectUrl, "_blank")
         console.log("[v0] PDF opened in new tab for manual download")
       }
-      
+
       setTimeout(() => {
         if (objectUrl) {
           window.URL.revokeObjectURL(objectUrl)
@@ -261,20 +263,20 @@ export default function LeadershipActivityPage() {
       alert("PDF berhasil didownload! Cek folder Download Anda.")
     } catch (error) {
       console.error("[v0] Error exporting PDF:", error)
-      
-      let errorMessage = 'Terjadi kesalahan saat membuat PDF'
+
+      let errorMessage = "Terjadi kesalahan saat membuat PDF"
       if (error instanceof Error) {
-        if (error.message.includes('fetch')) {
-          errorMessage = 'Koneksi ke server gagal. Periksa koneksi internet Anda.'
-        } else if (error.message.includes('empty')) {
-          errorMessage = 'PDF yang dihasilkan kosong. Silakan coba lagi.'
+        if (error.message.includes("fetch")) {
+          errorMessage = "Koneksi ke server gagal. Periksa koneksi internet Anda."
+        } else if (error.message.includes("empty")) {
+          errorMessage = "PDF yang dihasilkan kosong. Silakan coba lagi."
         } else {
           errorMessage = error.message
         }
       }
-      
+
       alert(`Gagal export ke PDF: ${errorMessage}`)
-      
+
       if (objectUrl) {
         window.URL.revokeObjectURL(objectUrl)
       }
@@ -311,13 +313,13 @@ export default function LeadershipActivityPage() {
     const reader = new FileReader()
     reader.onload = (event) => {
       const dataUrl = event.target?.result as string
-      
-      const img = document.createElement('img')
+
+      const img = document.createElement("img")
       img.onload = () => {
-        const canvas = document.createElement('canvas')
+        const canvas = document.createElement("canvas")
         let width = img.width
         let height = img.height
-        
+
         const maxDimension = 1920
         if (width > maxDimension || height > maxDimension) {
           if (width > height) {
@@ -328,13 +330,13 @@ export default function LeadershipActivityPage() {
             height = maxDimension
           }
         }
-        
+
         canvas.width = width
         canvas.height = height
-        const ctx = canvas.getContext('2d')
+        const ctx = canvas.getContext("2d")
         if (ctx) {
           ctx.drawImage(img, 0, 0, width, height)
-          const compressedDataUrl = canvas.toDataURL('image/jpeg', 0.8)
+          const compressedDataUrl = canvas.toDataURL("image/jpeg", 0.8)
           setPhotoData(compressedDataUrl)
           setPhotoError("")
         }
@@ -349,8 +351,11 @@ export default function LeadershipActivityPage() {
   }
 
   const handleSaveData = () => {
-    const name = prompt("Nama draft (contoh: NIK - Nama Karyawan):", formData.nik && formData.nama ? `${formData.nik} - ${formData.nama}` : "")
-    
+    const name = prompt(
+      "Nama draft (contoh: NIK - Nama Karyawan):",
+      formData.nik && formData.nama ? `${formData.nik} - ${formData.nama}` : "",
+    )
+
     if (!name || !name.trim()) {
       alert("Nama draft tidak boleh kosong")
       return
@@ -358,7 +363,7 @@ export default function LeadershipActivityPage() {
 
     try {
       setIsSaving(true)
-      
+
       const newDraft: SavedDraft = {
         id: Date.now().toString(),
         name: name.trim(),
@@ -367,15 +372,15 @@ export default function LeadershipActivityPage() {
         formData,
         signatures,
         photoData,
-        savedAt: new Date().toISOString()
+        savedAt: new Date().toISOString(),
       }
-      
+
       const existingDrafts = loadAllDraftsFromStorage()
       const updatedDrafts = [...existingDrafts, newDraft]
-      
-      localStorage.setItem('leadershipActivityDrafts', JSON.stringify(updatedDrafts))
+
+      localStorage.setItem("leadershipActivityDrafts", JSON.stringify(updatedDrafts))
       setSavedDrafts(updatedDrafts)
-      
+
       setTimeout(() => {
         setIsSaving(false)
         alert(`Draft "${name}" berhasil disimpan!`)
@@ -389,7 +394,7 @@ export default function LeadershipActivityPage() {
 
   const loadAllDraftsFromStorage = (): SavedDraft[] => {
     try {
-      const savedDataString = localStorage.getItem('leadershipActivityDrafts')
+      const savedDataString = localStorage.getItem("leadershipActivityDrafts")
       if (savedDataString) {
         return JSON.parse(savedDataString)
       }
@@ -408,26 +413,30 @@ export default function LeadershipActivityPage() {
     if (confirm(`Memuat draft "${draft.name}" akan mengganti data yang sedang diisi. Lanjutkan?`)) {
       setSelectedCompany(draft.selectedCompany || "")
       setActivities(draft.activities || [])
-      setFormData(draft.formData || {
-        nik: "",
-        departemen: "",
-        nama: "",
-        lokasi: "",
-        jabatan: "",
-        tanggal_masuk: "",
-        masalah: "",
-        tindak_lanjut: "",
-        komitmen: "",
-        catatan: "",
-      })
-      setSignatures(draft.signatures || {
-        atasan: { data: null, nama: "", tanggal: "" },
-        karyawan: { data: null, nama: "", tanggal: "" },
-        pjo: { data: null, nama: "", tanggal: "" },
-        hcga: { data: null, nama: "", tanggal: "" },
-      })
+      setFormData(
+        draft.formData || {
+          nik: "",
+          departemen: "",
+          nama: "",
+          lokasi: "",
+          jabatan: "",
+          tanggal_masuk: "",
+          masalah: "",
+          tindak_lanjut: "",
+          komitmen: "",
+          catatan: "",
+        },
+      )
+      setSignatures(
+        draft.signatures || {
+          atasan: { data: null, nama: "", tanggal: "" },
+          karyawan: { data: null, nama: "", tanggal: "" },
+          pjo: { data: null, nama: "", tanggal: "" },
+          hcga: { data: null, nama: "", tanggal: "" },
+        },
+      )
       setPhotoData(draft.photoData || null)
-      
+
       setShowDraftsList(false)
       alert(`Draft "${draft.name}" berhasil dimuat!`)
     }
@@ -437,11 +446,11 @@ export default function LeadershipActivityPage() {
     if (confirm(`Hapus draft "${draftName}"? Tindakan ini tidak dapat dibatalkan.`)) {
       try {
         const existingDrafts = loadAllDraftsFromStorage()
-        const updatedDrafts = existingDrafts.filter(d => d.id !== draftId)
-        
-        localStorage.setItem('leadershipActivityDrafts', JSON.stringify(updatedDrafts))
+        const updatedDrafts = existingDrafts.filter((d) => d.id !== draftId)
+
+        localStorage.setItem("leadershipActivityDrafts", JSON.stringify(updatedDrafts))
         setSavedDrafts(updatedDrafts)
-        
+
         alert(`Draft "${draftName}" berhasil dihapus`)
       } catch (error) {
         console.error("[v0] Error deleting draft:", error)
@@ -469,12 +478,11 @@ export default function LeadershipActivityPage() {
         <div className="flex items-center gap-4 mb-6 pb-4 border-b-2 border-[#D4AF37]">
           <Button
             variant="ghost"
-            onClick={() => router.push("/")}
+            onClick={() => router.push("/tms")}
             size="sm"
             className="text-[#D4AF37] hover:text-[#D4AF37] hover:bg-[#2a2a2a]"
           >
-            <ArrowLeft className="h-4 w-4 mr-2" />
-            Kembali
+            <ArrowLeft className="h-5 w-5" />
           </Button>
 
           {selectedCompany && (
@@ -517,18 +525,14 @@ export default function LeadershipActivityPage() {
                 size="sm"
                 className="bg-[#D4AF37] hover:bg-[#c49d2f] text-black"
               >
-                {isSaving ? (
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                ) : (
-                  <Save className="h-4 w-4 mr-2" />
-                )}
+                {isSaving ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Save className="h-4 w-4 mr-2" />}
                 Simpan Draft Baru
               </Button>
               <Button
                 onClick={toggleDraftsList}
                 size="sm"
                 variant="outline"
-                className="border-[#D4AF37] text-[#D4AF37] hover:bg-[#D4AF37] hover:text-black"
+                className="border-[#D4AF37] text-[#D4AF37] hover:bg-[#D4AF37] hover:text-black bg-transparent"
               >
                 <FolderOpen className="h-4 w-4 mr-2" />
                 {showDraftsList ? "Tutup" : "Lihat"} Daftar Draft ({savedDrafts.length})
@@ -551,10 +555,14 @@ export default function LeadershipActivityPage() {
                       <div className="flex-1">
                         <p className="text-slate-200 font-medium">{draft.name}</p>
                         <p className="text-slate-400 text-xs mt-1">
-                          Disimpan: {new Date(draft.savedAt).toLocaleString('id-ID')}
+                          Disimpan: {new Date(draft.savedAt).toLocaleString("id-ID")}
                         </p>
                         <p className="text-slate-500 text-xs">
-                          {draft.selectedCompany === 'pt_sss' ? 'PT SSS' : draft.selectedCompany === 'pt_gsm' ? 'PT GSM' : 'Belum pilih perusahaan'}
+                          {draft.selectedCompany === "pt_sss"
+                            ? "PT SSS"
+                            : draft.selectedCompany === "pt_gsm"
+                              ? "PT GSM"
+                              : "Belum pilih perusahaan"}
                         </p>
                       </div>
                       <div className="flex gap-2">
@@ -836,9 +844,7 @@ export default function LeadershipActivityPage() {
                 Membuat PDF...
               </>
             ) : (
-              <>
-                📄 Simpan sebagai PDF
-              </>
+              <>📄 Simpan sebagai PDF</>
             )}
           </Button>
         </div>
