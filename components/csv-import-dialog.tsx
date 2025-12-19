@@ -166,6 +166,7 @@ export function CSVImportDialog({ open, onOpenChange, onSuccess }: CSVImportDial
   const [file, setFile] = useState<File | null>(null)
   const [preview, setPreview] = useState<ParsedUser[]>([])
   const [errors, setErrors] = useState<string[]>([])
+  const [skippedRows, setSkippedRows] = useState<number>(0)
   const [isImporting, setIsImporting] = useState(false)
   const [importResult, setImportResult] = useState<ImportResult | null>(null)
   const [step, setStep] = useState<"upload" | "preview" | "result">("upload")
@@ -184,6 +185,7 @@ export function CSVImportDialog({ open, onOpenChange, onSuccess }: CSVImportDial
 
     setFile(selectedFile)
     setErrors([])
+    setSkippedRows(0)
 
     try {
       let parsedUsers: ParsedUser[] = []
@@ -204,7 +206,6 @@ export function CSVImportDialog({ open, onOpenChange, onSuccess }: CSVImportDial
         for (let i = 1; i < lines.length; i++) {
           const values = parseCSVLine(lines[i])
 
-          // Skip empty rows
           if (values.every((v) => !v.trim())) continue
 
           const user: ParsedUser = {
@@ -260,6 +261,8 @@ export function CSVImportDialog({ open, onOpenChange, onSuccess }: CSVImportDial
           parseErrors.push(`Baris ${row}: ${error instanceof Error ? error.message : "Error tidak diketahui"}`)
         }
       }
+
+      setSkippedRows(parseErrors.length)
 
       if (parseErrors.length > 0) {
         setErrors(parseErrors)
@@ -429,11 +432,32 @@ export function CSVImportDialog({ open, onOpenChange, onSuccess }: CSVImportDial
               <CheckCircle2 className="h-4 w-4" />
               <AlertDescription>
                 File berhasil diparse. Ditemukan {preview.length} data karyawan yang siap diimport.
-                {errors.length > 0 && (
-                  <span className="text-amber-600 ml-1">({errors.length} baris dilewati karena error)</span>
+                {skippedRows > 0 && (
+                  <span className="text-amber-600 ml-1">({skippedRows} baris dilewati karena error)</span>
                 )}
               </AlertDescription>
             </Alert>
+
+            {errors.length > 0 && (
+              <Alert variant="destructive">
+                <AlertCircle className="h-4 w-4" />
+                <AlertDescription>
+                  <div className="font-medium mb-2">Baris yang dilewati karena error:</div>
+                  <div className="bg-red-50 border border-red-200 rounded p-3 max-h-48 overflow-y-auto">
+                    <ul className="space-y-2 text-sm">
+                      {errors.map((error, idx) => (
+                        <li key={idx} className="text-red-800 font-mono text-xs">
+                          {error}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                  <div className="mt-2 text-sm text-amber-700">
+                    ℹ️ Baris yang valid tetap akan diimport. Perbaiki baris error dan upload ulang jika diperlukan.
+                  </div>
+                </AlertDescription>
+              </Alert>
+            )}
 
             <div className="border border-slate-200 rounded-lg overflow-hidden">
               <div className="overflow-x-auto">

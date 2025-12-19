@@ -9,6 +9,11 @@ export async function GET(request: NextRequest) {
     const role = searchParams.get("role")
     const nik = searchParams.get("nik")
 
+    const page = searchParams.get("page")
+    const limit = searchParams.get("limit")
+    const site = searchParams.get("site")
+    const search = searchParams.get("search")
+
     let result
 
     if (type === "by-id" && id) {
@@ -18,6 +23,14 @@ export async function GET(request: NextRequest) {
     } else if (nik) {
       const user = await userService.getUserByNik(nik)
       result = user ? [user] : []
+    } else if (page && limit) {
+      result = await userService.getUsersPaginated(
+        Number.parseInt(page, 10),
+        Number.parseInt(limit, 10),
+        site || undefined,
+        search || undefined,
+      )
+      return NextResponse.json(result)
     } else {
       result = await userService.getAllUsers()
     }

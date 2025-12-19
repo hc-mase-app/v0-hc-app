@@ -2,7 +2,7 @@
 
 import type React from "react"
 
-import { useState, useEffect } from "react"
+import { useState } from "react"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -11,29 +11,27 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { SITES } from "@/lib/mock-data"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { AlertTriangle, CheckCircle2 } from "lucide-react"
-import type { User, UserRole } from "@/lib/types"
+import type { UserRole } from "@/lib/types"
 
 const DEPARTMENTS = ["Operation", "Produksi", "Plant", "SCM", "HCGA", "HSE", "Finance", "Accounting", "BOD"]
 const JABATAN = ["Admin Site", "GL", "SPV", "Head", "Deputy", "PJO", "Manager", "GM", "Direksi"]
 
-interface EditUserDialogProps {
-  user: User | null
+interface AddUserDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
   onSuccess: () => void
 }
 
-export function EditUserDialog({ user, open, onOpenChange, onSuccess }: EditUserDialogProps) {
+export function AddUserDialog({ open, onOpenChange, onSuccess }: AddUserDialogProps) {
   const [nik, setNik] = useState("")
-  const [originalNik, setOriginalNik] = useState("")
   const [nama, setNama] = useState("")
   const [emailPrefix, setEmailPrefix] = useState("")
   const [password, setPassword] = useState("")
   const [role, setRole] = useState<UserRole>("user")
-  const [site, setSite] = useState("")
-  const [jabatan, setJabatan] = useState("")
-  const [departemen, setDepartemen] = useState("")
-  const [poh, setPoh] = useState("")
+  const [site, setSite] = useState("HO")
+  const [jabatan, setJabatan] = useState("Staff")
+  const [departemen, setDepartemen] = useState("General")
+  const [poh, setPoh] = useState("Head Office")
   const [statusKaryawan, setStatusKaryawan] = useState<"Kontrak" | "Tetap">("Kontrak")
   const [noKtp, setNoKtp] = useState("")
   const [noTelp, setNoTelp] = useState("")
@@ -42,47 +40,45 @@ export function EditUserDialog({ user, open, onOpenChange, onSuccess }: EditUser
   const [jenisKelamin, setJenisKelamin] = useState<"Laki-laki" | "Perempuan">("Laki-laki")
   const [error, setError] = useState("")
   const [isSubmitting, setIsSubmitting] = useState(false)
-  const [updateResult, setUpdateResult] = useState<{ success: boolean; message: string; details: string[] } | null>(
-    null,
-  )
+  const [createResult, setCreateResult] = useState<{ success: boolean; message: string } | null>(null)
 
-  useEffect(() => {
-    if (user) {
-      setNik(user.nik)
-      setOriginalNik(user.nik)
-      setNama(user.nama)
-      setEmailPrefix(user.email.split("@")[0])
-      setPassword("")
-      setRole(user.role)
-      setSite(user.site)
-      setJabatan(user.jabatan)
-      setDepartemen(user.departemen)
-      setPoh(user.poh || "")
-      setStatusKaryawan(user.statusKaryawan || "Kontrak")
-      setNoKtp(user.noKtp || "")
-      setNoTelp(user.noTelp || "")
-      setTanggalLahir(user.tanggalLahir || "")
-      setTanggalBergabung(user.tanggalBergabung || "")
-      setJenisKelamin(user.jenisKelamin || "Laki-laki")
-      setError("")
-      setUpdateResult(null)
+  const resetForm = () => {
+    setNik("")
+    setNama("")
+    setEmailPrefix("")
+    setPassword("")
+    setRole("user")
+    setSite("HO")
+    setJabatan("Staff")
+    setDepartemen("General")
+    setPoh("Head Office")
+    setStatusKaryawan("Kontrak")
+    setNoKtp("")
+    setNoTelp("")
+    setTanggalLahir("")
+    setTanggalBergabung("")
+    setJenisKelamin("Laki-laki")
+    setError("")
+    setCreateResult(null)
+  }
+
+  const handleOpenChange = (open: boolean) => {
+    if (!open) {
+      resetForm()
     }
-  }, [user])
+    onOpenChange(open)
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError("")
-    setUpdateResult(null)
-
-    if (!user) {
-      setError("Data pengguna tidak ditemukan")
-      return
-    }
+    setCreateResult(null)
 
     if (
       !nik ||
       !nama ||
       !emailPrefix ||
+      !password ||
       !role ||
       !site ||
       !jabatan ||
@@ -98,62 +94,55 @@ export function EditUserDialog({ user, open, onOpenChange, onSuccess }: EditUser
       return
     }
 
+    if (password.length < 6) {
+      setError("Password minimal 6 karakter")
+      return
+    }
+
     setIsSubmitting(true)
 
     try {
       const email = `${emailPrefix}@3s-gsm.com`
 
-      const updates: Record<string, any> = {
-        nik,
-        name: nama,
-        email,
-        role,
-        site,
-        jabatan,
-        departemen,
-        poh,
-        statusKaryawan,
-        noKtp,
-        noTelp,
-        tanggalLahir,
-        jenisKelamin,
-      }
-
-      if (password) {
-        updates.password = password
-      }
-
-      if (tanggalBergabung) {
-        updates.tanggalBergabung = tanggalBergabung
-      }
-
-      const response = await fetch("/api/users/update-full", {
-        method: "PUT",
+      const response = await fetch("/api/users/create", {
+        method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          userId: user.id,
-          oldNik: originalNik,
-          updates,
+          nik,
+          name: nama,
+          email,
+          password,
+          role,
+          site,
+          jabatan,
+          departemen,
+          poh,
+          statusKaryawan,
+          noKtp,
+          noTelp,
+          tanggalLahir,
+          tanggalBergabung: tanggalBergabung || undefined,
+          jenisKelamin,
         }),
       })
 
       const result = await response.json()
 
       if (!response.ok) {
-        throw new Error(result.error || "Gagal mengupdate pengguna")
+        throw new Error(result.error || "Gagal menambahkan pengguna")
       }
 
-      setUpdateResult({
+      setCreateResult({
         success: true,
-        message: result.message,
-        details: result.details || [],
+        message: `User ${nama} (${nik}) berhasil ditambahkan!`,
       })
 
       setTimeout(() => {
+        resetForm()
         onSuccess()
-      }, 2000)
+      }, 1500)
     } catch (error) {
       setError(error instanceof Error ? error.message : "Terjadi kesalahan")
     } finally {
@@ -161,117 +150,105 @@ export function EditUserDialog({ user, open, onOpenChange, onSuccess }: EditUser
     }
   }
 
-  if (!user && open) {
-    return (
-      <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Edit Pengguna</DialogTitle>
-            <DialogDescription>Memuat data pengguna...</DialogDescription>
-          </DialogHeader>
-        </DialogContent>
-      </Dialog>
-    )
-  }
-
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent className="max-w-2xl max-h-[85vh] md:max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle className="text-lg md:text-xl">Edit Pengguna (Super Admin)</DialogTitle>
+          <DialogTitle className="text-lg md:text-xl">Tambah User Baru</DialogTitle>
           <DialogDescription className="text-xs md:text-sm">
-            Perbarui informasi pengguna. Perubahan akan otomatis ter-cascade ke semua data historical.
+            Masukkan informasi lengkap untuk menambahkan pengguna baru ke database.
           </DialogDescription>
         </DialogHeader>
 
-        <Alert className="border-amber-500 bg-amber-50">
-          <AlertTriangle className="h-4 w-4 text-amber-600" />
-          <AlertDescription className="text-xs md:text-sm text-amber-800">
-            <strong>Perhatian:</strong> Perubahan data akan mempengaruhi semua historical record termasuk pengajuan cuti
-            dan penilaian karyawan.
+        <Alert className="border-blue-500 bg-blue-50">
+          <AlertTriangle className="h-4 w-4 text-blue-600" />
+          <AlertDescription className="text-xs md:text-sm text-blue-800">
+            <strong>Info:</strong> Pastikan NIK unik dan belum terdaftar di sistem. Email akan otomatis menggunakan
+            domain @3s-gsm.com
           </AlertDescription>
         </Alert>
 
-        {updateResult && (
-          <Alert className={updateResult.success ? "border-green-500 bg-green-50" : "border-red-500 bg-red-50"}>
-            <CheckCircle2 className={`h-4 w-4 ${updateResult.success ? "text-green-600" : "text-red-600"}`} />
-            <AlertDescription
-              className={`text-xs md:text-sm ${updateResult.success ? "text-green-800" : "text-red-800"}`}
-            >
-              <strong>{updateResult.message}</strong>
-              {updateResult.details.length > 0 && (
-                <ul className="mt-2 list-disc list-inside text-xs">
-                  {updateResult.details.map((detail, index) => (
-                    <li key={index}>{detail}</li>
-                  ))}
-                </ul>
-              )}
+        {createResult && createResult.success && (
+          <Alert className="border-green-500 bg-green-50">
+            <CheckCircle2 className="h-4 w-4 text-green-600" />
+            <AlertDescription className="text-xs md:text-sm text-green-800">
+              <strong>{createResult.message}</strong>
             </AlertDescription>
           </Alert>
         )}
 
         <form onSubmit={handleSubmit} className="space-y-3 md:space-y-4">
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4">
             <div className="space-y-2">
-              <Label htmlFor="edit-nik">NIK</Label>
+              <Label htmlFor="add-nik" className="text-xs md:text-sm">
+                NIK <span className="text-red-500">*</span>
+              </Label>
               <Input
-                id="edit-nik"
+                id="add-nik"
                 type="text"
-                placeholder="Masukkan NIK"
+                placeholder="1234567890"
                 value={nik}
                 onChange={(e) => setNik(e.target.value)}
                 required
+                className="text-sm"
               />
-              {nik !== originalNik && (
-                <p className="text-xs text-amber-600">
-                  NIK akan diubah dari {originalNik} → {nik}
-                </p>
-              )}
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="edit-password">Password Baru (opsional)</Label>
+              <Label htmlFor="add-password" className="text-xs md:text-sm">
+                Password <span className="text-red-500">*</span>
+              </Label>
               <Input
-                id="edit-password"
+                id="add-password"
                 type="password"
-                placeholder="Kosongkan jika tidak ingin mengubah"
+                placeholder="Minimal 6 karakter"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
+                required
+                className="text-sm"
               />
             </div>
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="edit-nama">Nama Lengkap</Label>
+            <Label htmlFor="add-nama" className="text-xs md:text-sm">
+              Nama Lengkap <span className="text-red-500">*</span>
+            </Label>
             <Input
-              id="edit-nama"
+              id="add-nama"
               type="text"
-              placeholder="Masukkan nama lengkap"
+              placeholder="Abdul Rahman"
               value={nama}
               onChange={(e) => setNama(e.target.value)}
               required
+              className="text-sm"
             />
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4">
             <div className="space-y-2">
-              <Label htmlFor="edit-tanggalLahir">Tanggal Lahir</Label>
+              <Label htmlFor="add-tanggalLahir" className="text-xs md:text-sm">
+                Tanggal Lahir <span className="text-red-500">*</span>
+              </Label>
               <Input
-                id="edit-tanggalLahir"
+                id="add-tanggalLahir"
                 type="date"
                 value={tanggalLahir}
                 onChange={(e) => setTanggalLahir(e.target.value)}
                 required
+                className="text-sm"
               />
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="edit-jenisKelamin">Jenis Kelamin</Label>
+              <Label htmlFor="add-jenisKelamin" className="text-xs md:text-sm">
+                Jenis Kelamin <span className="text-red-500">*</span>
+              </Label>
               <Select
                 value={jenisKelamin}
                 onValueChange={(value) => setJenisKelamin(value as "Laki-laki" | "Perempuan")}
               >
-                <SelectTrigger>
+                <SelectTrigger className="text-sm">
                   <SelectValue placeholder="Pilih jenis kelamin" />
                 </SelectTrigger>
                 <SelectContent>
@@ -282,11 +259,13 @@ export function EditUserDialog({ user, open, onOpenChange, onSuccess }: EditUser
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4">
             <div className="space-y-2">
-              <Label htmlFor="edit-jabatan">Jabatan</Label>
+              <Label htmlFor="add-jabatan" className="text-xs md:text-sm">
+                Jabatan <span className="text-red-500">*</span>
+              </Label>
               <Select value={jabatan} onValueChange={setJabatan}>
-                <SelectTrigger>
+                <SelectTrigger className="text-sm">
                   <SelectValue placeholder="Pilih jabatan" />
                 </SelectTrigger>
                 <SelectContent>
@@ -300,9 +279,11 @@ export function EditUserDialog({ user, open, onOpenChange, onSuccess }: EditUser
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="edit-departemen">Departemen</Label>
+              <Label htmlFor="add-departemen" className="text-xs md:text-sm">
+                Departemen <span className="text-red-500">*</span>
+              </Label>
               <Select value={departemen} onValueChange={setDepartemen}>
-                <SelectTrigger>
+                <SelectTrigger className="text-sm">
                   <SelectValue placeholder="Pilih departemen" />
                 </SelectTrigger>
                 <SelectContent>
@@ -316,11 +297,13 @@ export function EditUserDialog({ user, open, onOpenChange, onSuccess }: EditUser
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4">
             <div className="space-y-2">
-              <Label htmlFor="edit-role">Role</Label>
+              <Label htmlFor="add-role" className="text-xs md:text-sm">
+                Role <span className="text-red-500">*</span>
+              </Label>
               <Select value={role} onValueChange={(value) => setRole(value as UserRole)}>
-                <SelectTrigger>
+                <SelectTrigger className="text-sm">
                   <SelectValue placeholder="Pilih role" />
                 </SelectTrigger>
                 <SelectContent>
@@ -337,9 +320,11 @@ export function EditUserDialog({ user, open, onOpenChange, onSuccess }: EditUser
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="edit-site">Site</Label>
+              <Label htmlFor="add-site" className="text-xs md:text-sm">
+                Site <span className="text-red-500">*</span>
+              </Label>
               <Select value={site} onValueChange={setSite}>
-                <SelectTrigger>
+                <SelectTrigger className="text-sm">
                   <SelectValue placeholder="Pilih site" />
                 </SelectTrigger>
                 <SelectContent>
@@ -353,23 +338,28 @@ export function EditUserDialog({ user, open, onOpenChange, onSuccess }: EditUser
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4">
             <div className="space-y-2">
-              <Label htmlFor="edit-poh">POH</Label>
+              <Label htmlFor="add-poh" className="text-xs md:text-sm">
+                POH <span className="text-red-500">*</span>
+              </Label>
               <Input
-                id="edit-poh"
+                id="add-poh"
                 type="text"
-                placeholder="Masukkan POH"
+                placeholder="Makassar"
                 value={poh}
                 onChange={(e) => setPoh(e.target.value)}
                 required
+                className="text-sm"
               />
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="edit-statusKaryawan">Status Karyawan</Label>
+              <Label htmlFor="add-statusKaryawan" className="text-xs md:text-sm">
+                Status Karyawan <span className="text-red-500">*</span>
+              </Label>
               <Select value={statusKaryawan} onValueChange={(value) => setStatusKaryawan(value as "Kontrak" | "Tetap")}>
-                <SelectTrigger>
+                <SelectTrigger className="text-sm">
                   <SelectValue placeholder="Pilih status" />
                 </SelectTrigger>
                 <SelectContent>
@@ -380,70 +370,87 @@ export function EditUserDialog({ user, open, onOpenChange, onSuccess }: EditUser
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4">
             <div className="space-y-2">
-              <Label htmlFor="edit-noKtp">No KTP</Label>
+              <Label htmlFor="add-noKtp" className="text-xs md:text-sm">
+                No KTP <span className="text-red-500">*</span>
+              </Label>
               <Input
-                id="edit-noKtp"
+                id="add-noKtp"
                 type="text"
-                placeholder="Masukkan nomor KTP"
+                placeholder="7314033112800076"
                 value={noKtp}
                 onChange={(e) => setNoKtp(e.target.value)}
                 required
+                className="text-sm"
               />
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="edit-noTelp">No Telp (WhatsApp)</Label>
+              <Label htmlFor="add-noTelp" className="text-xs md:text-sm">
+                No Telp (WhatsApp) <span className="text-red-500">*</span>
+              </Label>
               <Input
-                id="edit-noTelp"
+                id="add-noTelp"
                 type="tel"
-                placeholder="Masukkan nomor telepon"
+                placeholder="082227048965"
                 value={noTelp}
                 onChange={(e) => setNoTelp(e.target.value)}
                 required
+                className="text-sm"
               />
             </div>
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="edit-tanggalBergabung">Tanggal Bergabung (Opsional)</Label>
+            <Label htmlFor="add-tanggalBergabung" className="text-xs md:text-sm">
+              Tanggal Bergabung (Opsional)
+            </Label>
             <Input
-              id="edit-tanggalBergabung"
+              id="add-tanggalBergabung"
               type="date"
               value={tanggalBergabung}
               onChange={(e) => setTanggalBergabung(e.target.value)}
+              className="text-sm"
             />
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="edit-email">Email</Label>
+            <Label htmlFor="add-email" className="text-xs md:text-sm">
+              Email <span className="text-red-500">*</span>
+            </Label>
             <div className="flex items-center gap-2">
               <Input
-                id="edit-email"
+                id="add-email"
                 type="text"
-                placeholder="novia"
+                placeholder="abdul.rahman"
                 value={emailPrefix}
                 onChange={(e) => setEmailPrefix(e.target.value)}
                 required
-                className="flex-1"
+                className="flex-1 text-sm"
               />
-              <span className="text-muted-foreground">@3s-gsm.com</span>
+              <span className="text-xs md:text-sm text-muted-foreground whitespace-nowrap">@3s-gsm.com</span>
             </div>
           </div>
 
           {error && (
             <Alert variant="destructive">
-              <AlertDescription>{error}</AlertDescription>
+              <AlertDescription className="text-xs md:text-sm">{error}</AlertDescription>
             </Alert>
           )}
 
           <div className="flex justify-end gap-2">
-            <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={isSubmitting}>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => handleOpenChange(false)}
+              disabled={isSubmitting}
+              className="text-sm"
+            >
               Batal
             </Button>
-            <Button type="submit" disabled={isSubmitting}>
-              {isSubmitting ? "Menyimpan..." : "Simpan Perubahan"}
+            <Button type="submit" disabled={isSubmitting} className="text-sm">
+              {isSubmitting ? "Menambahkan..." : "Tambah User"}
             </Button>
           </div>
         </form>
