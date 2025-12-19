@@ -52,6 +52,31 @@ const VALID_ROLES: UserRole[] = [
 ]
 const VALID_STATUSES = ["Kontrak", "Tetap"]
 
+const getDefaultValue = (value: string | undefined | null, fieldName: string): string => {
+  const trimmed = String(value || "").trim()
+  if (trimmed && trimmed !== "undefined" && trimmed !== "null") return trimmed
+
+  // Default values for each field
+  const defaults: Record<string, string> = {
+    nik: "",
+    nama: "-",
+    emailPrefix: "-",
+    password: "password123",
+    role: "user",
+    site: "-",
+    jabatan: "-",
+    departemen: "-",
+    poh: "-",
+    statusKaryawan: "Kontrak",
+    noKtp: "-",
+    noTelp: "-",
+    tanggalLahir: "1970-01-01",
+    jenisKelamin: "Laki-laki",
+  }
+
+  return defaults[fieldName] || "-"
+}
+
 function parseCSVLine(line: string): string[] {
   const result: string[] = []
   let current = ""
@@ -97,28 +122,30 @@ const parseXLSX = async (file: File): Promise<ParsedUser[]> => {
           return
         }
 
-        const headers = jsonData[0].map((h: string) => h.toLowerCase().trim())
+        const headers = jsonData[0].map((h: string) => h?.toLowerCase().trim() || "")
         const parsedUsers: ParsedUser[] = []
 
         for (let i = 1; i < jsonData.length; i++) {
           const row = jsonData[i]
-          if (!row || row.length === 0) continue
+          if (!row || row.length === 0 || row.every((cell) => !cell)) continue
 
           const user: ParsedUser = {
-            nik: String(row[headers.indexOf("nik")] || ""),
-            nama: String(row[headers.indexOf("nama")] || ""),
-            emailPrefix: String(row[headers.indexOf("email_prefix")] || ""),
-            password: String(row[headers.indexOf("password")] || ""),
-            role: String(row[headers.indexOf("role")] || "") as UserRole,
-            site: String(row[headers.indexOf("site")] || ""),
-            jabatan: String(row[headers.indexOf("jabatan")] || ""),
-            departemen: String(row[headers.indexOf("departemen")] || ""),
-            poh: String(row[headers.indexOf("poh")] || ""),
-            statusKaryawan: String(row[headers.indexOf("status_karyawan")] || "") as "Kontrak" | "Tetap",
-            noKtp: String(row[headers.indexOf("no_ktp")] || ""),
-            noTelp: String(row[headers.indexOf("no_telp")] || ""),
-            tanggalLahir: String(row[headers.indexOf("tanggal_lahir")] || "1970-01-01"),
-            jenisKelamin: String(row[headers.indexOf("jenis_kelamin")] || "Laki-laki"),
+            nik: getDefaultValue(row[headers.indexOf("nik")], "nik"),
+            nama: getDefaultValue(row[headers.indexOf("nama")], "nama"),
+            emailPrefix: getDefaultValue(row[headers.indexOf("email_prefix")], "emailPrefix"),
+            password: getDefaultValue(row[headers.indexOf("password")], "password"),
+            role: getDefaultValue(row[headers.indexOf("role")], "role") as UserRole,
+            site: getDefaultValue(row[headers.indexOf("site")], "site"),
+            jabatan: getDefaultValue(row[headers.indexOf("jabatan")], "jabatan"),
+            departemen: getDefaultValue(row[headers.indexOf("departemen")], "departemen"),
+            poh: getDefaultValue(row[headers.indexOf("poh")], "poh"),
+            statusKaryawan: getDefaultValue(row[headers.indexOf("status_karyawan")], "statusKaryawan") as
+              | "Kontrak"
+              | "Tetap",
+            noKtp: getDefaultValue(row[headers.indexOf("no_ktp")], "noKtp"),
+            noTelp: getDefaultValue(row[headers.indexOf("no_telp")], "noTelp"),
+            tanggalLahir: getDefaultValue(row[headers.indexOf("tanggal_lahir")], "tanggalLahir"),
+            jenisKelamin: getDefaultValue(row[headers.indexOf("jenis_kelamin")], "jenisKelamin"),
           }
 
           parsedUsers.push(user)
@@ -177,43 +204,31 @@ export function CSVImportDialog({ open, onOpenChange, onSuccess }: CSVImportDial
         for (let i = 1; i < lines.length; i++) {
           const values = parseCSVLine(lines[i])
 
+          // Skip empty rows
+          if (values.every((v) => !v.trim())) continue
+
           const user: ParsedUser = {
-            nik: values[headers.indexOf("nik")] || "",
-            nama: values[headers.indexOf("nama")] || "",
-            emailPrefix: values[headers.indexOf("email_prefix")] || "",
-            password: values[headers.indexOf("password")] || "",
-            role: (values[headers.indexOf("role")] || "") as UserRole,
-            site: values[headers.indexOf("site")] || "",
-            jabatan: values[headers.indexOf("jabatan")] || "",
-            departemen: values[headers.indexOf("departemen")] || "",
-            poh: values[headers.indexOf("poh")] || "",
-            statusKaryawan: (values[headers.indexOf("status_karyawan")] || "") as "Kontrak" | "Tetap",
-            noKtp: values[headers.indexOf("no_ktp")] || "",
-            noTelp: values[headers.indexOf("no_telp")] || "",
-            tanggalLahir: values[headers.indexOf("tanggal_lahir")] || "1970-01-01",
-            jenisKelamin: values[headers.indexOf("jenis_kelamin")] || "Laki-laki",
+            nik: getDefaultValue(values[headers.indexOf("nik")], "nik"),
+            nama: getDefaultValue(values[headers.indexOf("nama")], "nama"),
+            emailPrefix: getDefaultValue(values[headers.indexOf("email_prefix")], "emailPrefix"),
+            password: getDefaultValue(values[headers.indexOf("password")], "password"),
+            role: getDefaultValue(values[headers.indexOf("role")], "role") as UserRole,
+            site: getDefaultValue(values[headers.indexOf("site")], "site"),
+            jabatan: getDefaultValue(values[headers.indexOf("jabatan")], "jabatan"),
+            departemen: getDefaultValue(values[headers.indexOf("departemen")], "departemen"),
+            poh: getDefaultValue(values[headers.indexOf("poh")], "poh"),
+            statusKaryawan: getDefaultValue(values[headers.indexOf("status_karyawan")], "statusKaryawan") as
+              | "Kontrak"
+              | "Tetap",
+            noKtp: getDefaultValue(values[headers.indexOf("no_ktp")], "noKtp"),
+            noTelp: getDefaultValue(values[headers.indexOf("no_telp")], "noTelp"),
+            tanggalLahir: getDefaultValue(values[headers.indexOf("tanggal_lahir")], "tanggalLahir"),
+            jenisKelamin: getDefaultValue(values[headers.indexOf("jenis_kelamin")], "jenisKelamin"),
           }
 
           parsedUsers.push(user)
         }
       }
-
-      const requiredHeaders = [
-        "nik",
-        "nama",
-        "email_prefix",
-        "password",
-        "role",
-        "site",
-        "jabatan",
-        "departemen",
-        "poh",
-        "status_karyawan",
-        "no_ktp",
-        "no_telp",
-        "tanggal_lahir",
-        "jenis_kelamin",
-      ]
 
       const existingUsersResponse = await fetch("/api/users")
       const existingUsers = existingUsersResponse.ok ? await existingUsersResponse.json() : []
@@ -226,21 +241,15 @@ export function CSVImportDialog({ open, onOpenChange, onSuccess }: CSVImportDial
         const row = i + 2
 
         try {
-          if (!user.nik) throw new Error("NIK tidak boleh kosong")
-          if (!user.nama) throw new Error("Nama tidak boleh kosong")
-          if (!user.emailPrefix) throw new Error("Email prefix tidak boleh kosong")
-          if (!user.password) throw new Error("Password tidak boleh kosong")
-          if (!VALID_ROLES.includes(user.role)) throw new Error(`Role tidak valid: ${user.role}`)
-          if (!user.site) throw new Error("Site tidak boleh kosong")
-          if (!user.jabatan) throw new Error("Jabatan tidak boleh kosong")
-          if (!user.departemen) throw new Error("Departemen tidak boleh kosong")
-          if (!user.poh) throw new Error("POH tidak boleh kosong")
-          if (!VALID_STATUSES.includes(user.statusKaryawan))
-            throw new Error(`Status karyawan tidak valid: ${user.statusKaryawan}`)
-          if (!user.noKtp) throw new Error("No KTP tidak boleh kosong")
-          if (!user.noTelp) throw new Error("No Telp tidak boleh kosong")
-          if (!user.tanggalLahir) throw new Error("Tanggal lahir tidak boleh kosong")
-          if (!user.jenisKelamin) throw new Error("Jenis kelamin tidak boleh kosong")
+          if (!user.nik || user.nik === "-") throw new Error("NIK tidak boleh kosong")
+
+          if (user.role && !VALID_ROLES.includes(user.role)) {
+            user.role = "user" as UserRole // Default to user if invalid
+          }
+
+          if (user.statusKaryawan && !VALID_STATUSES.includes(user.statusKaryawan)) {
+            user.statusKaryawan = "Kontrak" // Default to Kontrak if invalid
+          }
 
           if (existingUsers.some((u: User) => u.nik === user.nik)) {
             throw new Error(`NIK sudah terdaftar: ${user.nik}`)
@@ -254,6 +263,10 @@ export function CSVImportDialog({ open, onOpenChange, onSuccess }: CSVImportDial
 
       if (parseErrors.length > 0) {
         setErrors(parseErrors)
+        if (validatedUsers.length > 0) {
+          setPreview(validatedUsers)
+          setStep("preview")
+        }
         return
       }
 
@@ -275,7 +288,7 @@ export function CSVImportDialog({ open, onOpenChange, onSuccess }: CSVImportDial
         const newUser = {
           nik: user.nik,
           name: user.nama,
-          email: `${user.emailPrefix}@3s-gsm.com`,
+          email: user.emailPrefix === "-" ? `${user.nik}@3s-gsm.com` : `${user.emailPrefix}@3s-gsm.com`,
           password: user.password,
           role: user.role,
           site: user.site,
@@ -357,13 +370,16 @@ export function CSVImportDialog({ open, onOpenChange, onSuccess }: CSVImportDial
               <Alert variant="destructive">
                 <AlertCircle className="h-4 w-4" />
                 <AlertDescription>
-                  <div className="font-medium mb-2">Error:</div>
-                  <ul className="list-disc list-inside space-y-1">
-                    {errors.map((error, idx) => (
+                  <div className="font-medium mb-2">Error (data valid tetap bisa diimport):</div>
+                  <ul className="list-disc list-inside space-y-1 max-h-32 overflow-y-auto">
+                    {errors.slice(0, 10).map((error, idx) => (
                       <li key={idx} className="text-sm">
                         {error}
                       </li>
                     ))}
+                    {errors.length > 10 && (
+                      <li className="text-sm font-medium">...dan {errors.length - 10} error lainnya</li>
+                    )}
                   </ul>
                 </AlertDescription>
               </Alert>
@@ -385,12 +401,21 @@ export function CSVImportDialog({ open, onOpenChange, onSuccess }: CSVImportDial
                     Office,GL,HCGA,POH007,Tetap,3201234567890129,081234567896,1990-05-15,Perempuan
                   </div>
                 </div>
+                <div className="mt-3 p-2 bg-green-50 border border-green-200 rounded">
+                  <p className="text-green-800 font-medium">Field yang wajib diisi:</p>
+                  <ul className="list-disc list-inside mt-1 text-green-700">
+                    <li>
+                      <strong>NIK</strong> - Harus unik dan tidak boleh kosong
+                    </li>
+                  </ul>
+                  <p className="text-green-700 mt-2 text-xs">Field lain jika kosong akan diisi dengan default value</p>
+                </div>
                 <div className="mt-3 p-2 bg-blue-50 border border-blue-200 rounded">
-                  <p className="text-blue-800 font-medium">💡 Tips:</p>
+                  <p className="text-blue-800 font-medium">Tips:</p>
                   <ul className="list-disc list-inside mt-1 text-blue-700">
                     <li>Untuk Excel: Pastikan data ada di sheet pertama</li>
-                    <li>Header harus persis sama dengan format di atas</li>
                     <li>Role valid: user, admin_site, hr_site, dic, pjo_site, hr_ho, hr_ticketing, super_admin</li>
+                    <li>Status valid: Kontrak, Tetap</li>
                   </ul>
                 </div>
               </div>
@@ -404,6 +429,9 @@ export function CSVImportDialog({ open, onOpenChange, onSuccess }: CSVImportDial
               <CheckCircle2 className="h-4 w-4" />
               <AlertDescription>
                 File berhasil diparse. Ditemukan {preview.length} data karyawan yang siap diimport.
+                {errors.length > 0 && (
+                  <span className="text-amber-600 ml-1">({errors.length} baris dilewati karena error)</span>
+                )}
               </AlertDescription>
             </Alert>
 
@@ -425,11 +453,13 @@ export function CSVImportDialog({ open, onOpenChange, onSuccess }: CSVImportDial
                     </tr>
                   </thead>
                   <tbody>
-                    {preview.map((user, idx) => (
+                    {preview.slice(0, 50).map((user, idx) => (
                       <tr key={idx} className="border-t border-slate-200 hover:bg-slate-50">
                         <td className="p-2">{user.nik}</td>
                         <td className="p-2">{user.nama}</td>
-                        <td className="p-2 text-slate-600">{user.emailPrefix}@3s-gsm.com</td>
+                        <td className="p-2 text-slate-600">
+                          {user.emailPrefix === "-" ? `${user.nik}@3s-gsm.com` : `${user.emailPrefix}@3s-gsm.com`}
+                        </td>
                         <td className="p-2 text-slate-600">{"*".repeat(Math.min(user.password.length, 8))}</td>
                         <td className="p-2">{user.role}</td>
                         <td className="p-2">{user.site}</td>
@@ -441,6 +471,11 @@ export function CSVImportDialog({ open, onOpenChange, onSuccess }: CSVImportDial
                     ))}
                   </tbody>
                 </table>
+                {preview.length > 50 && (
+                  <div className="p-2 text-center text-xs text-slate-500 bg-slate-50 border-t">
+                    Menampilkan 50 dari {preview.length} data. Semua data akan diimport.
+                  </div>
+                )}
               </div>
             </div>
 
@@ -462,8 +497,8 @@ export function CSVImportDialog({ open, onOpenChange, onSuccess }: CSVImportDial
               <AlertDescription>
                 <div className="font-medium mb-2">Hasil Import:</div>
                 <div className="space-y-1 text-sm">
-                  <div>✓ Berhasil: {importResult.success} data</div>
-                  {importResult.failed > 0 && <div>✗ Gagal: {importResult.failed} data</div>}
+                  <div>Berhasil: {importResult.success} data</div>
+                  {importResult.failed > 0 && <div>Gagal: {importResult.failed} data</div>}
                 </div>
               </AlertDescription>
             </Alert>

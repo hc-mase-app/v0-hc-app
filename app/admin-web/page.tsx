@@ -1,31 +1,57 @@
 "use client"
 
+import { useEffect } from "react"
 import { useRouter } from "next/navigation"
-import { ChevronLeft, Upload, BarChart3, Target } from "lucide-react"
 import { useAuth } from "@/lib/auth-context"
+import { Database, ChevronLeft, ArchiveIcon, Users, FileText } from "lucide-react"
 
-export default function TmsPage() {
+export default function AdminWebPage() {
   const router = useRouter()
-  const { user } = useAuth()
+  const { user, isAuthenticated } = useAuth()
+
+  useEffect(() => {
+    if (!isAuthenticated) {
+      router.push("/login")
+      return
+    }
+
+    if (user?.role !== "super_admin") {
+      router.push("/")
+    }
+  }, [isAuthenticated, user, router])
+
+  if (!isAuthenticated || !user || user.role !== "super_admin") {
+    return (
+      <div className="min-h-screen bg-[#0a0a0a] flex items-center justify-center">
+        <div className="text-[#D4AF37] text-xl">Memuat...</div>
+      </div>
+    )
+  }
 
   const menus = [
     {
-      title: "Leadership Activity",
-      description: "Kelola target aktivitas kepemimpinan",
-      icon: Target,
-      href: "/leadership-activity",
+      title: "Manajemen Database Users",
+      description: "Upload, View, Edit & Delete",
+      icon: Database,
+      href: "/manajemen-users-db",
     },
     {
-      title: "Upload Evidence",
-      description: "Upload bukti aktivitas kepemimpinan",
-      icon: Upload,
-      href: "/tms/evidence",
+      title: "Archive Evidence",
+      description: "Download & hapus evidence lama",
+      icon: ArchiveIcon,
+      href: "/tms/archive",
     },
     {
-      title: "Dashboard Monitoring",
-      description: "Monitor target vs realisasi",
-      icon: BarChart3,
-      href: "/tms/monitoring",
+      title: "Manajemen Hierarki",
+      description: "Kelola atasan & bawahan langsung",
+      icon: Users,
+      href: "/tms/hierarchy",
+    },
+    {
+      title: "Manajemen Dokumen IMS",
+      description: "Upload & kelola dokumen HCGA",
+      icon: FileText,
+      href: "/admin/documents",
     },
   ]
 
@@ -35,7 +61,6 @@ export default function TmsPage() {
 
   return (
     <div className="min-h-screen bg-[#0a0a0a] dark flex flex-col">
-      {/* Header - Back Button */}
       <header className="absolute top-4 left-4">
         <button
           onClick={() => router.push("/")}
@@ -47,13 +72,11 @@ export default function TmsPage() {
 
       {/* Main Content */}
       <main className="flex-1 flex flex-col items-center justify-center px-4 py-12">
-        {/* Title */}
         <div className="mb-16 text-center">
-          <h1 className="text-4xl md:text-5xl font-bold text-[#D4AF37] mb-2">LEADTMS</h1>
-          <p className="text-gray-400 text-sm md:text-base">Leadership Activity & Target Monitoring System</p>
+          <h1 className="text-4xl md:text-5xl font-bold text-[#D4AF37] mb-2">ADMIN WEB</h1>
+          <p className="text-gray-400 text-sm md:text-base">Control Panel</p>
         </div>
 
-        {/* Menu Cards Grid */}
         <div className="grid grid-cols-2 md:grid-cols-3 gap-6 md:gap-8 max-w-4xl w-full px-4">
           {menus.map((menu) => {
             const Icon = menu.icon

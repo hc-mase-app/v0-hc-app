@@ -5,10 +5,12 @@ import { useAuth } from "@/lib/auth-context"
 import { useRouter } from "next/navigation"
 import { DashboardLayout } from "@/components/dashboard-layout"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Clock, CheckCircle, XCircle, FileText, Building2, Shield } from "lucide-react"
+import { Button } from "@/components/ui/button"
+import { Clock, CheckCircle, XCircle, FileText, Building2, Shield, Upload, Database } from "lucide-react"
 import type { LeaveRequest } from "@/lib/types"
 import { ApprovalCard } from "@/components/approval-card"
 import { LeaveRequestDetailDialog } from "@/components/leave-request-detail-dialog"
+import { LeaveRequestImportDialog } from "@/components/leave-request-import-dialog"
 import { SITES } from "@/lib/mock-data"
 
 export default function SuperAdminDashboard() {
@@ -19,11 +21,11 @@ export default function SuperAdminDashboard() {
   const [selectedSite, setSelectedSite] = useState("all")
   const [selectedStatus, setSelectedStatus] = useState("all")
   const [selectedRequest, setSelectedRequest] = useState<LeaveRequest | null>(null)
+  const [showImportDialog, setShowImportDialog] = useState(false)
 
   const loadData = useCallback(async () => {
     try {
       setLoading(true)
-      // Super admin melihat semua data dari semua role
       const res = await fetch(`/api/workflow?action=all&role=hr_ho&site=all`)
       const data = await res.json()
       const allData = Array.isArray(data) ? data : data?.data || []
@@ -83,6 +85,49 @@ export default function SuperAdminDashboard() {
               </div>
             </div>
           </CardHeader>
+        </Card>
+
+        <Card className="border-blue-500/30 bg-gradient-to-r from-blue-500/5 to-transparent">
+          <CardHeader>
+            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+              <div className="flex items-center gap-3">
+                <Database className="h-7 w-7 text-blue-600" />
+                <div>
+                  <CardTitle className="text-blue-700">Manajemen Database Pengajuan Cuti</CardTitle>
+                  <CardDescription>Import data pengajuan cuti secara massal dari file Excel</CardDescription>
+                </div>
+              </div>
+              <Button onClick={() => setShowImportDialog(true)} className="gap-2 bg-blue-600 hover:bg-blue-700">
+                <Upload className="h-4 w-4" />
+                Upload Excel
+              </Button>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm text-slate-600">
+              <div className="flex items-start gap-2">
+                <CheckCircle className="h-4 w-4 text-green-600 mt-0.5" />
+                <div>
+                  <div className="font-medium text-slate-900">Bulk Import</div>
+                  <div className="text-xs">Upload file Excel untuk import data secara massal</div>
+                </div>
+              </div>
+              <div className="flex items-start gap-2">
+                <CheckCircle className="h-4 w-4 text-green-600 mt-0.5" />
+                <div>
+                  <div className="font-medium text-slate-900">Validasi Otomatis</div>
+                  <div className="text-xs">System akan memvalidasi data sebelum import</div>
+                </div>
+              </div>
+              <div className="flex items-start gap-2">
+                <CheckCircle className="h-4 w-4 text-green-600 mt-0.5" />
+                <div>
+                  <div className="font-medium text-slate-900">Template Tersedia</div>
+                  <div className="text-xs">Download template Excel dengan format yang benar</div>
+                </div>
+              </div>
+            </div>
+          </CardContent>
         </Card>
 
         {/* Stats Cards */}
@@ -203,6 +248,15 @@ export default function SuperAdminDashboard() {
           onUpdate={loadData}
         />
       )}
+
+      <LeaveRequestImportDialog
+        open={showImportDialog}
+        onOpenChange={setShowImportDialog}
+        onSuccess={() => {
+          loadData()
+          setShowImportDialog(false)
+        }}
+      />
     </DashboardLayout>
   )
 }

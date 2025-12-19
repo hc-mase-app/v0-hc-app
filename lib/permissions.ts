@@ -109,6 +109,14 @@ export const FEATURES: Record<string, FeaturePermission> = {
     allowedRoles: ["hr_ho", "super_admin"],
     requireAuth: true,
   },
+  manajemenUsersDB: {
+    key: "manajemenUsersDB",
+    name: "Manajemen Database Users",
+    path: "/manajemen-users-db",
+    description: "Upload, View & Edit Database",
+    allowedRoles: ["super_admin"],
+    requireAuth: true,
+  },
   development: {
     key: "development",
     name: "Development",

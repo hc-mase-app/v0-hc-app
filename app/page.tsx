@@ -14,6 +14,7 @@ import {
   Hash,
   Building2,
   LogOut,
+  Database,
 } from "lucide-react"
 import { FEATURES, hasFeatureAccess, getDashboardPath } from "@/lib/permissions"
 import { Button } from "@/components/ui/button"
@@ -78,6 +79,12 @@ export default function Home() {
       featureKey: "hcgaIms",
     },
     {
+      title: "ADMIN WEB",
+      icon: Database,
+      featureKey: "manajemenUsersDB",
+      description: "Control Panel",
+    },
+    {
       title: "DEVELOPMENT",
       icon: "HCD",
       featureKey: "development",
@@ -85,6 +92,11 @@ export default function Home() {
   ]
 
   const handleCardClick = (featureKey: string) => {
+    if (featureKey === "manajemenUsersDB") {
+      router.push("/admin-web")
+      return
+    }
+
     const feature = FEATURES[featureKey]
     if (!feature) return
 
@@ -208,7 +220,7 @@ export default function Home() {
                   }`}
                 >
                   {feature.title}
-                  {feature.title === "LEADTMS" && feature.description && (
+                  {(feature.title === "LEADTMS" || feature.title === "ADMIN WEB") && feature.description && (
                     <span
                       className={`block text-[10px] mt-0.5 font-light ${
                         isDisabled ? "text-gray-700" : "text-gray-500"
