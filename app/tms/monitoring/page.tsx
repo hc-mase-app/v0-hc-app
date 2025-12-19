@@ -215,40 +215,40 @@ export default function TmsMonitoringPage() {
       {/* Header */}
       <div className="sticky top-0 z-10 bg-[#0a0a0a]/95 backdrop-blur-sm border-b border-[#D4AF37]/20">
         <div className="container mx-auto px-4 py-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+            <div className="flex items-center gap-3 sm:gap-4">
               <button
                 onClick={handleBackNavigation}
                 className="text-[#D4AF37] hover:text-[#D4AF37]/80 transition-colors"
               >
-                <ChevronLeft className="w-6 h-6" />
+                <ChevronLeft className="w-5 h-5 sm:w-6 sm:h-6" />
               </button>
               <div>
-                <h1 className="text-2xl font-bold text-white">Dashboard Monitoring Target</h1>
-                <p className="text-sm text-gray-400">Monitoring pencapaian target leadership bulanan</p>
+                <h1 className="text-lg sm:text-2xl font-bold text-white">Dashboard Monitoring Target</h1>
+                <p className="text-xs sm:text-sm text-gray-400">Monitoring pencapaian target leadership bulanan</p>
               </div>
             </div>
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2 sm:gap-3">
               <button
                 onClick={() => router.push("/tms")}
                 className="flex items-center gap-2 text-[#D4AF37] hover:text-[#D4AF37]/80 transition-colors px-3 py-2 hover:bg-[#D4AF37]/10 rounded-lg"
               >
-                <Home className="w-5 h-5" />
-                <span className="text-sm font-medium">Menu Utama</span>
+                <Home className="w-4 h-4 sm:w-5 sm:h-5" />
+                <span className="hidden sm:inline text-sm font-medium">Menu Utama</span>
               </button>
-              <BarChart3 className="w-8 h-8 text-[#D4AF37]" />
+              <BarChart3 className="w-6 h-6 sm:w-8 sm:h-8 text-[#D4AF37]" />
             </div>
           </div>
         </div>
       </div>
 
       {/* Main Content */}
-      <div className="container mx-auto px-4 py-8">
+      <div className="container mx-auto px-4 py-6 sm:py-8">
         {/* Month Filter */}
-        <div className="mb-6 flex items-center gap-4">
-          <Calendar className="w-5 h-5 text-[#D4AF37]" />
+        <div className="mb-6 flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4">
+          <Calendar className="w-4 h-4 sm:w-5 sm:h-5 text-[#D4AF37] hidden sm:block" />
           <Select value={selectedMonth} onValueChange={setSelectedMonth}>
-            <SelectTrigger className="w-[200px] bg-[#1a1a1a] border-[#D4AF37]/30 text-white">
+            <SelectTrigger className="w-full sm:w-[200px] bg-[#1a1a1a] border-[#D4AF37]/30 text-white text-sm">
               <SelectValue placeholder="Pilih Periode" />
             </SelectTrigger>
             <SelectContent>
@@ -261,19 +261,19 @@ export default function TmsMonitoringPage() {
           </Select>
 
           {/* Breadcrumb */}
-          <div className="flex items-center gap-2 text-sm">
+          <div className="flex items-center gap-2 text-xs sm:text-sm overflow-x-auto">
             <button
               onClick={() => handleBreadcrumbClick("site")}
-              className={`${viewMode === "site" ? "text-[#D4AF37] font-semibold" : "text-gray-400 hover:text-white"}`}
+              className={`${viewMode === "site" ? "text-[#D4AF37] font-semibold" : "text-gray-400 hover:text-white"} whitespace-nowrap`}
             >
               Site
             </button>
             {viewMode !== "site" && (
               <>
-                <ChevronRight className="w-4 h-4 text-gray-600" />
+                <ChevronRight className="w-3 h-3 sm:w-4 sm:h-4 text-gray-600 flex-shrink-0" />
                 <button
                   onClick={() => handleBreadcrumbClick("department")}
-                  className={`${viewMode === "department" ? "text-[#D4AF37] font-semibold" : "text-gray-400 hover:text-white"}`}
+                  className={`${viewMode === "department" ? "text-[#D4AF37] font-semibold" : "text-gray-400 hover:text-white"} whitespace-nowrap`}
                 >
                   {selectedSite}
                 </button>
@@ -281,53 +281,53 @@ export default function TmsMonitoringPage() {
             )}
             {viewMode === "individual" && (
               <>
-                <ChevronRight className="w-4 h-4 text-gray-600" />
-                <span className="text-[#D4AF37] font-semibold">{selectedDepartment}</span>
+                <ChevronRight className="w-3 h-3 sm:w-4 sm:h-4 text-gray-600 flex-shrink-0" />
+                <span className="text-[#D4AF37] font-semibold whitespace-nowrap">{selectedDepartment}</span>
               </>
             )}
           </div>
         </div>
 
         {/* Summary Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6 mb-6 sm:mb-8">
           <Card className="bg-[#1a1a1a] border-[#D4AF37]/30">
-            <CardHeader className="pb-3">
-              <CardTitle className="text-sm font-medium text-gray-400 flex items-center gap-2">
-                <Target className="w-4 h-4" />
+            <CardHeader className="pb-2 sm:pb-3">
+              <CardTitle className="text-xs sm:text-sm font-medium text-gray-400 flex items-center gap-2">
+                <Target className="w-3 h-3 sm:w-4 sm:h-4" />
                 Total Target
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-3xl font-bold text-white">{summary.target}</div>
-              <p className="text-xs text-gray-500 mt-1">Bawahan langsung</p>
+              <div className="text-2xl sm:text-3xl font-bold text-white">{summary.target}</div>
+              <p className="text-[10px] sm:text-xs text-gray-500 mt-1">Bawahan langsung</p>
             </CardContent>
           </Card>
 
           <Card className="bg-[#1a1a1a] border-[#D4AF37]/30">
-            <CardHeader className="pb-3">
-              <CardTitle className="text-sm font-medium text-gray-400 flex items-center gap-2">
-                <TrendingUp className="w-4 h-4" />
+            <CardHeader className="pb-2 sm:pb-3">
+              <CardTitle className="text-xs sm:text-sm font-medium text-gray-400 flex items-center gap-2">
+                <TrendingUp className="w-3 h-3 sm:w-4 sm:h-4" />
                 Total Realisasi
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-3xl font-bold text-white">{summary.realization}</div>
-              <p className="text-xs text-gray-500 mt-1">Dengan minimal 1 evidence</p>
+              <div className="text-2xl sm:text-3xl font-bold text-white">{summary.realization}</div>
+              <p className="text-[10px] sm:text-xs text-gray-500 mt-1">Dengan minimal 1 evidence</p>
             </CardContent>
           </Card>
 
-          <Card className={`border-2 ${getStatusBg(summary.percentage)}`}>
-            <CardHeader className="pb-3">
-              <CardTitle className="text-sm font-medium text-gray-400 flex items-center gap-2">
-                <BarChart3 className="w-4 h-4" />
+          <Card className={`border-2 ${getStatusBg(summary.percentage)} sm:col-span-2 lg:col-span-1`}>
+            <CardHeader className="pb-2 sm:pb-3">
+              <CardTitle className="text-xs sm:text-sm font-medium text-gray-400 flex items-center gap-2">
+                <BarChart3 className="w-3 h-3 sm:w-4 sm:h-4" />
                 Persentase
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className={`text-3xl font-bold ${getStatusColor(summary.percentage)}`}>
+              <div className={`text-2xl sm:text-3xl font-bold ${getStatusColor(summary.percentage)}`}>
                 {summary.percentage.toFixed(1)}%
               </div>
-              <p className={`text-xs mt-1 font-semibold ${getStatusColor(summary.percentage)}`}>
+              <p className={`text-[10px] sm:text-xs mt-1 font-semibold ${getStatusColor(summary.percentage)}`}>
                 {getStatusLabel(summary.percentage)}
               </p>
             </CardContent>
@@ -337,19 +337,20 @@ export default function TmsMonitoringPage() {
         {/* Monitoring Table */}
         <Card className="bg-[#1a1a1a] border-[#D4AF37]/30">
           <CardHeader>
-            <CardTitle className="text-white">
+            <CardTitle className="text-white text-base sm:text-lg">
               {viewMode === "site" && "Monitoring Per Site"}
               {viewMode === "department" && `Monitoring Departemen - ${selectedSite}`}
               {viewMode === "individual" && `Monitoring Individual - ${selectedDepartment}`}
             </CardTitle>
-            <CardDescription className="text-gray-400">
+            <CardDescription className="text-gray-400 text-xs sm:text-sm">
               {viewMode === "individual"
                 ? "Klik pada target untuk melihat detail bawahan langsung"
                 : "Klik pada baris untuk melihat detail lebih lanjut"}
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="overflow-x-auto">
+            {/* Desktop Table View */}
+            <div className="hidden md:block overflow-x-auto">
               <table className="w-full">
                 <thead>
                   <tr className="border-b border-[#D4AF37]/20">
@@ -391,7 +392,7 @@ export default function TmsMonitoringPage() {
                       </td>
                       <td className="py-3 px-4 text-center">
                         <span
-                          className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold ${getStatusBg(item.percentage)} ${getStatusColor(item.percentage)}`}
+                          className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold mt-1 ${getStatusBg(item.percentage)} ${getStatusColor(item.percentage)}`}
                         >
                           {getStatusLabel(item.percentage)}
                         </span>
@@ -401,19 +402,17 @@ export default function TmsMonitoringPage() {
                           <Button
                             size="sm"
                             onClick={() => loadSubordinatesDetail(item)}
-                            className="bg-[#D4AF37] text-black hover:bg-[#D4AF37]/90"
+                            className="bg-[#D4AF37] text-black hover:bg-[#D4AF37]/90 h-8 px-3"
                           >
-                            <Users className="w-4 h-4 mr-1" />
-                            Bawahan
+                            <Users className="w-3 h-3" />
                           </Button>
                         ) : (
                           <Button
                             size="sm"
                             onClick={() => handleDrillDown(item)}
-                            className="bg-[#D4AF37] text-black hover:bg-[#D4AF37]/90"
+                            className="bg-[#D4AF37] text-black hover:bg-[#D4AF37]/90 h-8 px-3"
                           >
                             Detail
-                            <ChevronRight className="w-4 h-4 ml-1" />
                           </Button>
                         )}
                       </td>
@@ -428,6 +427,64 @@ export default function TmsMonitoringPage() {
                   )}
                 </tbody>
               </table>
+            </div>
+
+            <div className="md:hidden space-y-3">
+              {monitoringData.length === 0 ? (
+                <div className="py-8 text-center text-gray-500">Tidak ada data untuk periode ini</div>
+              ) : (
+                monitoringData.map((item, index) => (
+                  <div key={index} className="p-4 bg-[#0a0a0a] border border-[#D4AF37]/20 rounded-lg space-y-3">
+                    <div className="flex items-start justify-between">
+                      <div>
+                        <h3 className="font-semibold text-white text-sm">
+                          {viewMode === "site" && item.site}
+                          {viewMode === "department" && item.department}
+                          {viewMode === "individual" && item.leader_name}
+                        </h3>
+                        <span
+                          className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-semibold mt-1 ${getStatusBg(item.percentage)} ${getStatusColor(item.percentage)}`}
+                        >
+                          {getStatusLabel(item.percentage)}
+                        </span>
+                      </div>
+                      {viewMode === "individual" ? (
+                        <Button
+                          size="sm"
+                          onClick={() => loadSubordinatesDetail(item)}
+                          className="bg-[#D4AF37] text-black hover:bg-[#D4AF37]/90 h-8 px-3"
+                        >
+                          <Users className="w-3 h-3" />
+                        </Button>
+                      ) : (
+                        <Button
+                          size="sm"
+                          onClick={() => handleDrillDown(item)}
+                          className="bg-[#D4AF37] text-black hover:bg-[#D4AF37]/90 h-8 px-3"
+                        >
+                          Detail
+                        </Button>
+                      )}
+                    </div>
+                    <div className="grid grid-cols-3 gap-2 text-xs">
+                      <div>
+                        <span className="text-gray-400">Target</span>
+                        <p className="text-white font-semibold text-base">{item.target}</p>
+                      </div>
+                      <div>
+                        <span className="text-gray-400">Realisasi</span>
+                        <p className="text-white font-semibold text-base">{item.realization}</p>
+                      </div>
+                      <div>
+                        <span className="text-gray-400">Persentase</span>
+                        <p className={`font-bold text-base ${getStatusColor(item.percentage)}`}>
+                          {item.percentage.toFixed(1)}%
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                ))
+              )}
             </div>
           </CardContent>
         </Card>

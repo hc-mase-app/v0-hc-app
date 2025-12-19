@@ -149,27 +149,29 @@ export default function StorageArchivePage() {
     <div className="min-h-screen bg-[#0a0a0a] text-white">
       {/* Header */}
       <header className="border-b border-[#D4AF37]/30 bg-[#1a1a1a] sticky top-0 z-50">
-        <div className="container mx-auto px-4 py-4 flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <button
-              onClick={() => router.push("/tms")}
-              className="w-10 h-10 rounded-lg bg-[#0a0a0a] border border-[#D4AF37]/30 flex items-center justify-center hover:bg-[#D4AF37] hover:text-black transition-colors"
-            >
-              <ChevronLeft className="w-5 h-5" />
-            </button>
-            <div>
-              <h1 className="text-xl font-bold text-[#D4AF37]">Archive Evidence</h1>
-              <p className="text-sm text-gray-400">Kelola storage evidence berdasarkan usage</p>
+        <div className="container mx-auto px-4 py-4">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+            <div className="flex items-center gap-3">
+              <button
+                onClick={() => router.push("/tms")}
+                className="w-10 h-10 rounded-lg bg-[#0a0a0a] border border-[#D4AF37]/30 flex items-center justify-center hover:bg-[#D4AF37] hover:text-black transition-colors"
+              >
+                <ChevronLeft className="w-5 h-5" />
+              </button>
+              <div>
+                <h1 className="text-lg sm:text-xl font-bold text-[#D4AF37]">Archive Evidence</h1>
+                <p className="text-xs sm:text-sm text-gray-400">Kelola storage evidence berdasarkan usage</p>
+              </div>
             </div>
+            <Button variant="outline" onClick={() => router.push("/tms")} className="gap-2 w-full sm:w-auto">
+              <Home className="w-4 h-4" />
+              <span className="sm:inline">Menu Utama</span>
+            </Button>
           </div>
-          <Button variant="outline" onClick={() => router.push("/tms")} className="gap-2">
-            <Home className="w-4 h-4" />
-            Menu Utama
-          </Button>
         </div>
       </header>
 
-      <main className="container mx-auto px-4 py-8 max-w-5xl">
+      <main className="container mx-auto px-4 py-6 sm:py-8 max-w-5xl">
         {/* Access Check */}
         {!isSuperAdmin && (
           <Alert className="mb-6 border-red-500/50 bg-red-500/10">
@@ -183,29 +185,32 @@ export default function StorageArchivePage() {
         {isSuperAdmin && (
           <>
             {/* Storage Usage Widget */}
-            <div className="bg-[#1a1a1a] border border-[#D4AF37]/30 rounded-lg p-6 mb-6">
-              <div className="flex items-center gap-3 mb-4">
-                <div className="w-12 h-12 rounded-lg bg-[#D4AF37]/10 flex items-center justify-center">
-                  <Database className="w-6 h-6 text-[#D4AF37]" />
+            <div className="bg-[#1a1a1a] border border-[#D4AF37]/30 rounded-lg p-4 sm:p-6 mb-6">
+              <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 mb-4">
+                <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-lg bg-[#D4AF37]/10 flex items-center justify-center flex-shrink-0">
+                  <Database className="w-5 h-5 sm:w-6 sm:h-6 text-[#D4AF37]" />
                 </div>
                 <div className="flex-1">
-                  <h3 className="text-lg font-semibold text-white">Current Storage Usage</h3>
-                  <p className="text-sm text-gray-400">
+                  <h3 className="text-base sm:text-lg font-semibold text-white">Current Storage Usage</h3>
+                  <p className="text-xs sm:text-sm text-gray-400">
                     {formatBytes(storageUsed)} / {formatBytes(storageLimit)} ({storagePercentage.toFixed(1)}%)
                   </p>
                 </div>
               </div>
 
               {/* Progress Bar */}
-              <div className="relative w-full h-8 bg-[#0a0a0a] rounded-lg overflow-hidden border border-[#D4AF37]/20">
+              <div className="relative w-full h-6 sm:h-8 bg-[#0a0a0a] rounded-lg overflow-hidden border border-[#D4AF37]/20">
                 <div
                   className={`h-full transition-all duration-500 ${
                     storagePercentage >= 90 ? "bg-red-500" : storagePercentage >= 80 ? "bg-yellow-500" : "bg-[#D4AF37]"
                   }`}
                   style={{ width: `${Math.min(storagePercentage, 100)}%` }}
                 />
-                <div className="absolute inset-0 flex items-center justify-center text-xs font-semibold text-white">
-                  {storagePercentage.toFixed(1)}% Used - {formatBytes(storageLimit - storageUsed)} Available
+                <div className="absolute inset-0 flex items-center justify-center text-[10px] sm:text-xs font-semibold text-white px-2 text-center">
+                  <span className="hidden sm:inline">
+                    {storagePercentage.toFixed(1)}% Used - {formatBytes(storageLimit - storageUsed)} Available
+                  </span>
+                  <span className="sm:hidden">{storagePercentage.toFixed(1)}%</span>
                 </div>
               </div>
 
@@ -225,9 +230,9 @@ export default function StorageArchivePage() {
             </div>
 
             {/* Evidence Breakdown by Month */}
-            <div className="bg-[#1a1a1a] border border-[#D4AF37]/30 rounded-lg p-6 mb-6">
-              <h3 className="text-lg font-semibold text-[#D4AF37] mb-4">Evidence Breakdown by Month</h3>
-              <p className="text-sm text-gray-400 mb-4">
+            <div className="bg-[#1a1a1a] border border-[#D4AF37]/30 rounded-lg p-4 sm:p-6 mb-6">
+              <h3 className="text-base sm:text-lg font-semibold text-[#D4AF37] mb-4">Evidence Breakdown by Month</h3>
+              <p className="text-xs sm:text-sm text-gray-400 mb-4">
                 Pilih bulan yang ingin di-download atau dihapus (oldest first)
               </p>
 
@@ -242,20 +247,23 @@ export default function StorageArchivePage() {
                   {monthlyData.map((month) => (
                     <div
                       key={month.month}
-                      className="flex items-center gap-4 p-4 bg-[#0a0a0a] border border-[#D4AF37]/20 rounded-lg hover:border-[#D4AF37]/40 transition-colors"
+                      className="flex flex-col sm:flex-row items-start sm:items-center gap-3 sm:gap-4 p-3 sm:p-4 bg-[#0a0a0a] border border-[#D4AF37]/20 rounded-lg hover:border-[#D4AF37]/40 transition-colors"
                     >
                       <Checkbox
                         id={month.month}
                         checked={selectedMonths.includes(month.month)}
                         onCheckedChange={() => handleMonthToggle(month.month)}
                       />
-                      <label htmlFor={month.month} className="flex-1 flex items-center justify-between cursor-pointer">
-                        <span className="font-medium text-white">{month.monthLabel}</span>
-                        <div className="flex gap-6 text-sm">
+                      <label
+                        htmlFor={month.month}
+                        className="flex-1 flex flex-col sm:flex-row items-start sm:items-center justify-between cursor-pointer gap-2"
+                      >
+                        <span className="font-medium text-white text-sm sm:text-base">{month.monthLabel}</span>
+                        <div className="flex gap-4 sm:gap-6 text-xs sm:text-sm">
                           <span className="text-gray-400">
                             {month.fileCount} file{month.fileCount !== 1 ? "s" : ""}
                           </span>
-                          <span className="text-[#D4AF37] font-semibold min-w-[80px] text-right">
+                          <span className="text-[#D4AF37] font-semibold min-w-[60px] sm:min-w-[80px] text-right">
                             {formatBytes(month.totalSize)}
                           </span>
                         </div>
@@ -268,25 +276,27 @@ export default function StorageArchivePage() {
 
             {/* Selected Summary & Actions */}
             {selectedMonths.length > 0 && (
-              <div className="bg-[#D4AF37]/10 border border-[#D4AF37] rounded-lg p-6 mb-6">
-                <h4 className="font-semibold text-[#D4AF37] mb-2">Selected Summary</h4>
-                <p className="text-white mb-4">
+              <div className="bg-[#D4AF37]/10 border border-[#D4AF37] rounded-lg p-4 sm:p-6 mb-6">
+                <h4 className="font-semibold text-[#D4AF37] mb-2 text-sm sm:text-base">Selected Summary</h4>
+                <p className="text-white mb-4 text-xs sm:text-sm">
                   {selectedMonths.length} month{selectedMonths.length !== 1 ? "s" : ""} selected •{" "}
                   {selectedStats.fileCount} files • {formatBytes(selectedStats.totalSize)} will be freed
                 </p>
-                <div className="flex gap-3">
-                  <Button onClick={handleDownload} disabled={actionLoading} className="flex-1 gap-2">
+                <div className="flex flex-col sm:flex-row gap-3">
+                  <Button onClick={handleDownload} disabled={actionLoading} className="flex-1 gap-2 text-sm">
                     {actionLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
-                    Download Selected (ZIP)
+                    <span className="hidden sm:inline">Download Selected (ZIP)</span>
+                    <span className="sm:hidden">Download</span>
                   </Button>
                   <Button
                     onClick={() => setShowDeleteDialog(true)}
                     disabled={actionLoading}
                     variant="destructive"
-                    className="flex-1 gap-2"
+                    className="flex-1 gap-2 text-sm"
                   >
                     <Trash2 className="w-4 h-4" />
-                    Delete Selected
+                    <span className="hidden sm:inline">Delete Selected</span>
+                    <span className="sm:hidden">Delete</span>
                   </Button>
                 </div>
               </div>

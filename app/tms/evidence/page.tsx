@@ -179,36 +179,36 @@ export default function TmsEvidencePage() {
       {/* Header */}
       <div className="sticky top-0 z-10 bg-[#0a0a0a]/95 backdrop-blur-sm border-b border-[#D4AF37]/20">
         <div className="container mx-auto px-4 py-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+            <div className="flex items-center gap-3 sm:gap-4">
               <button
                 onClick={() => router.push("/tms")}
                 className="text-[#D4AF37] hover:text-[#D4AF37]/80 transition-colors"
               >
-                <ChevronLeft className="w-6 h-6" />
+                <ChevronLeft className="w-5 h-5 sm:w-6 sm:h-6" />
               </button>
               <div>
-                <h1 className="text-2xl font-bold text-white">Upload Evidence Leadership</h1>
-                <p className="text-sm text-gray-400">Upload bukti aktivitas kepemimpinan</p>
+                <h1 className="text-lg sm:text-2xl font-bold text-white">Upload Evidence Leadership</h1>
+                <p className="text-xs sm:text-sm text-gray-400">Upload bukti aktivitas kepemimpinan</p>
               </div>
             </div>
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2 sm:gap-3">
               <button
                 onClick={() => router.push("/tms")}
                 className="flex items-center gap-2 text-[#D4AF37] hover:text-[#D4AF37]/80 transition-colors px-3 py-2 hover:bg-[#D4AF37]/10 rounded-lg"
                 title="Kembali ke Menu Utama"
               >
-                <Home className="w-5 h-5" />
-                <span className="text-sm font-medium">Menu Utama</span>
+                <Home className="w-4 h-4 sm:w-5 sm:h-5" />
+                <span className="hidden sm:inline text-sm font-medium">Menu Utama</span>
               </button>
-              <Upload className="w-8 h-8 text-[#D4AF37]" />
+              <Upload className="w-6 h-6 sm:w-8 sm:h-8 text-[#D4AF37]" />
             </div>
           </div>
         </div>
       </div>
 
       {/* Main Content */}
-      <div className="container mx-auto px-4 py-8">
+      <div className="container mx-auto px-4 py-6 sm:py-8">
         <div className="max-w-3xl mx-auto">
           {/* Success Message */}
           {uploadSuccess && (
@@ -235,19 +235,19 @@ export default function TmsEvidencePage() {
           {/* Upload Form */}
           <Card className="bg-[#1a1a1a] border-[#D4AF37]/30">
             <CardHeader>
-              <CardTitle className="text-white flex items-center gap-2">
-                <FileText className="w-5 h-5 text-[#D4AF37]" />
+              <CardTitle className="text-white flex items-center gap-2 text-base sm:text-lg">
+                <FileText className="w-4 h-4 sm:w-5 sm:h-5 text-[#D4AF37]" />
                 Form Upload Evidence
               </CardTitle>
-              <CardDescription className="text-gray-400">
+              <CardDescription className="text-gray-400 text-xs sm:text-sm">
                 Lengkapi semua data dan upload file evidence aktivitas kepemimpinan
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <form onSubmit={handleSubmit} className="space-y-6">
+              <form onSubmit={handleSubmit} className="space-y-4 sm:space-y-6">
                 {/* File Upload */}
                 <div className="space-y-2">
-                  <Label htmlFor="file-input" className="text-white font-medium">
+                  <Label htmlFor="file-input" className="text-white font-medium text-sm">
                     File Evidence <span className="text-red-500">*</span>
                   </Label>
                   <div className="flex items-center gap-3">
@@ -256,16 +256,18 @@ export default function TmsEvidencePage() {
                       type="file"
                       accept=".pdf,.jpg,.jpeg,.png"
                       onChange={handleFileChange}
-                      className="bg-[#0a0a0a] border-[#D4AF37]/30 text-white file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-[#D4AF37] file:text-black hover:file:bg-[#D4AF37]/90"
+                      className="bg-[#0a0a0a] border-[#D4AF37]/30 text-white text-sm file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-xs sm:file:text-sm file:font-semibold file:bg-[#D4AF37] file:text-black hover:file:bg-[#D4AF37]/90"
                     />
                   </div>
-                  <p className="text-xs text-gray-300">Format: PDF, JPG, PNG (Max 10MB)</p>
+                  <p className="text-[10px] sm:text-xs text-gray-300">Format: PDF, JPG, PNG (Max 10MB)</p>
                   {selectedFile && (
                     <div className="mt-2 p-3 bg-[#D4AF37]/10 border border-[#D4AF37]/30 rounded-lg">
-                      <div className="flex items-center gap-2 text-sm text-[#D4AF37]">
-                        <FileText className="w-4 h-4" />
-                        <span className="font-medium">{selectedFile.name}</span>
-                        <span className="text-gray-300">({(selectedFile.size / 1024).toFixed(2)} KB)</span>
+                      <div className="flex items-center gap-2 text-xs sm:text-sm text-[#D4AF37]">
+                        <FileText className="w-3 h-3 sm:w-4 sm:h-4 flex-shrink-0" />
+                        <span className="font-medium truncate">{selectedFile.name}</span>
+                        <span className="text-gray-300 flex-shrink-0">
+                          ({(selectedFile.size / 1024).toFixed(2)} KB)
+                        </span>
                       </div>
                     </div>
                   )}
@@ -273,12 +275,12 @@ export default function TmsEvidencePage() {
 
                 {/* Subordinate Selection */}
                 <div className="space-y-2">
-                  <Label htmlFor="subordinate" className="text-white font-medium flex items-center gap-2">
-                    <User className="w-4 h-4 text-[#D4AF37]" />
+                  <Label htmlFor="subordinate" className="text-white font-medium flex items-center gap-2 text-sm">
+                    <User className="w-3 h-3 sm:w-4 sm:h-4 text-[#D4AF37]" />
                     Bawahan Langsung <span className="text-red-500">*</span>
                   </Label>
                   <Select value={subordinateId} onValueChange={setSubordinateId}>
-                    <SelectTrigger className="bg-[#1a1a1a] border-[#D4AF37]/30 text-white placeholder:text-gray-300">
+                    <SelectTrigger className="bg-[#1a1a1a] border-[#D4AF37]/30 text-white placeholder:text-gray-300 text-sm">
                       <SelectValue placeholder="Pilih bawahan yang menerima aktivitas..." />
                     </SelectTrigger>
                     <SelectContent>
@@ -290,7 +292,7 @@ export default function TmsEvidencePage() {
                     </SelectContent>
                   </Select>
                   {subordinates.length === 0 && (
-                    <p className="text-xs text-yellow-400">
+                    <p className="text-[10px] sm:text-xs text-yellow-400">
                       Tidak ada bawahan langsung ditemukan. Pastikan hierarki sudah diatur.
                     </p>
                   )}
@@ -298,18 +300,18 @@ export default function TmsEvidencePage() {
 
                 {/* Activity Type */}
                 <div className="space-y-2">
-                  <Label htmlFor="activity-type" className="text-white font-medium">
+                  <Label htmlFor="activity-type" className="text-white font-medium text-sm">
                     Tipe Aktivitas <span className="text-red-500">*</span>
                   </Label>
                   <Select value={activityTypeId} onValueChange={setActivityTypeId}>
-                    <SelectTrigger className="bg-[#1a1a1a] border-[#D4AF37]/30 text-white placeholder:text-gray-300">
+                    <SelectTrigger className="bg-[#1a1a1a] border-[#D4AF37]/30 text-white placeholder:text-gray-300 text-sm">
                       <SelectValue placeholder="Pilih tipe aktivitas kepemimpinan..." />
                     </SelectTrigger>
                     <SelectContent>
                       {activityTypes.map((type) => (
                         <SelectItem key={type.id} value={type.id.toString()}>
                           <div>
-                            <div className="font-semibold">{type.activity_name}</div>
+                            <div className="font-semibold text-sm">{type.activity_name}</div>
                             <div className="text-xs text-gray-500">{type.description}</div>
                           </div>
                         </SelectItem>
@@ -320,8 +322,8 @@ export default function TmsEvidencePage() {
 
                 {/* Activity Date */}
                 <div className="space-y-2">
-                  <Label htmlFor="activity-date" className="text-white font-medium flex items-center gap-2">
-                    <Calendar className="w-4 h-4 text-[#D4AF37]" />
+                  <Label htmlFor="activity-date" className="text-white font-medium flex items-center gap-2 text-sm">
+                    <Calendar className="w-3 h-3 sm:w-4 sm:h-4 text-[#D4AF37]" />
                     Tanggal Kegiatan <span className="text-red-500">*</span>
                   </Label>
                   <Input
@@ -330,15 +332,15 @@ export default function TmsEvidencePage() {
                     value={activityDate}
                     onChange={(e) => setActivityDate(e.target.value)}
                     max={new Date().toISOString().split("T")[0]}
-                    className="bg-[#1a1a1a] border-[#D4AF37]/30 text-white"
+                    className="bg-[#1a1a1a] border-[#D4AF37]/30 text-white text-sm"
                   />
-                  <p className="text-xs text-gray-300">Tanggal saat aktivitas kepemimpinan dilakukan</p>
+                  <p className="text-[10px] sm:text-xs text-gray-300">Tanggal saat aktivitas kepemimpinan dilakukan</p>
                 </div>
 
                 {/* Location */}
                 <div className="space-y-2">
-                  <Label htmlFor="location" className="text-white font-medium flex items-center gap-2">
-                    <MapPin className="w-4 h-4 text-[#D4AF37]" />
+                  <Label htmlFor="location" className="text-white font-medium flex items-center gap-2 text-sm">
+                    <MapPin className="w-3 h-3 sm:w-4 sm:h-4 text-[#D4AF37]" />
                     Lokasi Kegiatan
                   </Label>
                   <Input
@@ -347,24 +349,24 @@ export default function TmsEvidencePage() {
                     value={location}
                     onChange={(e) => setLocation(e.target.value)}
                     placeholder="Contoh: Ruang Rapat, Area Produksi, dll"
-                    className="bg-[#1a1a1a] border-[#D4AF37]/30 text-white placeholder:text-gray-300"
+                    className="bg-[#1a1a1a] border-[#D4AF37]/30 text-white placeholder:text-gray-300 text-sm"
                   />
                 </div>
 
                 {/* Submit Button */}
-                <div className="flex gap-3 pt-4">
+                <div className="flex flex-col sm:flex-row gap-3 pt-4">
                   <Button
                     type="button"
                     variant="outline"
                     onClick={() => router.back()}
-                    className="flex-1 border-gray-600 text-gray-400 hover:bg-gray-800"
+                    className="flex-1 border-gray-600 text-gray-400 hover:bg-gray-800 text-sm"
                   >
                     Batal
                   </Button>
                   <Button
                     type="submit"
                     disabled={isUploading || !selectedFile || !subordinateId || !activityTypeId || !activityDate}
-                    className="flex-1 bg-[#D4AF37] text-black hover:bg-[#D4AF37]/90 disabled:opacity-50"
+                    className="flex-1 bg-[#D4AF37] text-black hover:bg-[#D4AF37]/90 disabled:opacity-50 text-sm"
                   >
                     {isUploading ? (
                       <>

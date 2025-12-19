@@ -16,6 +16,7 @@ import {
   ChevronDown,
   Lock,
   Home,
+  Pencil,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -525,72 +526,74 @@ export default function HierarchyPage() {
       {/* Header */}
       <div className="sticky top-0 z-10 bg-[#0a0a0a]/95 backdrop-blur-sm border-b border-[#D4AF37]/20">
         <div className="container mx-auto px-4 py-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+            <div className="flex items-center gap-3 sm:gap-4">
               <Button
                 variant="ghost"
                 size="icon"
                 onClick={() => router.back()}
-                className="text-[#D4AF37] hover:bg-[#D4AF37]/10"
+                className="text-[#D4AF37] hover:bg-[#D4AF37]/10 flex-shrink-0"
               >
                 <ChevronLeft className="w-5 h-5" />
               </Button>
               <div>
-                <h1 className="text-2xl font-bold text-white">Manajemen Hierarki Organisasi</h1>
-                <p className="text-sm text-gray-400">Periode: {currentMonth}</p>
+                <h1 className="text-lg sm:text-2xl font-bold text-white">Manajemen Hierarki Organisasi</h1>
+                <p className="text-xs sm:text-sm text-gray-400">Periode: {currentMonth}</p>
               </div>
             </div>
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2 sm:gap-3">
               <Button
                 variant="ghost"
                 onClick={() => router.push("/tms")}
-                className="text-[#D4AF37] hover:bg-[#D4AF37]/10 flex items-center gap-2"
+                className="text-[#D4AF37] hover:bg-[#D4AF37]/10 flex items-center gap-2 text-sm"
               >
-                <Home className="w-5 h-5" />
-                <span className="text-sm font-medium">Menu Utama</span>
+                <Home className="w-4 h-4 sm:w-5 sm:h-5" />
+                <span className="hidden sm:inline font-medium">Menu Utama</span>
               </Button>
-              <Users className="w-8 h-8 text-[#D4AF37]" />
+              <Users className="w-6 h-6 sm:w-8 sm:h-8 text-[#D4AF37]" />
             </div>
           </div>
         </div>
       </div>
 
       {/* Main Content */}
-      <div className="container mx-auto px-4 py-8">
+      <div className="container mx-auto px-4 py-6 sm:py-8">
         {/* Actions and Filters */}
         <div className="mb-6 space-y-4">
           {/* Action Buttons */}
-          <div className="flex gap-3">
+          <div className="flex flex-col sm:flex-row gap-3">
             <Button
               onClick={downloadCsvTemplate}
-              className="bg-[#D4AF37]/10 text-[#D4AF37] hover:bg-[#D4AF37]/20 border border-[#D4AF37]/30"
+              className="bg-[#D4AF37]/10 text-[#D4AF37] hover:bg-[#D4AF37]/20 border border-[#D4AF37]/30 text-sm"
             >
               <Download className="w-4 h-4 mr-2" />
-              Download Template CSV
+              <span className="hidden sm:inline">Download Template CSV</span>
+              <span className="sm:hidden">Template CSV</span>
             </Button>
             <Button
               onClick={() => setIsUploadModalOpen(true)}
-              className="bg-[#D4AF37] text-black hover:bg-[#D4AF37]/90"
+              className="bg-[#D4AF37] text-black hover:bg-[#D4AF37]/90 text-sm"
             >
               <Upload className="w-4 h-4 mr-2" />
-              Bulk Import CSV
+              <span className="hidden sm:inline">Bulk Import CSV</span>
+              <span className="sm:hidden">Import CSV</span>
             </Button>
           </div>
 
           {/* Filters */}
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
             <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
               <Input
                 placeholder="Cari NIK, Nama, Jabatan..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-10 bg-[#1a1a1a] border-[#D4AF37]/30 text-white"
+                className="pl-10 bg-[#1a1a1a] border-[#D4AF37]/30 text-white text-sm"
               />
             </div>
 
             <Select value={selectedSite} onValueChange={setSelectedSite}>
-              <SelectTrigger className="bg-[#1a1a1a] border-[#D4AF37]/30 text-white">
+              <SelectTrigger className="bg-[#1a1a1a] border-[#D4AF37]/30 text-white text-sm">
                 <SelectValue placeholder="Semua Site" />
               </SelectTrigger>
               <SelectContent>
@@ -604,7 +607,7 @@ export default function HierarchyPage() {
             </Select>
 
             <Select value={selectedDept} onValueChange={setSelectedDept}>
-              <SelectTrigger className="bg-[#1a1a1a] border-[#D4AF37]/30 text-white">
+              <SelectTrigger className="bg-[#1a1a1a] border-[#D4AF37]/30 text-white text-sm">
                 <SelectValue placeholder="Semua Departemen" />
               </SelectTrigger>
               <SelectContent>
@@ -616,8 +619,6 @@ export default function HierarchyPage() {
                 ))}
               </SelectContent>
             </Select>
-
-            <div className="text-sm text-gray-400 flex items-center">Total: {filteredData.length} karyawan</div>
           </div>
         </div>
 
@@ -635,8 +636,9 @@ export default function HierarchyPage() {
         </Card>
 
         {/* Data Table */}
-        <div className="bg-[#1a1a1a] rounded-lg border border-[#D4AF37]/30 overflow-hidden">
-          <div className="overflow-x-auto">
+        <div className="bg-[#1a1a1a] border border-[#D4AF37]/30 rounded-lg overflow-hidden">
+          {/* Desktop Table View */}
+          <div className="hidden md:block overflow-x-auto">
             <table className="w-full">
               <thead className="bg-[#D4AF37]/10">
                 <tr>
@@ -705,39 +707,124 @@ export default function HierarchyPage() {
             </table>
           </div>
 
-          {/* Pagination */}
-          {totalPages > 1 && (
-            <div className="px-4 py-3 border-t border-[#D4AF37]/20 flex items-center justify-between">
-              <p className="text-sm text-gray-400">
-                Menampilkan {startRecord} - {endRecord} dari {filteredData.length} data
-              </p>
-              <div className="flex gap-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
-                  disabled={currentPage === 1}
-                  className="border-[#D4AF37]/30 text-[#D4AF37]"
-                >
-                  <ChevronUp className="w-4 h-4 rotate-[-90deg]" />
-                  Prev
-                </Button>
-                <span className="flex items-center px-3 text-sm text-gray-400">
-                  {currentPage} / {totalPages}
-                </span>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
-                  disabled={currentPage === totalPages}
-                  className="border-[#D4AF37]/30 text-[#D4AF37]"
-                >
-                  Next
-                  <ChevronDown className="w-4 h-4 rotate-[-90deg]" />
-                </Button>
+          <div className="md:hidden">
+            {paginatedData.length === 0 ? (
+              <div className="p-8 text-center text-gray-500">Tidak ada data hierarki</div>
+            ) : (
+              <div className="divide-y divide-gray-800">
+                {paginatedData.map((user) => (
+                  <div key={user.id} className="p-4 space-y-3">
+                    <div className="flex items-start justify-between">
+                      <div>
+                        <h3 className="font-semibold text-white text-sm">{user.name}</h3>
+                        <p className="text-xs text-gray-400">{user.nik}</p>
+                      </div>
+                      <Button
+                        size="sm"
+                        onClick={() => handleEditClick(user)}
+                        className="bg-[#D4AF37] text-black hover:bg-[#D4AF37]/90 h-8 px-3"
+                      >
+                        <Pencil className="w-3 h-3" />
+                      </Button>
+                    </div>
+                    <div className="grid grid-cols-2 gap-2 text-xs">
+                      <div>
+                        <span className="text-gray-400">Jabatan:</span>
+                        <p className="text-white font-medium">{user.jabatan}</p>
+                      </div>
+                      <div>
+                        <span className="text-gray-400">Level:</span>
+                        <p className="text-white font-medium">{getLevelName(user.level)}</p>
+                      </div>
+                      <div>
+                        <span className="text-gray-400">Departemen:</span>
+                        <p className="text-white font-medium">{user.departemen}</p>
+                      </div>
+                      <div>
+                        <span className="text-gray-400">Site:</span>
+                        <p className="text-white font-medium">{user.site}</p>
+                      </div>
+                      <div className="col-span-2">
+                        <span className="text-gray-400">Atasan:</span>
+                        <p className="text-white font-medium">
+                          {user.manager_name || "-"} {user.manager_nik && `(${user.manager_nik})`}
+                        </p>
+                      </div>
+                      <div>
+                        <span className="text-gray-400">Bawahan:</span>
+                        <p className="text-[#D4AF37] font-semibold">{user.direct_reports_count}</p>
+                      </div>
+                    </div>
+                  </div>
+                ))}
               </div>
+            )}
+          </div>
+
+          {/* Pagination */}
+          <div className="px-4 py-3 border-t border-gray-800 flex flex-col sm:flex-row items-center justify-between gap-3">
+            <p className="text-xs sm:text-sm text-gray-400">
+              Menampilkan {startRecord}-{endRecord} dari {filteredData.length} data
+            </p>
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
+                disabled={currentPage === 1}
+                className="h-8 text-xs"
+              >
+                <ChevronUp className="w-3 h-3 sm:mr-1" />
+                <span className="hidden sm:inline">Prev</span>
+              </Button>
+
+              <div className="flex gap-1">
+                {currentPage > 2 && (
+                  <Button variant="outline" size="sm" onClick={() => setCurrentPage(1)} className="h-8 w-8 text-xs">
+                    1
+                  </Button>
+                )}
+                {currentPage > 3 && <span className="px-2 text-gray-500">...</span>}
+
+                {[currentPage - 1, currentPage, currentPage + 1]
+                  .filter((page) => page > 0 && page <= totalPages)
+                  .map((page) => (
+                    <Button
+                      key={page}
+                      variant={page === currentPage ? "default" : "outline"}
+                      size="sm"
+                      onClick={() => setCurrentPage(page)}
+                      className={`h-8 w-8 text-xs ${page === currentPage ? "bg-[#D4AF37] text-black" : ""}`}
+                    >
+                      {page}
+                    </Button>
+                  ))}
+
+                {currentPage < totalPages - 2 && <span className="px-2 text-gray-500">...</span>}
+                {currentPage < totalPages - 1 && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setCurrentPage(totalPages)}
+                    className="h-8 w-8 text-xs"
+                  >
+                    {totalPages}
+                  </Button>
+                )}
+              </div>
+
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
+                disabled={currentPage === totalPages}
+                className="h-8 text-xs"
+              >
+                <span className="hidden sm:inline">Next</span>
+                <ChevronDown className="w-3 h-3 sm:ml-1" />
+              </Button>
             </div>
-          )}
+          </div>
         </div>
       </div>
 
