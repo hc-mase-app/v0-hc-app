@@ -101,8 +101,18 @@ export default function Home() {
     if (!feature) return
 
     if (featureKey === "pengajuanCuti") {
-      const dashboardPath = getDashboardPath(user.role)
-      router.push(dashboardPath)
+      if (user.role === "dic") {
+        router.push("/dashboard/dic/cuti")
+      } else {
+        const dashboardPath = getDashboardPath(user.role)
+        router.push(dashboardPath)
+      }
+    } else if (featureKey === "assessmentKaryawan") {
+      if (user.role === "dic") {
+        router.push("/dashboard/dic/assessment")
+      } else {
+        router.push(feature.path)
+      }
     } else {
       router.push(feature.path)
     }

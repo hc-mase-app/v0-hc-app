@@ -50,12 +50,12 @@ Sistem TMS menggunakan Google Drive API untuk menyimpan file evidence aktivitas 
 
 Tambahkan environment variables berikut di Vercel atau file `.env.local`:
 
-```env
+\`\`\`env
 # Google Drive Service Account
 GOOGLE_DRIVE_CLIENT_EMAIL=tms-evidence-uploader@your-project.iam.gserviceaccount.com
 GOOGLE_DRIVE_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----\nYourPrivateKeyHere\n-----END PRIVATE KEY-----\n"
 GOOGLE_DRIVE_FOLDER_ID=your_folder_id_here
-```
+\`\`\`
 
 **Catatan:**
 - `GOOGLE_DRIVE_CLIENT_EMAIL`: Ambil dari file JSON di field `client_email`
@@ -89,7 +89,7 @@ GOOGLE_DRIVE_FOLDER_ID=your_folder_id_here
 
 ## Struktur Folder Evidence
 
-```
+\`\`\`
 TMS Evidence (Root Folder)
 ├── WBN
 │   ├── HCGA
@@ -102,7 +102,7 @@ TMS Evidence (Root Folder)
 │   ├── PRODUKSI
 │   └── ...
 └── ...
-```
+\`\`\`
 
 ## Security Notes
 

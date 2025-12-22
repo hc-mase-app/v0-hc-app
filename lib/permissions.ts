@@ -106,7 +106,17 @@ export const FEATURES: Record<string, FeaturePermission> = {
     name: "Psikotest",
     path: "/psikotest",
     description: "Tes Psikologi",
-    allowedRoles: ["hr_ho", "super_admin"],
+    allowedRoles: [
+      "user",
+      "admin_site",
+      "hr_site",
+      "dic",
+      "pjo_site",
+      "manager_ho",
+      "hr_ho",
+      "hr_ticketing",
+      "super_admin",
+    ],
     requireAuth: true,
   },
   manajemenUsersDB: {

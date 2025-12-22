@@ -17,18 +17,18 @@
    - Permissions: Object Read & Write
    - Copy Account ID, Access Key ID, Secret Access Key
 5. Tambahkan ke Vercel Environment Variables:
-   ```
+   \`\`\`
    R2_ACCOUNT_ID=xxx
    R2_ACCESS_KEY_ID=xxx
    R2_SECRET_ACCESS_KEY=xxx
    R2_ENDPOINT=https://[account-id].r2.cloudflarestorage.com
    R2_BUCKET_NAME=tms-evidence
    R2_PUBLIC_URL=https://pub-xxx.r2.dev
-   ```
+   \`\`\`
 6. Set storage provider:
-   ```
+   \`\`\`
    STORAGE_PROVIDER=r2
-   ```
+   \`\`\`
 
 ---
 
@@ -58,10 +58,10 @@
 3. Application type: Web application
 4. Name: `TMS Evidence Uploader`
 5. Authorized redirect URIs:
-   ```
+   \`\`\`
    http://localhost:3000/api/auth/google/callback
    https://yourdomain.vercel.app/api/auth/google/callback
-   ```
+   \`\`\`
 6. Save dan copy:
    - Client ID
    - Client Secret
@@ -80,13 +80,13 @@
 ### D. Setup Environment Variables
 
 Tambahkan ke Vercel:
-```
+\`\`\`
 STORAGE_PROVIDER=google-drive
 GOOGLE_DRIVE_CLIENT_ID=xxx.apps.googleusercontent.com
 GOOGLE_DRIVE_CLIENT_SECRET=xxx
 GOOGLE_DRIVE_REFRESH_TOKEN=xxx
 GOOGLE_DRIVE_FOLDER_ID=xxx (optional - ID folder khusus di Drive)
-```
+\`\`\`
 
 ### E. Get Folder ID (Optional)
 
@@ -112,9 +112,9 @@ GOOGLE_DRIVE_FOLDER_ID=xxx (optional - ID folder khusus di Drive)
 3. Connect to Project
 4. Vercel otomatis generate `BLOB_READ_WRITE_TOKEN`
 5. Set storage provider:
-   ```
+   \`\`\`
    STORAGE_PROVIDER=vercel-blob
-   ```
+   \`\`\`
 6. Done! Tidak ada setup tambahan.
 
 ---

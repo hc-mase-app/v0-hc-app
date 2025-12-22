@@ -21,7 +21,7 @@ Project HCApp telah berhasil dimigrasi dari struktur monolitik ke Clean Architec
 ## STRUKTUR PROJECT SAAT INI
 
 ### ✅ Folder Structure (Clean)
-```
+\`\`\`
 /
 ├── app/                    # Next.js App Router
 │   ├── api/               # API Routes (HTTP Layer)
@@ -48,7 +48,7 @@ Project HCApp telah berhasil dimigrasi dari struktur monolitik ke Clean Architec
 │   └── setup/
 └── scripts/              # ✅ Utility scripts only
     └── google-drive-json-generator.py
-```
+\`\`\`
 
 ---
 
@@ -137,9 +137,9 @@ Project HCApp telah berhasil dimigrasi dari struktur monolitik ke Clean Architec
 - Can be cleaned up further in future
 
 **Current Exports Still Used:**
-```typescript
+\`\`\`typescript
 export const sql = neon(...) // ✅ Used by all services
-```
+\`\`\`
 
 **Legacy Functions (No longer directly called):**
 - All user functions → moved to user-service.ts
@@ -206,12 +206,12 @@ export const sql = neon(...) // ✅ Used by all services
 
 ### Service Layer Dependencies
 All services import only what they need:
-```typescript
+\`\`\`typescript
 // Clean dependency tree
 import { sql } from "@/lib/neon-db"
 import { transformData } from "../utils"
 import { SomeType } from "../types"
-```
+\`\`\`
 
 ### No Circular Dependencies ✅
 Verified with dependency graph - all imports are one-way.
@@ -222,22 +222,22 @@ Verified with dependency graph - all imports are one-way.
 
 ### Unit Testing
 Services are now fully mockable:
-```typescript
+\`\`\`typescript
 // Example test
 jest.mock("@/lib/neon-db", () => ({
   sql: jest.fn()
 }))
 
 const result = await getAllUsers()
-```
+\`\`\`
 
 ### Integration Testing
 API routes are thin and easy to test:
-```typescript
+\`\`\`typescript
 // Just test HTTP layer
 const response = await GET(mockRequest)
 expect(response.status).toBe(200)
-```
+\`\`\`
 
 ---
 

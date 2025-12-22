@@ -4,7 +4,7 @@
 
 Aplikasi HCGA menggunakan Clean Architecture dengan pemisahan layer yang jelas:
 
-```
+\`\`\`
 ┌──────────────────────────────────────┐
 │   API ROUTES (HTTP Layer)            │
 │   app/api/**/route.ts                │
@@ -19,7 +19,7 @@ Aplikasi HCGA menggunakan Clean Architecture dengan pemisahan layer yang jelas:
 │   DATABASE LAYER                     │
 │   lib/neon-db.ts (sql export)        │
 └──────────────────────────────────────┘
-```
+\`\`\`
 
 ## Service Files
 
@@ -34,7 +34,7 @@ Aplikasi HCGA menggunakan Clean Architecture dengan pemisahan layer yang jelas:
 ## Usage Pattern
 
 ### API Route (Thin Layer)
-```typescript
+\`\`\`typescript
 // app/api/users/route.ts
 import { getAllUsers, createUser } from "@/lib/services/user-service"
 
@@ -42,10 +42,10 @@ export async function GET() {
   const users = await getAllUsers()
   return NextResponse.json({ success: true, data: users })
 }
-```
+\`\`\`
 
 ### Service Layer (Business Logic)
-```typescript
+\`\`\`typescript
 // lib/services/user-service.ts
 import { sql } from "@/lib/neon-db"
 
@@ -53,7 +53,7 @@ export async function getAllUsers() {
   const result = await sql`SELECT * FROM users ORDER BY name`
   return result
 }
-```
+\`\`\`
 
 ## Benefits
 

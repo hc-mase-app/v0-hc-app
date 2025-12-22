@@ -12,7 +12,7 @@ Panduan lengkap untuk deploy aplikasi HCapp ke Vercel dari awal.
 
 ### Step 1: Push Code ke GitHub
 
-```bash
+\`\`\`bash
 # Initialize git (jika belum)
 git init
 
@@ -26,7 +26,7 @@ git commit -m "Initial commit"
 git remote add origin https://github.com/USERNAME/hcapp.git
 git branch -M main
 git push -u origin main
-```
+\`\`\`
 
 ### Step 2: Import ke Vercel
 
@@ -42,20 +42,20 @@ git push -u origin main
 Di halaman import, sebelum deploy, tambahkan environment variables:
 
 **Required Variables:**
-```
+\`\`\`
 DATABASE_URL=postgresql://[user]:[password]@[host]/[database]?sslmode=require
 STORAGE_PROVIDER=vercel-blob
-```
+\`\`\`
 
 **Optional (jika pakai R2):**
-```
+\`\`\`
 R2_ACCOUNT_ID=xxx
 R2_ACCESS_KEY_ID=xxx
 R2_SECRET_ACCESS_KEY=xxx
 R2_ENDPOINT=https://xxx.r2.cloudflarestorage.com
 R2_BUCKET_NAME=tms-evidence
 R2_PUBLIC_URL=https://pub-xxx.r2.dev
-```
+\`\`\`
 
 ### Step 4: Deploy
 
@@ -82,19 +82,19 @@ R2_PUBLIC_URL=https://pub-xxx.r2.dev
 
 ### Step 1: Install Vercel CLI
 
-```bash
+\`\`\`bash
 npm i -g vercel
-```
+\`\`\`
 
 ### Step 2: Login
 
-```bash
+\`\`\`bash
 vercel login
-```
+\`\`\`
 
 ### Step 3: Deploy
 
-```bash
+\`\`\`bash
 # Di root folder project
 vercel
 
@@ -105,11 +105,11 @@ vercel
 # - Project name? hcapp (atau nama lain)
 # - Directory? ./ (default)
 # - Override settings? No
-```
+\`\`\`
 
 ### Step 4: Setup Environment Variables
 
-```bash
+\`\`\`bash
 # Tambah environment variables
 vercel env add DATABASE_URL
 vercel env add STORAGE_PROVIDER
@@ -117,15 +117,15 @@ vercel env add STORAGE_PROVIDER
 # Untuk production
 vercel env add DATABASE_URL production
 vercel env add STORAGE_PROVIDER production
-```
+\`\`\`
 
 Atau via dashboard seperti metode 1.
 
 ### Step 5: Deploy Production
 
-```bash
+\`\`\`bash
 vercel --prod
-```
+\`\`\`
 
 ## Setelah Deploy
 
@@ -142,14 +142,14 @@ vercel --prod
 
 Setelah deploy via GitHub, setiap push ke branch `main` akan otomatis trigger deployment baru.
 
-```bash
+\`\`\`bash
 # Edit code
 git add .
 git commit -m "Update feature"
 git push
 
 # Vercel otomatis detect dan deploy
-```
+\`\`\`
 
 ### Preview Deployments
 
@@ -167,9 +167,9 @@ Via Dashboard:
 5. Save
 
 Via CLI:
-```bash
+\`\`\`bash
 vercel env add VARIABLE_NAME
-```
+\`\`\`
 
 ### Edit Variable
 
@@ -179,9 +179,9 @@ vercel env add VARIABLE_NAME
 
 ### Pull Variables ke Local
 
-```bash
+\`\`\`bash
 vercel env pull .env.local
-```
+\`\`\`
 
 ## Monitoring dan Logs
 
@@ -193,9 +193,9 @@ Via Dashboard:
 3. Klik **View Function Logs**
 
 Via CLI:
-```bash
+\`\`\`bash
 vercel logs [deployment-url]
-```
+\`\`\`
 
 ### Error Tracking
 
@@ -215,13 +215,13 @@ Setelah deploy, run SQL scripts untuk setup database:
 6. Klik **Run**
 
 Atau gunakan Vercel CLI:
-```bash
+\`\`\`bash
 # Connect ke database
 psql [DATABASE_URL]
 
 # Run script
 \i scripts/99-init-complete-database.sql
-```
+\`\`\`
 
 ## Troubleshooting
 

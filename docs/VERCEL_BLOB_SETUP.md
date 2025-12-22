@@ -6,13 +6,13 @@ Vercel Blob adalah solusi storage paling mudah untuk aplikasi ini. Gratis 10GB s
 
 ### 1. Deploy Aplikasi ke Vercel (Jika Belum)
 
-```bash
+\`\`\`bash
 # Install Vercel CLI (jika belum)
 npm i -g vercel
 
 # Deploy
 vercel
-```
+\`\`\`
 
 ### 2. Buat Blob Storage di Vercel Dashboard
 
@@ -63,21 +63,21 @@ Setelah menambahkan environment variable, redeploy aplikasi:
 
 Struktur folder di Vercel Blob:
 
-```
+\`\`\`
 /{SITE}/{DEPARTEMEN}/{YYYY-MM}/EVD-{YYYYMM}-{XXXX}_{NIK}_{filename}
 
 Contoh:
 /JAKARTA/IT/2025-01/EVD-202501-1234_EMP001_meeting_evidence.pdf
 /SURABAYA/HR/2025-01/EVD-202501-5678_EMP002_coaching_photo.jpg
-```
+\`\`\`
 
 ## Akses File yang Diupload
 
 Setiap file akan mendapat URL public yang bisa diakses:
 
-```
+\`\`\`
 https://[random-id].public.blob.vercel-storage.com/[path-to-file]
-```
+\`\`\`
 
 URL ini disimpan di database kolom `gdrive_file_url` dan bisa digunakan untuk:
 - Menampilkan file di aplikasi
@@ -117,20 +117,20 @@ URL ini disimpan di database kolom `gdrive_file_url` dan bisa digunakan untuk:
 Untuk test di local (localhost):
 
 1. Copy environment variables dari Vercel:
-   ```bash
+   \`\`\`bash
    vercel env pull .env.local
-   ```
+   \`\`\`
 
 2. Atau manual tambahkan ke `.env.local`:
-   ```env
+   \`\`\`env
    STORAGE_PROVIDER=vercel-blob
    BLOB_READ_WRITE_TOKEN=vercel_blob_rw_xxxxx
-   ```
+   \`\`\`
 
 3. Jalankan development server:
-   ```bash
+   \`\`\`bash
    npm run dev
-   ```
+   \`\`\`
 
 ## Migrasi dari R2 ke Vercel Blob
 

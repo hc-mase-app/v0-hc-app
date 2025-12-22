@@ -14,6 +14,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import Link from "next/link"
 import { Badge } from "@/components/ui/badge"
 import { formatDate, getStatusColor, getDetailedTicketStatus } from "@/lib/utils"
+import { ApprovalActions } from "@/components/approval-actions-inline"
 
 const ITEMS_PER_PAGE = 5
 const MONTHS = [
@@ -43,7 +44,7 @@ export default function DICCutiPage() {
 
   const [selectedStatus, setSelectedStatus] = useState<string>("all")
   const [selectedMonth, setSelectedMonth] = useState<string>("all")
-  const [selectedYear, setSelectedYear] = useState<string>(new Date().getFullYear().toString())
+  const [selectedYear, setSelectedYear] = useState<string>("all")
   const [currentPage, setCurrentPage] = useState(1)
 
   const [showFilters, setShowFilters] = useState(false)
@@ -148,13 +149,42 @@ export default function DICCutiPage() {
   }
 
   const yearOptions = (() => {
-    const currentYear = new Date().getFullYear()
-    const years = [{ value: "all", label: "Semua Tahun" }]
-    for (let i = 0; i < 3; i++) {
-      const year = currentYear - i
-      years.push({ value: String(year), label: String(year) })
-    }
-    return years
+    console.log("[v0] Calculating year options from data")
+    console.time("[v0] Extract years")
+
+    // Extract unique years from data
+    const yearsInData = [
+      ...new Set(allRequests.filter((r) => r.tanggalMulai).map((r) => new Date(r.tanggalMulai).getFullYear())),
+    ].sort((a, b) => b - a) // Sort descending (newest first)
+
+    console.timeEnd("[v0] Extract years")
+    console.log("[v0] Years found:", yearsInData)
+
+    // Count requests per year
+    console.time("[v0] Count per year")
+    const yearCounts: Record<number, number> = {}
+    allRequests.forEach((r) => {
+      if (r.tanggalMulai) {
+        const year = new Date(r.tanggalMulai).getFullYear()
+        yearCounts[year] = (yearCounts[year] || 0) + 1
+      }
+    })
+    console.timeEnd("[v0] Count per year")
+    console.log("[v0] Year counts:", yearCounts)
+
+    // Build options with "Semua Tahun" first
+    const options = [{ value: "all", label: "Semua Tahun" }]
+
+    // Add years with count
+    yearsInData.forEach((year) => {
+      const count = yearCounts[year] || 0
+      options.push({
+        value: String(year),
+        label: `${year} (${count} pengajuan)`,
+      })
+    })
+
+    return options
   })()
 
   const totalPages = Math.ceil(filteredRequests.length / ITEMS_PER_PAGE)
@@ -177,10 +207,10 @@ export default function DICCutiPage() {
     <DashboardLayout title="Pengajuan Cuti">
       <div className="space-y-4 md:space-y-6">
         <div>
-          <Link href="/dashboard/dic">
+          <Link href="/">
             <Button variant="outline" size="sm" className="text-xs md:text-sm bg-transparent">
               <ArrowLeft className="h-3 w-3 md:h-4 md:w-4 mr-1 md:mr-2" />
-              <span className="hidden sm:inline">Kembali ke Dashboard</span>
+              <span className="hidden sm:inline">Kembali ke Menu Utama</span>
               <span className="sm:hidden">Kembali</span>
             </Button>
           </Link>
@@ -424,6 +454,8 @@ function RequestCard({ request, onSelect }: { request: LeaveRequest; onSelect: (
     request.jenisPengajuan,
   )
 
+  const isPendingDicApproval = request.status === "pending_dic"
+
   return (
     <div
       className="border border-slate-200 rounded-lg p-3 md:p-4 hover:bg-slate-50 cursor-pointer transition-colors"
@@ -467,6 +499,12 @@ function RequestCard({ request, onSelect }: { request: LeaveRequest; onSelect: (
                 : "Tanggal tidak tersedia"}
           </span>
         </div>
+
+        {isPendingDicApproval && (
+          <div className="pt-2 border-t border-slate-200" onClick={(e) => e.stopPropagation()}>
+            <ApprovalActions request={request} role="dic" onSuccess={onSelect} />
+          </div>
+        )}
       </div>
     </div>
   )

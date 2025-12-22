@@ -19,18 +19,18 @@
 ## SOLUSI 1: OPTIMIZE SELECT QUERIES
 
 ### Masalah:
-```typescript
+\`\`\`typescript
 // BAD: Mengambil semua kolom (16+ kolom = ~2KB per record)
 SELECT * FROM users
-```
+\`\`\`
 
 ### Solusi:
-```typescript
+\`\`\`typescript
 // GOOD: Hanya ambil kolom yang dibutuhkan
 SELECT nik, nama, email, role, site, jabatan 
 FROM users 
 WHERE role = $1
-```
+\`\`\`
 
 **Saving:** 2KB → 0.5KB per record = **75% reduction**
 
@@ -44,15 +44,15 @@ WHERE role = $1
 ## SOLUSI 2: IMPLEMENT SWR CACHING
 
 ### Masalah:
-```typescript
+\`\`\`typescript
 // BAD: Fetch ulang setiap component render
 useEffect(() => {
   fetch('/api/users')
 }, [])
-```
+\`\`\`
 
 ### Solusi:
-```typescript
+\`\`\`typescript
 // GOOD: Cache di client dengan revalidation
 import useSWR from 'swr'
 
@@ -62,7 +62,7 @@ const { data, error } = useSWR('/api/users', fetcher, {
   refreshInterval: 300000, // 5 menit
   dedupingInterval: 10000, // 10 detik
 })
-```
+\`\`\`
 
 **Saving:** Reduce database hits by 70-80%
 
@@ -80,14 +80,14 @@ const { data, error } = useSWR('/api/users', fetcher, {
 - Pagination 10 items per page ✓ (sudah done)
 
 ### Enhancement:
-```typescript
+\`\`\`typescript
 // Tambahkan infinite scroll untuk mobile
 import { useInfiniteScroll } from '@/hooks/use-infinite-scroll'
 
 const { data, loadMore, hasMore } = useInfiniteScroll('/api/users', {
   initialLimit: 10,
 })
-```
+\`\`\`
 
 ### Implementasi:
 - Desktop: Pagination dengan page numbers
@@ -99,20 +99,20 @@ const { data, loadMore, hasMore } = useInfiniteScroll('/api/users', {
 ## SOLUSI 4: CLIENT-SIDE FILTERING
 
 ### Masalah:
-```typescript
+\`\`\`typescript
 // BAD: Filter di server, fetch ulang setiap filter change
 fetch(`/api/users?site=${site}&search=${search}`)
-```
+\`\`\`
 
 ### Solusi (untuk dataset kecil):
-```typescript
+\`\`\`typescript
 // GOOD: Fetch sekali, filter di client
 const allUsers = useSWR('/api/users') // Cache ini
 const filtered = allUsers.filter(u => 
   u.site === selectedSite && 
   u.nama.includes(search)
 )
-```
+\`\`\`
 
 **Trade-off:**
 - Dataset < 500 records: Client-side filtering lebih efisien
@@ -123,7 +123,7 @@ const filtered = allUsers.filter(u =>
 ## SOLUSI 5: DEBOUNCING SEARCH
 
 ### Implementasi:
-```typescript
+\`\`\`typescript
 // GOOD: Sudah diimplementasikan
 const [searchQuery, setSearchQuery] = useState("")
 const [debouncedSearch, setDebouncedSearch] = useState("")
@@ -134,7 +134,7 @@ useEffect(() => {
   }, 500) // Wait 500ms after user stops typing
   return () => clearTimeout(timer)
 }, [searchQuery])
-```
+\`\`\`
 
 **Status:** ✓ Already implemented
 
@@ -143,18 +143,18 @@ useEffect(() => {
 ## SOLUSI 6: BATCH API REQUESTS
 
 ### Masalah:
-```typescript
+\`\`\`typescript
 // BAD: 3 requests terpisah
 fetch('/api/users')
 fetch('/api/leave-requests')  
 fetch('/api/assessments')
-```
+\`\`\`
 
 ### Solusi:
-```typescript
+\`\`\`typescript
 // GOOD: 1 request untuk dashboard data
 fetch('/api/dashboard/stats') // Return semua dalam 1 response
-```
+\`\`\`
 
 **Implementasi:** Buat endpoint khusus untuk dashboard yang return aggregated data
 
@@ -163,7 +163,7 @@ fetch('/api/dashboard/stats') // Return semua dalam 1 response
 ## SOLUSI 7: COMPRESS RESPONSE
 
 ### Server-side compression (Next.js API):
-```typescript
+\`\`\`typescript
 // app/api/users/route.ts
 export async function GET() {
   const users = await getAllUsers()
@@ -175,7 +175,7 @@ export async function GET() {
     }
   })
 }
-```
+\`\`\`
 
 **Note:** Vercel automatically enables gzip/brotli compression
 
@@ -184,13 +184,13 @@ export async function GET() {
 ## SOLUSI 8: REDUCE EXPORT PAYLOAD
 
 ### Masalah:
-```typescript
+\`\`\`typescript
 // BAD: Export mengambil SEMUA data users (1500+ records)
 const response = await fetch("/api/users") // No pagination
-```
+\`\`\`
 
 ### Solusi:
-```typescript
+\`\`\`typescript
 // GOOD: Export dengan pagination server-side
 async function exportExcel() {
   // Option 1: Stream download (best)
@@ -200,7 +200,7 @@ async function exportExcel() {
   // Option 2: Limit export to filtered data only
   // User harus pilih filter dulu sebelum export
 }
-```
+\`\`\`
 
 **Benefits:**
 - Tidak perlu fetch 1500 records sekaligus
@@ -212,7 +212,7 @@ async function exportExcel() {
 ## SOLUSI 9: OPTIMIZE IMAGES & FILES
 
 ### Implementasi:
-```typescript
+\`\`\`typescript
 // Lazy load images dengan placeholder
 <img 
   loading="lazy"
@@ -222,14 +222,14 @@ async function exportExcel() {
 
 // Defer non-critical resources
 <script defer src="/analytics.js" />
-```
+\`\`\`
 
 ---
 
 ## SOLUSI 10: MONITORING & ALERTS
 
 ### Setup monitoring untuk detect anomali:
-```typescript
+\`\`\`typescript
 // lib/monitoring.ts
 export function trackNetworkUsage(endpoint: string, bytes: number) {
   // Log ke localStorage atau analytics
@@ -243,7 +243,7 @@ export function trackNetworkUsage(endpoint: string, bytes: number) {
     console.warn('High network usage detected:', total)
   }
 }
-```
+\`\`\`
 
 ---
 

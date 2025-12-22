@@ -53,7 +53,7 @@ Jika masih error setelah migration:
 Untuk informasi terkini tentang project, lihat:
 - `/docs/PROJECT-ANALYSIS.md`
 - `/docs/setup/DATABASE-SETUP.md`
-```
+\`\`\`
 
-```md file="CARA_JALANKAN_MIGRATION.md" isDeleted="true"
+\`\`\`md file="CARA_JALANKAN_MIGRATION.md" isDeleted="true"
 ...deleted...

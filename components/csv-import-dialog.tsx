@@ -351,7 +351,7 @@ export function CSVImportDialog({ open, onOpenChange, onSuccess }: CSVImportDial
           jenis_kelamin: user.jenisKelamin,
         }
 
-        const response = await fetch("/api/users/bulk", {
+        const response = await fetch("/api/users", {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
@@ -360,7 +360,8 @@ export function CSVImportDialog({ open, onOpenChange, onSuccess }: CSVImportDial
         })
 
         if (!response.ok) {
-          throw new Error("Gagal menambahkan user")
+          const errorData = await response.json()
+          throw new Error(errorData.error || "Gagal menambahkan user")
         }
 
         result.success++
@@ -376,18 +377,24 @@ export function CSVImportDialog({ open, onOpenChange, onSuccess }: CSVImportDial
     setImportResult(result)
     setStep("result")
     setIsImporting(false)
+
+    if (result.success > 0) {
+      onSuccess()
+    }
   }
 
   const handleClose = () => {
-    if (step === "result" && importResult && importResult.success > 0) {
-      onSuccess()
-    }
     setFile(null)
     setPreview([])
     setErrors([])
+    setSkippedRows(0)
     setImportResult(null)
     setStep("upload")
     onOpenChange(false)
+
+    if (importResult && importResult.success > 0) {
+      onSuccess()
+    }
   }
 
   return (

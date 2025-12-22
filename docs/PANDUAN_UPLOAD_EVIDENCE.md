@@ -19,13 +19,13 @@ Upload evidence di aplikasi ini mendukung 3 provider storage:
 ### Setup (Sangat Mudah!)
 
 #### 1. Deploy ke Vercel
-```bash
+\`\`\`bash
 # Login ke Vercel
 vercel login
 
 # Deploy project
 vercel --prod
-```
+\`\`\`
 
 #### 2. Vercel Otomatis Generate Token
 Saat deploy, Vercel otomatis membuat `BLOB_READ_WRITE_TOKEN`. Anda tidak perlu lakukan apa-apa!
@@ -40,9 +40,9 @@ Di Vercel Dashboard:
    - **Environment**: Production, Preview, Development
 
 #### 4. Redeploy
-```bash
+\`\`\`bash
 vercel --prod
-```
+\`\`\`
 
 #### 5. SELESAI!
 Upload evidence sekarang sudah berfungsi!
@@ -153,9 +153,9 @@ Cara paling mudah menggunakan OAuth Playground:
 
 #### Step 7: Redeploy
 
-```bash
+\`\`\`bash
 vercel --prod
-```
+\`\`\`
 
 #### Step 8: Test Upload
 

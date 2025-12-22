@@ -17,9 +17,9 @@ Dokumen ini menjelaskan format lengkap untuk file Excel/CSV yang digunakan untuk
 
 File harus memiliki header di baris pertama dengan nama kolom berikut (urutan bebas, tapi nama harus **persis sama**):
 
-```
+\`\`\`
 nik,nama,email_prefix,password,role,site,jabatan,departemen,poh,status_karyawan,no_ktp,no_telp,tanggal_lahir,tanggal_masuk,jenis_kelamin
-```
+\`\`\`
 
 **PENTING:**
 - Nama kolom harus lowercase (huruf kecil)
@@ -219,12 +219,12 @@ nik,nama,email_prefix,password,role,site,jabatan,departemen,poh,status_karyawan,
 
 ### CSV (.csv)
 
-```csv
+\`\`\`csv
 nik,nama,email_prefix,password,role,site,jabatan,departemen,poh,status_karyawan,no_ktp,no_telp,tanggal_lahir,tanggal_masuk,jenis_kelamin
 HR001,Dina Kusuma,dina,pass123,hr_site,Head Office,GL,HCGA,POH007,Tetap,3201234567890129,081234567896,1990-05-15,2015-03-01,Perempuan
 1240201294,Abdul Rahman,abdul,mypass,user,hsm,Operator,Produksi,Makassar,Kontrak,7314033128000076,082227048965,1995-08-20,2020-06-15,Laki-laki
 SPV002,Budi Santoso,budi.s,pass456,dic,hms,SPV,Maintenance,POH003,Tetap,,08567891234,10/03/1988,01/01/2018,Laki-laki
-```
+\`\`\`
 
 ---
 
