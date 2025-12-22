@@ -443,6 +443,10 @@ export default function ManajemenUsersDB() {
                               <div className="font-mono text-xs text-muted-foreground">{u.nik}</div>
                               <div className="font-semibold text-sm">{u.nama}</div>
                               <div className="text-xs text-muted-foreground">{u.email}</div>
+                              <div className="text-xs text-muted-foreground mt-1">
+                                <div>KTP: {u.noKtp || <span className="italic">Belum diisi</span>}</div>
+                                <div>Telp: {u.noTelp || <span className="italic">Belum diisi</span>}</div>
+                              </div>
                             </div>
                             <DropdownMenu>
                               <DropdownMenuTrigger asChild>

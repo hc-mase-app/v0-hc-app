@@ -31,6 +31,7 @@ interface ParsedUser {
   noKtp: string
   noTelp: string
   tanggalLahir: string
+  tanggalMasuk: string
   jenisKelamin: string
 }
 
@@ -68,13 +69,56 @@ const getDefaultValue = (value: string | undefined | null, fieldName: string): s
     departemen: "-",
     poh: "-",
     statusKaryawan: "Kontrak",
-    noKtp: "-",
-    noTelp: "-",
+    noKtp: "",
+    noTelp: "",
     tanggalLahir: "1970-01-01",
+    tanggalMasuk: new Date().toISOString().split("T")[0],
     jenisKelamin: "Laki-laki",
   }
 
   return defaults[fieldName] || "-"
+}
+
+function parseDate(dateStr: string): string {
+  if (!dateStr || dateStr.trim() === "" || dateStr === "-") {
+    return new Date().toISOString().split("T")[0] // Return today's date if empty
+  }
+
+  // Try parsing various date formats
+  const formats = [
+    // YYYY-MM-DD
+    /^(\d{4})-(\d{1,2})-(\d{1,2})$/,
+    // DD/MM/YYYY
+    /^(\d{1,2})\/(\d{1,2})\/(\d{4})$/,
+    // DD-MM-YYYY
+    /^(\d{1,2})-(\d{1,2})-(\d{4})$/,
+    // MM/DD/YYYY (US format)
+    /^(\d{1,2})\/(\d{1,2})\/(\d{4})$/,
+  ]
+
+  // Try YYYY-MM-DD first
+  if (formats[0].test(dateStr)) {
+    return dateStr
+  }
+
+  // Try DD/MM/YYYY or DD-MM-YYYY
+  const ddmmyyyyMatch = dateStr.match(formats[1]) || dateStr.match(formats[2])
+  if (ddmmyyyyMatch) {
+    const day = ddmmyyyyMatch[1].padStart(2, "0")
+    const month = ddmmyyyyMatch[2].padStart(2, "0")
+    const year = ddmmyyyyMatch[3]
+    return `${year}-${month}-${day}`
+  }
+
+  // If Excel serial date number
+  if (!isNaN(Number(dateStr))) {
+    const excelEpoch = new Date(1899, 11, 30)
+    const date = new Date(excelEpoch.getTime() + Number(dateStr) * 86400000)
+    return date.toISOString().split("T")[0]
+  }
+
+  // Return today's date if parsing fails
+  return new Date().toISOString().split("T")[0]
 }
 
 function parseCSVLine(line: string): string[] {
@@ -111,23 +155,22 @@ const parseXLSX = async (file: File): Promise<ParsedUser[]> => {
 
     reader.onload = (e) => {
       try {
-        const data = e.target?.result
-        const workbook = XLSX.read(data, { type: "binary" })
-        const sheetName = workbook.SheetNames[0]
-        const worksheet = workbook.Sheets[sheetName]
-        const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1 }) as string[][]
+        const data = new Uint8Array(e.target?.result as ArrayBuffer)
+        const workbook = XLSX.read(data, { type: "array" })
+        const firstSheet = workbook.Sheets[workbook.SheetNames[0]]
+        const rows = XLSX.utils.sheet_to_json(firstSheet, { header: 1 }) as string[][]
 
-        if (jsonData.length < 2) {
+        if (rows.length < 2) {
           reject(new Error("File harus memiliki header dan minimal 1 baris data"))
           return
         }
 
-        const headers = jsonData[0].map((h: string) => h?.toLowerCase().trim() || "")
+        const headers = rows[0].map((h) => String(h).toLowerCase().trim())
         const parsedUsers: ParsedUser[] = []
 
-        for (let i = 1; i < jsonData.length; i++) {
-          const row = jsonData[i]
-          if (!row || row.length === 0 || row.every((cell) => !cell)) continue
+        for (let i = 1; i < rows.length; i++) {
+          const row = rows[i]
+          if (row.every((cell) => !cell || String(cell).trim() === "")) continue
 
           const user: ParsedUser = {
             nik: getDefaultValue(row[headers.indexOf("nik")], "nik"),
@@ -144,7 +187,8 @@ const parseXLSX = async (file: File): Promise<ParsedUser[]> => {
               | "Tetap",
             noKtp: getDefaultValue(row[headers.indexOf("no_ktp")], "noKtp"),
             noTelp: getDefaultValue(row[headers.indexOf("no_telp")], "noTelp"),
-            tanggalLahir: getDefaultValue(row[headers.indexOf("tanggal_lahir")], "tanggalLahir"),
+            tanggalLahir: parseDate(getDefaultValue(row[headers.indexOf("tanggal_lahir")], "tanggalLahir")),
+            tanggalMasuk: parseDate(getDefaultValue(row[headers.indexOf("tanggal_masuk")], "tanggalMasuk")),
             jenisKelamin: getDefaultValue(row[headers.indexOf("jenis_kelamin")], "jenisKelamin"),
           }
 
@@ -158,7 +202,7 @@ const parseXLSX = async (file: File): Promise<ParsedUser[]> => {
     }
 
     reader.onerror = () => reject(new Error("Gagal membaca file"))
-    reader.readAsBinaryString(file)
+    reader.readAsArrayBuffer(file)
   })
 }
 
@@ -223,7 +267,8 @@ export function CSVImportDialog({ open, onOpenChange, onSuccess }: CSVImportDial
               | "Tetap",
             noKtp: getDefaultValue(values[headers.indexOf("no_ktp")], "noKtp"),
             noTelp: getDefaultValue(values[headers.indexOf("no_telp")], "noTelp"),
-            tanggalLahir: getDefaultValue(values[headers.indexOf("tanggal_lahir")], "tanggalLahir"),
+            tanggalLahir: parseDate(getDefaultValue(values[headers.indexOf("tanggal_lahir")], "tanggalLahir")),
+            tanggalMasuk: parseDate(getDefaultValue(values[headers.indexOf("tanggal_masuk")], "tanggalMasuk")),
             jenisKelamin: getDefaultValue(values[headers.indexOf("jenis_kelamin")], "jenisKelamin"),
           }
 
@@ -302,10 +347,11 @@ export function CSVImportDialog({ open, onOpenChange, onSuccess }: CSVImportDial
           no_ktp: user.noKtp,
           no_telp: user.noTelp,
           tanggal_lahir: user.tanggalLahir,
+          tanggal_masuk: user.tanggalMasuk,
           jenis_kelamin: user.jenisKelamin,
         }
 
-        const response = await fetch("/api/users", {
+        const response = await fetch("/api/users/bulk", {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
@@ -394,14 +440,14 @@ export function CSVImportDialog({ open, onOpenChange, onSuccess }: CSVImportDial
                 <div className="font-mono overflow-x-auto">
                   <div className="font-semibold mb-1">Header (baris pertama):</div>
                   <div>
-                    nik,nama,email_prefix,password,role,site,jabatan,departemen,poh,status_karyawan,no_ktp,no_telp,tanggal_lahir,jenis_kelamin
+                    nik,nama,email_prefix,password,role,site,jabatan,departemen,poh,status_karyawan,no_ktp,no_telp,tanggal_lahir,tanggal_masuk,jenis_kelamin
                   </div>
                 </div>
                 <div className="font-mono overflow-x-auto">
                   <div className="font-semibold mb-1 mt-3">Contoh data:</div>
                   <div className="text-slate-500">
                     HR002,Dina Kusuma,dina,pass123,hr_site,Head
-                    Office,GL,HCGA,POH007,Tetap,3201234567890129,081234567896,1990-05-15,Perempuan
+                    Office,GL,HCGA,POH007,Tetap,3201234567890129,081234567896,1990-05-15,1990-05-15,Perempuan
                   </div>
                 </div>
                 <div className="mt-3 p-2 bg-green-50 border border-green-200 rounded">
@@ -473,6 +519,7 @@ export function CSVImportDialog({ open, onOpenChange, onSuccess }: CSVImportDial
                       <th className="text-left p-2 font-medium">Jabatan</th>
                       <th className="text-left p-2 font-medium">Status</th>
                       <th className="text-left p-2 font-medium">Tanggal Lahir</th>
+                      <th className="text-left p-2 font-medium">Tgl Masuk</th>
                       <th className="text-left p-2 font-medium">Jenis Kelamin</th>
                     </tr>
                   </thead>
@@ -490,6 +537,7 @@ export function CSVImportDialog({ open, onOpenChange, onSuccess }: CSVImportDial
                         <td className="p-2">{user.jabatan}</td>
                         <td className="p-2">{user.statusKaryawan}</td>
                         <td className="p-2">{user.tanggalLahir}</td>
+                        <td className="p-2">{user.tanggalMasuk}</td>
                         <td className="p-2">{user.jenisKelamin}</td>
                       </tr>
                     ))}

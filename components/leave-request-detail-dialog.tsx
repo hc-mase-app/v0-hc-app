@@ -4,8 +4,8 @@ import { useEffect, useState } from "react"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Badge } from "@/components/ui/badge"
 import type { LeaveRequest, ApprovalHistory } from "@/lib/types"
-import { formatDate, getStatusLabel, getStatusColor, getDetailedTicketStatus } from "@/lib/utils"
-import { Calendar, FileText, Clock, MapPin, Plane, User, Download } from 'lucide-react'
+import { formatDate, getStatusColor, getDetailedTicketStatus } from "@/lib/utils"
+import { Calendar, FileText, Clock, MapPin, Plane, User, Download } from "lucide-react"
 import { ApprovalTimeline } from "@/components/approval-timeline"
 import { ApprovalProgress } from "@/components/approval-progress"
 import { Button } from "@/components/ui/button"
@@ -21,7 +21,13 @@ interface LeaveRequestDetailDialogProps {
   isUserRole?: boolean
 }
 
-export function LeaveRequestDetailDialog({ request, open, onOpenChange, onClose, isUserRole }: LeaveRequestDetailDialogProps) {
+export function LeaveRequestDetailDialog({
+  request,
+  open,
+  onOpenChange,
+  onClose,
+  isUserRole,
+}: LeaveRequestDetailDialogProps) {
   const [history, setHistory] = useState<ApprovalHistory[]>([])
   const [loading, setLoading] = useState(false)
   const { user } = useAuth()
@@ -58,7 +64,7 @@ export function LeaveRequestDetailDialog({ request, open, onOpenChange, onClose,
     onOpenChange?.(newOpen)
   }
 
-  const canDownloadTickets = isUserRole || user?.role === 'admin_site'
+  const canDownloadTickets = isUserRole || user?.role === "admin_site"
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
@@ -157,15 +163,15 @@ export function LeaveRequestDetailDialog({ request, open, onOpenChange, onClose,
               </div>
               <div>
                 <p className="text-xs text-slate-500">No Telp</p>
-                <p className="font-medium">{request.noTelp}</p>
+                <p className="font-medium">{request.noTelp || "Belum diisi"}</p>
               </div>
               <div>
                 <p className="text-xs text-slate-500">Email</p>
-                <p className="font-medium text-sm break-all">{request.email}</p>
+                <p className="font-medium text-sm break-all">{request.email || "Belum diisi"}</p>
               </div>
               <div>
                 <p className="text-xs text-slate-500">No KTP</p>
-                <p className="font-medium">{request.noKtp}</p>
+                <p className="font-medium">{request.noKtp || "Belum diisi"}</p>
               </div>
             </div>
           </div>
@@ -236,7 +242,9 @@ export function LeaveRequestDetailDialog({ request, open, onOpenChange, onClose,
                     <Calendar className="h-4 w-4 text-slate-500 mt-0.5" />
                     <div>
                       <p className="text-xs text-slate-500 font-bold uppercase">Tanggal Keberangkatan</p>
-                      <p className="font-medium">{request.tanggalKeberangkatan ? formatDate(request.tanggalKeberangkatan) : "-"}</p>
+                      <p className="font-medium">
+                        {request.tanggalKeberangkatan ? formatDate(request.tanggalKeberangkatan) : "-"}
+                      </p>
                     </div>
                   </div>
                 </>
@@ -356,9 +364,9 @@ export function LeaveRequestDetailDialog({ request, open, onOpenChange, onClose,
           ) : (
             <>
               <ApprovalProgress request={request} history={history} />
-              <ApprovalTimeline 
-                history={history} 
-                currentStatus={request.status} 
+              <ApprovalTimeline
+                history={history}
+                currentStatus={request.status}
                 statusTiketBerangkat={request.statusTiketBerangkat}
                 statusTiketBalik={request.statusTiketBalik}
               />

@@ -14,7 +14,7 @@ import { AlertTriangle, CheckCircle2 } from "lucide-react"
 import type { UserRole } from "@/lib/types"
 
 const DEPARTMENTS = ["Operation", "Produksi", "Plant", "SCM", "HCGA", "HSE", "Finance", "Accounting", "BOD"]
-const JABATAN = ["Admin Site", "GL", "SPV", "Head", "Deputy", "PJO", "Manager", "GM", "Direksi"]
+const JABATAN = ["Admin Site", "GL", "SPV", "Head", "Deputy", "PJO", "Manager", "GM", "Direksi", "Operator", "Mekanik"]
 
 interface AddUserDialogProps {
   open: boolean
@@ -85,12 +85,12 @@ export function AddUserDialog({ open, onOpenChange, onSuccess }: AddUserDialogPr
       !departemen ||
       !poh ||
       !statusKaryawan ||
-      !noKtp ||
-      !noTelp ||
       !tanggalLahir ||
       !jenisKelamin
     ) {
-      setError("Semua field harus diisi")
+      setError(
+        "Field yang wajib diisi: NIK, Nama, Email, Password, Role, Site, Jabatan, Departemen, POH, Status Karyawan, Tanggal Lahir, Jenis Kelamin",
+      )
       return
     }
 
@@ -373,7 +373,7 @@ export function AddUserDialog({ open, onOpenChange, onSuccess }: AddUserDialogPr
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4">
             <div className="space-y-2">
               <Label htmlFor="add-noKtp" className="text-xs md:text-sm">
-                No KTP <span className="text-red-500">*</span>
+                No KTP <span className="text-muted-foreground text-xs">(Opsional)</span>
               </Label>
               <Input
                 id="add-noKtp"
@@ -381,14 +381,13 @@ export function AddUserDialog({ open, onOpenChange, onSuccess }: AddUserDialogPr
                 placeholder="7314033112800076"
                 value={noKtp}
                 onChange={(e) => setNoKtp(e.target.value)}
-                required
                 className="text-sm"
               />
             </div>
 
             <div className="space-y-2">
               <Label htmlFor="add-noTelp" className="text-xs md:text-sm">
-                No Telp (WhatsApp) <span className="text-red-500">*</span>
+                No Telp (WhatsApp) <span className="text-muted-foreground text-xs">(Opsional)</span>
               </Label>
               <Input
                 id="add-noTelp"
@@ -396,7 +395,6 @@ export function AddUserDialog({ open, onOpenChange, onSuccess }: AddUserDialogPr
                 placeholder="082227048965"
                 value={noTelp}
                 onChange={(e) => setNoTelp(e.target.value)}
-                required
                 className="text-sm"
               />
             </div>

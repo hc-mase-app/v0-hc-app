@@ -299,8 +299,8 @@ export async function addUser(user: any) {
     const jabatan = user.jabatan || "Staff"
     const departemen = user.departemen || "General"
     const poh = user.poh || "Head Office"
-    const noKtp = user.noKtp || user.no_ktp || "0000000000000000"
-    const noTelp = user.noTelp || user.no_telp || "08000000000"
+    const noKtp = user.noKtp || user.no_ktp || null
+    const noTelp = user.noTelp || user.no_telp || null
 
     const result = await sql`
       INSERT INTO users (

@@ -233,8 +233,8 @@ export async function createUser(input: CreateUserInput): Promise<User> {
     const jabatan = input.jabatan || "Staff"
     const departemen = input.departemen || "General"
     const poh = input.poh || "Head Office"
-    const noKtp = input.noKtp || "0000000000000000"
-    const noTelp = input.noTelp || "08000000000"
+    const noKtp = input.noKtp || null
+    const noTelp = input.noTelp || null
 
     const existingUser = await sql<DbUser[]>`
       SELECT nik FROM users WHERE UPPER(TRIM(nik)) = UPPER(TRIM(${input.nik}))

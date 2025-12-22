@@ -14,7 +14,7 @@ import { AlertTriangle, CheckCircle2 } from "lucide-react"
 import type { User, UserRole } from "@/lib/types"
 
 const DEPARTMENTS = ["Operation", "Produksi", "Plant", "SCM", "HCGA", "HSE", "Finance", "Accounting", "BOD"]
-const JABATAN = ["Admin Site", "GL", "SPV", "Head", "Deputy", "PJO", "Manager", "GM", "Direksi"]
+const JABATAN = ["Admin Site", "GL", "SPV", "Head", "Deputy", "PJO", "Manager", "GM", "Direksi", "Operator", "Mekanik"]
 
 interface EditUserDialogProps {
   user: User | null
@@ -47,27 +47,78 @@ export function EditUserDialog({ user, open, onOpenChange, onSuccess }: EditUser
   )
 
   useEffect(() => {
-    if (user) {
-      setNik(user.nik)
-      setOriginalNik(user.nik)
-      setNama(user.nama)
-      setEmailPrefix(user.email.split("@")[0])
+    if (user && open) {
+      console.log("[v0] EditUserDialog - Populating form with user data:", user)
+
+      setNik(user.nik || "")
+      setOriginalNik(user.nik || "")
+      setNama(user.nama || "")
+      setEmailPrefix(user.email ? user.email.split("@")[0] : "")
       setPassword("")
-      setRole(user.role)
-      setSite(user.site)
-      setJabatan(user.jabatan)
-      setDepartemen(user.departemen)
+      setRole(user.role || "user")
+      setSite(user.site || "")
+      setJabatan(user.jabatan || "")
+      setDepartemen(user.departemen || "")
       setPoh(user.poh || "")
       setStatusKaryawan(user.statusKaryawan || "Kontrak")
       setNoKtp(user.noKtp || "")
       setNoTelp(user.noTelp || "")
-      setTanggalLahir(user.tanggalLahir || "")
-      setTanggalBergabung(user.tanggalBergabung || "")
+
+      // Format date to YYYY-MM-DD for input type="date"
+      if (user.tanggalLahir) {
+        const formattedDate = formatDateForInput(user.tanggalLahir)
+        console.log("[v0] Formatting tanggalLahir:", user.tanggalLahir, "->", formattedDate)
+        setTanggalLahir(formattedDate)
+      } else {
+        setTanggalLahir("")
+      }
+
+      if (user.tanggalBergabung) {
+        const formattedDate = formatDateForInput(user.tanggalBergabung)
+        setTanggalBergabung(formattedDate)
+      } else {
+        setTanggalBergabung("")
+      }
+
       setJenisKelamin(user.jenisKelamin || "Laki-laki")
       setError("")
       setUpdateResult(null)
+
+      console.log("[v0] Form populated with values:", {
+        nik,
+        nama,
+        tanggalLahir: user.tanggalLahir,
+        jabatan,
+        departemen,
+        site,
+      })
     }
-  }, [user])
+  }, [user, open])
+
+  // Helper function to format date for input type="date"
+  const formatDateForInput = (dateString: string): string => {
+    if (!dateString) return ""
+
+    // If already in YYYY-MM-DD format
+    if (/^\d{4}-\d{2}-\d{2}$/.test(dateString)) {
+      return dateString
+    }
+
+    // Try to parse and format
+    try {
+      const date = new Date(dateString)
+      if (!isNaN(date.getTime())) {
+        const year = date.getFullYear()
+        const month = String(date.getMonth() + 1).padStart(2, "0")
+        const day = String(date.getDate()).padStart(2, "0")
+        return `${year}-${month}-${day}`
+      }
+    } catch (e) {
+      console.error("[v0] Error formatting date:", dateString, e)
+    }
+
+    return ""
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -89,12 +140,12 @@ export function EditUserDialog({ user, open, onOpenChange, onSuccess }: EditUser
       !departemen ||
       !poh ||
       !statusKaryawan ||
-      !noKtp ||
-      !noTelp ||
       !tanggalLahir ||
       !jenisKelamin
     ) {
-      setError("Semua field harus diisi")
+      setError(
+        "Field yang wajib diisi: NIK, Nama, Email, Role, Site, Jabatan, Departemen, POH, Status Karyawan, Tanggal Lahir, Jenis Kelamin",
+      )
       return
     }
 
@@ -113,8 +164,6 @@ export function EditUserDialog({ user, open, onOpenChange, onSuccess }: EditUser
         departemen,
         poh,
         statusKaryawan,
-        noKtp,
-        noTelp,
         tanggalLahir,
         jenisKelamin,
       }
@@ -126,6 +175,16 @@ export function EditUserDialog({ user, open, onOpenChange, onSuccess }: EditUser
       if (tanggalBergabung) {
         updates.tanggalBergabung = tanggalBergabung
       }
+
+      if (noKtp) {
+        updates.noKtp = noKtp
+      }
+
+      if (noTelp) {
+        updates.noTelp = noTelp
+      }
+
+      console.log("[v0] Submitting update with data:", updates)
 
       const response = await fetch("/api/users/update-full", {
         method: "PUT",
@@ -211,7 +270,7 @@ export function EditUserDialog({ user, open, onOpenChange, onSuccess }: EditUser
         )}
 
         <form onSubmit={handleSubmit} className="space-y-3 md:space-y-4">
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label htmlFor="edit-nik">NIK</Label>
               <Input
@@ -253,7 +312,7 @@ export function EditUserDialog({ user, open, onOpenChange, onSuccess }: EditUser
             />
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label htmlFor="edit-tanggalLahir">Tanggal Lahir</Label>
               <Input
@@ -282,7 +341,7 @@ export function EditUserDialog({ user, open, onOpenChange, onSuccess }: EditUser
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label htmlFor="edit-jabatan">Jabatan</Label>
               <Select value={jabatan} onValueChange={setJabatan}>
@@ -316,7 +375,7 @@ export function EditUserDialog({ user, open, onOpenChange, onSuccess }: EditUser
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label htmlFor="edit-role">Role</Label>
               <Select value={role} onValueChange={(value) => setRole(value as UserRole)}>
@@ -353,7 +412,7 @@ export function EditUserDialog({ user, open, onOpenChange, onSuccess }: EditUser
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label htmlFor="edit-poh">POH</Label>
               <Input
@@ -380,28 +439,30 @@ export function EditUserDialog({ user, open, onOpenChange, onSuccess }: EditUser
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label htmlFor="edit-noKtp">No KTP</Label>
+              <Label htmlFor="edit-noKtp">
+                No KTP <span className="text-xs text-muted-foreground">(Opsional)</span>
+              </Label>
               <Input
                 id="edit-noKtp"
                 type="text"
-                placeholder="Masukkan nomor KTP"
+                placeholder="Masukkan nomor KTP atau kosongkan"
                 value={noKtp}
                 onChange={(e) => setNoKtp(e.target.value)}
-                required
               />
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="edit-noTelp">No Telp (WhatsApp)</Label>
+              <Label htmlFor="edit-noTelp">
+                No Telp (WhatsApp) <span className="text-xs text-muted-foreground">(Opsional)</span>
+              </Label>
               <Input
                 id="edit-noTelp"
                 type="tel"
-                placeholder="Masukkan nomor telepon"
+                placeholder="Masukkan nomor telepon atau kosongkan"
                 value={noTelp}
                 onChange={(e) => setNoTelp(e.target.value)}
-                required
               />
             </div>
           </div>
@@ -428,7 +489,7 @@ export function EditUserDialog({ user, open, onOpenChange, onSuccess }: EditUser
                 required
                 className="flex-1"
               />
-              <span className="text-muted-foreground">@3s-gsm.com</span>
+              <span className="text-sm text-muted-foreground">@3s-gsm.com</span>
             </div>
           </div>
 
@@ -438,11 +499,17 @@ export function EditUserDialog({ user, open, onOpenChange, onSuccess }: EditUser
             </Alert>
           )}
 
-          <div className="flex justify-end gap-2">
-            <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={isSubmitting}>
+          <div className="flex flex-col-reverse sm:flex-row justify-end gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => onOpenChange(false)}
+              disabled={isSubmitting}
+              className="w-full sm:w-auto"
+            >
               Batal
             </Button>
-            <Button type="submit" disabled={isSubmitting}>
+            <Button type="submit" disabled={isSubmitting} className="w-full sm:w-auto">
               {isSubmitting ? "Menyimpan..." : "Simpan Perubahan"}
             </Button>
           </div>
