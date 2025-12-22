@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation"
 import { DashboardLayout } from "@/components/dashboard-layout"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { ClipboardList, Search, CheckCircle, ArrowLeft } from "lucide-react"
+import { ClipboardList, Search, CheckCircle, ArrowLeft, Plus } from "lucide-react"
 import type { EmployeeAssessment } from "@/lib/types"
 import { AssessmentApprovalCard } from "@/components/assessment-approval-card"
 import { Input } from "@/components/ui/input"
@@ -82,11 +82,17 @@ export default function PJOSiteAssessmentPage() {
   return (
     <DashboardLayout title="Assessment Karyawan">
       <div className="space-y-6">
-        <div>
-          <Link href="/dashboard/pjo-site">
+        <div className="flex items-center justify-between">
+          <Link href="/">
             <Button variant="outline" size="sm">
               <ArrowLeft className="h-4 w-4 mr-2" />
               Kembali ke Menu Utama
+            </Button>
+          </Link>
+          <Link href="/assessment-karyawan">
+            <Button size="sm" className="bg-[#D4AF37] hover:bg-[#B8941F] text-black">
+              <Plus className="h-4 w-4 mr-2" />
+              Buat Assessment Baru
             </Button>
           </Link>
         </div>

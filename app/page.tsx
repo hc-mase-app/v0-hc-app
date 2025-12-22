@@ -103,6 +103,8 @@ export default function Home() {
     if (featureKey === "pengajuanCuti") {
       if (user.role === "dic") {
         router.push("/dashboard/dic/cuti")
+      } else if (user.role === "pjo_site") {
+        router.push("/dashboard/pjo-site/cuti")
       } else {
         const dashboardPath = getDashboardPath(user.role)
         router.push(dashboardPath)
@@ -110,6 +112,8 @@ export default function Home() {
     } else if (featureKey === "assessmentKaryawan") {
       if (user.role === "dic") {
         router.push("/dashboard/dic/assessment")
+      } else if (user.role === "pjo_site") {
+        router.push("/dashboard/pjo-site/assessment")
       } else {
         router.push(feature.path)
       }
