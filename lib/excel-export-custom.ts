@@ -95,6 +95,10 @@ const COLUMN_MAPPING: Record<string, { header: string; getValue: (item: any) => 
     header: "NO TELP",
     getValue: (item) => item.noTelp || "-",
   },
+  tanggalLahir: {
+    header: "TANGGAL LAHIR",
+    getValue: (item) => formatDateForExcel(item.tanggalLahir),
+  },
 
   // Leave Request Data
   jenisCuti: {
