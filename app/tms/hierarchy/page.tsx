@@ -147,6 +147,8 @@ export default function HierarchyPage() {
   const [isUploadModalOpen, setIsUploadModalOpen] = useState(false)
   const [csvFile, setCsvFile] = useState<File | null>(null)
   const [uploadResult, setUploadResult] = useState<any>(null)
+  const [totalRows, setTotalRows] = useState<number>(0)
+  const [uploadProgress, setUploadProgress] = useState<number>(0) // Declare uploadProgress
 
   // Sites and Departments from data
   const [sites, setSites] = useState<string[]>([])
@@ -302,26 +304,70 @@ export default function HierarchyPage() {
   const handleCsvUpload = async () => {
     if (!csvFile) return
 
+    setIsSaving(true)
+    setUploadResult(null)
+    setUploadProgress(0)
+
+    try {
+      const text = await csvFile.text()
+      const lines = text.split("\n").filter((line) => line.trim())
+      setTotalRows(Math.max(0, lines.length - 1)) // Exclude header row
+    } catch (error) {
+      console.error("[v0] Error reading CSV:", error)
+      setTotalRows(0)
+    }
+
     try {
       const formData = new FormData()
       formData.append("file", csvFile)
       formData.append("effective_month", `${currentMonth}-01`)
 
-      const response = await fetch("/api/tms/hierarchy/bulk-import", {
-        method: "POST",
-        body: formData,
+      await new Promise((resolve, reject) => {
+        const xhr = new XMLHttpRequest()
+
+        // Track upload progress
+        xhr.upload.addEventListener("progress", (e) => {
+          if (e.lengthComputable) {
+            const percentComplete = Math.round((e.loaded / e.total) * 100)
+            setUploadProgress(percentComplete)
+            console.log("[v0] Upload progress:", percentComplete + "%")
+          }
+        })
+
+        xhr.addEventListener("load", () => {
+          if (xhr.status >= 200 && xhr.status < 300) {
+            try {
+              const result = JSON.parse(xhr.responseText)
+              setUploadResult(result)
+              loadData(currentMonth)
+              resolve(result)
+            } catch (error) {
+              reject(new Error("Failed to parse response"))
+            }
+          } else {
+            try {
+              const result = JSON.parse(xhr.responseText)
+              setUploadResult(result)
+              reject(new Error(result.message || "Upload failed"))
+            } catch (error) {
+              reject(new Error("Upload failed"))
+            }
+          }
+        })
+
+        xhr.addEventListener("error", () => {
+          reject(new Error("Network error"))
+        })
+
+        xhr.open("POST", "/api/tms/hierarchy/bulk-import")
+        xhr.send(formData)
       })
-
-      const result = await response.json()
-      setUploadResult(result)
-
-      if (response.ok) {
-        // Reload data
-        await loadData(currentMonth)
-      }
     } catch (error) {
       console.error("[v0] CSV upload error:", error)
       setUploadResult({ success: false, message: "Terjadi kesalahan saat upload" })
+    } finally {
+      setIsSaving(false)
+      setUploadProgress(0) // Reset progress after completion
     }
   }
 
@@ -355,9 +401,7 @@ export default function HierarchyPage() {
       editingUser.departemen,
     )
 
-    const getValidManagerLevels = (
-      userLvl: string,
-    ): { level: string; requireSameSite: boolean; requireSameDept: boolean }[] => {
+    const getValidManagerLevels = (userLvl: string) => {
       const lvl = userLvl.toLowerCase()
 
       // Rule: General Manager tidak punya atasan
@@ -502,7 +546,7 @@ export default function HierarchyPage() {
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
-            <p className="text-gray-300">Halaman Manajemen Hierarki hanya dapat diakses oleh Admin Master.</p>
+            <p className="text-sm text-gray-300">Halaman Manajemen Hierarki hanya dapat diakses oleh Admin Master.</p>
             <p className="text-sm text-gray-400">Role Anda saat ini: {user?.role}</p>
             <Button onClick={() => router.push("/tms")} className="w-full bg-[#D4AF37] hover:bg-[#D4AF37]/80">
               Kembali ke Menu TMS
@@ -799,7 +843,6 @@ export default function HierarchyPage() {
                       {page}
                     </Button>
                   ))}
-
                 {currentPage < totalPages - 2 && <span className="px-2 text-gray-500">...</span>}
                 {currentPage < totalPages - 1 && (
                   <Button
@@ -910,24 +953,78 @@ export default function HierarchyPage() {
               <Input
                 type="file"
                 accept=".csv"
-                onChange={(e) => setCsvFile(e.target.files?.[0] || null)}
-                className="bg-[#0a0a0a] border-[#D4AF37]/30 text-white"
+                onChange={(e) => {
+                  setCsvFile(e.target.files?.[0] || null)
+                  setTotalRows(0)
+                  setUploadResult(null)
+                }}
+                className="bg-[#0a1a1a] border-[#D4AF37]/30 text-white"
+                disabled={isSaving}
               />
             </div>
 
-            {uploadResult && (
+            {isSaving && (
+              <div className="p-4 rounded-lg bg-blue-900/20 border border-blue-500/30">
+                <div className="flex items-center gap-3 mb-3">
+                  <div className="w-5 h-5 border-2 border-blue-400 border-t-transparent rounded-full animate-spin" />
+                  <div className="flex-1">
+                    <p className="text-blue-400 font-medium">Memproses file CSV...</p>
+                    <p className="text-xs text-gray-400 mt-1">
+                      {totalRows > 0 ? `${totalRows} baris data akan diimpor` : "Mohon tunggu, data sedang diproses"}
+                    </p>
+                  </div>
+                </div>
+                <div className="w-full h-2 bg-[#0a0a0a] rounded-full overflow-hidden">
+                  <div
+                    className="h-full bg-gradient-to-r from-blue-600 via-blue-400 to-blue-500 transition-all duration-300 ease-out"
+                    style={{ width: `${uploadProgress}%` }}
+                  />
+                </div>
+                <p className="text-xs text-blue-300/70 mt-2 text-right">{uploadProgress}%</p>
+              </div>
+            )}
+
+            {uploadResult && !isSaving && (
               <div
                 className={`p-4 rounded-lg ${uploadResult.success ? "bg-green-900/20 border border-green-500/30" : "bg-red-900/20 border border-red-500/30"}`}
               >
                 {uploadResult.success ? (
-                  <div className="flex items-center gap-2 text-green-400">
-                    <CheckCircle className="w-5 h-5" />
-                    <span>{uploadResult.message || "Upload berhasil"}</span>
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-2 text-green-400">
+                      <CheckCircle className="w-5 h-5" />
+                      <span className="font-medium">{uploadResult.message || "Upload berhasil"}</span>
+                    </div>
+                    {uploadResult.imported > 0 && (
+                      <p className="text-sm text-gray-300">{uploadResult.imported} data berhasil diimpor</p>
+                    )}
+                    {uploadResult.errors && uploadResult.errors.length > 0 && (
+                      <div className="mt-3 pt-3 border-t border-yellow-500/30">
+                        <div className="flex items-center gap-2 text-yellow-400 mb-2">
+                          <AlertCircle className="w-4 h-4" />
+                          <p className="font-medium text-sm">
+                            Terdapat {uploadResult.errors.length} baris dengan error:
+                          </p>
+                        </div>
+                        <div className="max-h-48 overflow-y-auto bg-[#0a0a0a] rounded-lg p-3 space-y-1">
+                          {uploadResult.errors.map((err: string, idx: number) => (
+                            <div key={idx} className="text-xs text-yellow-300/90 flex items-start gap-2">
+                              <span className="text-yellow-500 font-mono shrink-0">{idx + 1}.</span>
+                              <span className="break-all">{err}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
                   </div>
                 ) : (
-                  <div className="flex items-center gap-2 text-red-400">
-                    <AlertCircle className="w-5 h-5" />
-                    <span>{uploadResult.message || "Upload gagal"}</span>
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-2 text-red-400">
+                      <AlertCircle className="w-5 h-5" />
+                      <span className="font-medium">{uploadResult.message || "Upload gagal"}</span>
+                    </div>
+                    {uploadResult.error && (
+                      <p className="text-xs text-red-300/80 mt-2 p-2 bg-[#0a0a0a] rounded">{uploadResult.error}</p>
+                    )}
                   </div>
                 )}
               </div>
@@ -941,17 +1038,27 @@ export default function HierarchyPage() {
                 setIsUploadModalOpen(false)
                 setCsvFile(null)
                 setUploadResult(null)
+                setTotalRows(0)
+                setUploadProgress(0) // Reset upload progress when closing dialog
               }}
               className="border-[#D4AF37]/30 text-[#D4AF37]"
+              disabled={isSaving}
             >
               Tutup
             </Button>
             <Button
               onClick={handleCsvUpload}
-              disabled={!csvFile}
-              className="bg-[#D4AF37] text-black hover:bg-[#D4AF37]/90"
+              disabled={!csvFile || isSaving}
+              className="bg-[#D4AF37] text-black hover:bg-[#D4AF37]/90 disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              Upload
+              {isSaving ? (
+                <>
+                  <div className="w-4 h-4 border-2 border-black border-t-transparent rounded-full animate-spin mr-2" />
+                  Mengupload...
+                </>
+              ) : (
+                "Upload"
+              )}
             </Button>
           </DialogFooter>
         </DialogContent>

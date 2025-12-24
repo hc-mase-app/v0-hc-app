@@ -299,7 +299,12 @@ export default function PJOSiteCutiPage() {
                         <div key={request.id} className="border rounded-lg p-4 space-y-3">
                           <ApprovalCard request={request} onViewDetail={() => setSelectedRequest(request)} readOnly />
                           {request.status === "pending_pjo" && (
-                            <ApprovalActions request={request} role="pjo" onSuccess={() => mutate()} />
+                            <ApprovalActions
+                              request={request}
+                              role="pjo"
+                              approverNik={user?.nik}
+                              onSuccess={() => mutate()}
+                            />
                           )}
                         </div>
                       ))}

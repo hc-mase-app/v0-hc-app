@@ -12,8 +12,7 @@ import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import Link from "next/link"
-import { Badge } from "@/components/ui/badge"
-import { formatDate, getStatusColor, getDetailedTicketStatus } from "@/lib/utils"
+import { ApprovalCard } from "@/components/approval-card"
 import { ApprovalActions } from "@/components/approval-actions-inline"
 
 const ITEMS_PER_PAGE = 5
@@ -332,7 +331,17 @@ export default function DICCutiPage() {
               <>
                 <div className="space-y-2 md:space-y-3">
                   {paginatedRequests.map((request) => (
-                    <RequestCard key={request.id} request={request} onSelect={() => setSelectedRequest(request)} />
+                    <div key={request.id} className="border rounded-lg p-4 space-y-3">
+                      <ApprovalCard request={request} onViewDetail={() => setSelectedRequest(request)} readOnly />
+                      {request.status === "pending_dic" && (
+                        <ApprovalActions
+                          request={request}
+                          role="dic"
+                          approverNik={user?.nik}
+                          onSuccess={() => loadData()}
+                        />
+                      )}
+                    </div>
                   ))}
                 </div>
 
@@ -443,69 +452,5 @@ export default function DICCutiPage() {
         />
       )}
     </DashboardLayout>
-  )
-}
-
-function RequestCard({ request, onSelect }: { request: LeaveRequest; onSelect: () => void }) {
-  const actualStatus = getDetailedTicketStatus(
-    request.status,
-    request.statusTiketBerangkat,
-    request.statusTiketBalik,
-    request.jenisPengajuan,
-  )
-
-  const isPendingDicApproval = request.status === "pending_dic"
-
-  return (
-    <div
-      className="border border-slate-200 rounded-lg p-3 md:p-4 hover:bg-slate-50 cursor-pointer transition-colors"
-      onClick={onSelect}
-    >
-      <div className="space-y-2">
-        {/* Row 1: Status badge and Detail button */}
-        <div className="flex items-start justify-between gap-2">
-          <div className="flex-1 min-w-0">
-            <Badge className={`${getStatusColor(request.status)} text-xs whitespace-normal`}>{actualStatus}</Badge>
-          </div>
-          <Button
-            variant="outline"
-            size="sm"
-            className="shrink-0 text-xs h-8 bg-transparent"
-            onClick={(e) => {
-              e.stopPropagation()
-              onSelect()
-            }}
-          >
-            Detail
-          </Button>
-        </div>
-
-        {/* Row 2: Employee name and cuti type */}
-        <div className="space-y-1">
-          <p className="font-semibold text-sm md:text-base text-slate-900 truncate">
-            {request.userName || "Tidak diketahui"}
-          </p>
-          <p className="text-xs md:text-sm text-slate-600">{request.jenisPengajuanCuti || "Cuti"}</p>
-        </div>
-
-        {/* Row 3: Date - simplified on mobile */}
-        <div className="flex items-center gap-1.5 text-xs md:text-sm text-slate-600">
-          <Calendar className="h-3.5 w-3.5 md:h-4 md:w-4 shrink-0" />
-          <span className="truncate">
-            {request.tanggalMulai && request.tanggalSelesai
-              ? `${formatDate(request.tanggalMulai)} - ${formatDate(request.tanggalSelesai)}`
-              : request.periodeAwal && request.periodeAkhir
-                ? `${formatDate(request.periodeAwal)} - ${formatDate(request.periodeAkhir)}`
-                : "Tanggal tidak tersedia"}
-          </span>
-        </div>
-
-        {isPendingDicApproval && (
-          <div className="pt-2 border-t border-slate-200" onClick={(e) => e.stopPropagation()}>
-            <ApprovalActions request={request} role="dic" onSuccess={onSelect} />
-          </div>
-        )}
-      </div>
-    </div>
   )
 }

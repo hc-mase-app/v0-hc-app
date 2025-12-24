@@ -13,26 +13,47 @@ interface ApprovalActionsProps {
   request: LeaveRequest
   role: "dic" | "pjo" | "manager_ho" | "hr_ho"
   onSuccess: () => void
+  approverNik?: string
 }
 
-export function ApprovalActions({ request, role, onSuccess }: ApprovalActionsProps) {
+export function ApprovalActions({ request, role, onSuccess, approverNik }: ApprovalActionsProps) {
   const [isApproving, setIsApproving] = useState(false)
   const [isRejecting, setIsRejecting] = useState(false)
+  const [showApproveInput, setShowApproveInput] = useState(false)
+  const [approveNotes, setApproveNotes] = useState("")
   const [showRejectInput, setShowRejectInput] = useState(false)
   const [rejectNotes, setRejectNotes] = useState("")
   const { toast } = useToast()
 
   const handleApprove = async (e: React.MouseEvent) => {
     e.stopPropagation()
+
+    if (!showApproveInput) {
+      setShowApproveInput(true)
+      return
+    }
+
+    if (!approverNik) {
+      toast({
+        title: "Error",
+        description: "Approver NIK tidak ditemukan. Silakan login kembali.",
+        variant: "destructive",
+      })
+      return
+    }
+
     setIsApproving(true)
 
     try {
-      const response = await fetch("/api/leave-requests/approve", {
+      const response = await fetch("/api/workflow", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
+          action: "approve",
           requestId: request.id,
-          role: role,
+          approverNik: approverNik,
+          approverRole: role,
+          notes: approveNotes,
         }),
       })
 
@@ -79,15 +100,26 @@ export function ApprovalActions({ request, role, onSuccess }: ApprovalActionsPro
       return
     }
 
+    if (!approverNik) {
+      toast({
+        title: "Error",
+        description: "Approver NIK tidak ditemukan. Silakan login kembali.",
+        variant: "destructive",
+      })
+      return
+    }
+
     setIsRejecting(true)
 
     try {
-      const response = await fetch("/api/leave-requests/reject", {
+      const response = await fetch("/api/workflow", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
+          action: "reject",
           requestId: request.id,
-          role: role,
+          approverNik: approverNik,
+          approverRole: role,
           notes: rejectNotes,
         }),
       })
@@ -118,10 +150,51 @@ export function ApprovalActions({ request, role, onSuccess }: ApprovalActionsPro
     }
   }
 
+  const handleCancelApprove = (e: React.MouseEvent) => {
+    e.stopPropagation()
+    setShowApproveInput(false)
+    setApproveNotes("")
+  }
+
   const handleCancelReject = (e: React.MouseEvent) => {
     e.stopPropagation()
     setShowRejectInput(false)
     setRejectNotes("")
+  }
+
+  if (showApproveInput) {
+    return (
+      <div className="space-y-2" onClick={(e) => e.stopPropagation()}>
+        <Textarea
+          placeholder="Catatan persetujuan (opsional)..."
+          value={approveNotes}
+          onChange={(e) => setApproveNotes(e.target.value)}
+          className="text-xs min-h-[60px]"
+          onClick={(e) => e.stopPropagation()}
+        />
+        <div className="flex gap-2">
+          <Button
+            size="sm"
+            variant="default"
+            onClick={handleApprove}
+            disabled={isApproving}
+            className="flex-1 bg-green-600 hover:bg-green-700 text-xs h-8"
+          >
+            <CheckCircle className="h-3 w-3 mr-1" />
+            {isApproving ? "Menyetujui..." : "Konfirmasi Setuju"}
+          </Button>
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={handleCancelApprove}
+            disabled={isApproving}
+            className="text-xs h-8 bg-transparent"
+          >
+            Batal
+          </Button>
+        </div>
+      </div>
+    )
   }
 
   if (showRejectInput) {
@@ -169,7 +242,7 @@ export function ApprovalActions({ request, role, onSuccess }: ApprovalActionsPro
         className="flex-1 bg-green-600 hover:bg-green-700 text-xs h-8"
       >
         <CheckCircle className="h-3 w-3 mr-1" />
-        {isApproving ? "Menyetujui..." : "Setuju"}
+        Setuju
       </Button>
       <Button
         size="sm"
