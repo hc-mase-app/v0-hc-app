@@ -87,6 +87,14 @@ const COLUMN_MAPPING: Record<string, { header: string; getValue: (item: any) => 
     header: "POH",
     getValue: (item) => item.poh || "-",
   },
+  noKtp: {
+    header: "NO KTP",
+    getValue: (item) => item.noKtp || "-",
+  },
+  noTelp: {
+    header: "NO TELP",
+    getValue: (item) => item.noTelp || "-",
+  },
 
   // Leave Request Data
   jenisCuti: {

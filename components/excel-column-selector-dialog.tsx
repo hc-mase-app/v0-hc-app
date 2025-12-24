@@ -32,6 +32,8 @@ const AVAILABLE_COLUMNS = [
   { id: "role", label: "ROLE", default: false },
   { id: "hakTiket", label: "HAK TIKET", default: true },
   { id: "poh", label: "POH", default: true },
+  { id: "noKtp", label: "NO KTP", default: true },
+  { id: "noTelp", label: "NO TELP", default: true },
 
   // Leave Request Data (dari leave_requests)
   { id: "jenisCuti", label: "JENIS CUTI", default: true },
@@ -118,7 +120,7 @@ export function ExcelColumnSelectorDialog({ open, onClose, onExport, isExporting
               <div>
                 <h4 className="text-sm font-semibold text-slate-700 mb-2 border-b pb-1">Data Karyawan</h4>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
-                  {AVAILABLE_COLUMNS.slice(0, 9).map((column) => (
+                  {AVAILABLE_COLUMNS.slice(0, 11).map((column) => (
                     <div key={column.id} className="flex items-center space-x-2">
                       <Checkbox
                         id={column.id}
@@ -136,7 +138,7 @@ export function ExcelColumnSelectorDialog({ open, onClose, onExport, isExporting
               <div>
                 <h4 className="text-sm font-semibold text-slate-700 mb-2 border-b pb-1">Data Pengajuan Cuti</h4>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
-                  {AVAILABLE_COLUMNS.slice(9, 20).map((column) => (
+                  {AVAILABLE_COLUMNS.slice(11, 22).map((column) => (
                     <div key={column.id} className="flex items-center space-x-2">
                       <Checkbox
                         id={column.id}
@@ -154,7 +156,7 @@ export function ExcelColumnSelectorDialog({ open, onClose, onExport, isExporting
               <div>
                 <h4 className="text-sm font-semibold text-slate-700 mb-2 border-b pb-1">Data Tiket</h4>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
-                  {AVAILABLE_COLUMNS.slice(20, 34).map((column) => (
+                  {AVAILABLE_COLUMNS.slice(22, 36).map((column) => (
                     <div key={column.id} className="flex items-center space-x-2">
                       <Checkbox
                         id={column.id}
