@@ -189,9 +189,9 @@ export default function HierarchyPage() {
       const hierarchyRes = await fetch(`/api/tms/hierarchy?month=${month}`)
       if (hierarchyRes.ok) {
         const data = await hierarchyRes.json()
-        console.log("[v0] Hierarchy data loaded:", data.length, "records")
+        console.log("Hierarchy data loaded:", data.length, "records")
         const uniqueLevels = [...new Set(data.map((u: HierarchyUser) => u.level).filter(Boolean))]
-        console.log("[v0] Unique levels in database:", uniqueLevels)
+        console.log("Unique levels in database:", uniqueLevels)
 
         setHierarchyData(data)
         setFilteredData(data)
@@ -205,7 +205,7 @@ export default function HierarchyPage() {
         setAllUsers(data)
       }
     } catch (error) {
-      console.error("[v0] Load hierarchy error:", error)
+      console.error("Load hierarchy error:", error)
     } finally {
       setIsLoading(false)
     }
@@ -273,7 +273,7 @@ export default function HierarchyPage() {
 
     try {
       setIsSaving(true)
-      console.log("[v0] Saving hierarchy - user:", editingUser.name, "manager_id:", selectedManagerId)
+      console.log("Saving hierarchy - user:", editingUser.name, "manager_id:", selectedManagerId)
       const response = await fetch("/api/tms/hierarchy", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
@@ -294,7 +294,7 @@ export default function HierarchyPage() {
         alert("Gagal menyimpan perubahan hierarki")
       }
     } catch (error) {
-      console.error("[v0] Save hierarchy error:", error)
+      console.error("Save hierarchy error:", error)
       alert("Terjadi kesalahan saat menyimpan")
     } finally {
       setIsSaving(false)
@@ -313,7 +313,7 @@ export default function HierarchyPage() {
       const lines = text.split("\n").filter((line) => line.trim())
       setTotalRows(Math.max(0, lines.length - 1)) // Exclude header row
     } catch (error) {
-      console.error("[v0] Error reading CSV:", error)
+      console.error("Error reading CSV:", error)
       setTotalRows(0)
     }
 
@@ -330,7 +330,7 @@ export default function HierarchyPage() {
           if (e.lengthComputable) {
             const percentComplete = Math.round((e.loaded / e.total) * 100)
             setUploadProgress(percentComplete)
-            console.log("[v0] Upload progress:", percentComplete + "%")
+            console.log("Upload progress:", percentComplete + "%")
           }
         })
 
@@ -363,7 +363,7 @@ export default function HierarchyPage() {
         xhr.send(formData)
       })
     } catch (error) {
-      console.error("[v0] CSV upload error:", error)
+      console.error("CSV upload error:", error)
       setUploadResult({ success: false, message: "Terjadi kesalahan saat upload" })
     } finally {
       setIsSaving(false)
@@ -388,18 +388,6 @@ export default function HierarchyPage() {
     const userLevel = normalizeLevel(editingUser.level)
     const userSite = (editingUser.site || "").trim().toLowerCase()
     const userDept = (editingUser.departemen || "").trim().toLowerCase()
-
-    console.log("[v0] ========== FILTERING MANAGERS ==========")
-    console.log(
-      "[v0] User:",
-      editingUser.name,
-      "| Level:",
-      editingUser.level,
-      "| Site:",
-      editingUser.site,
-      "| Dept:",
-      editingUser.departemen,
-    )
 
     const getValidManagerLevels = (userLvl: string) => {
       const lvl = userLvl.toLowerCase()
@@ -472,7 +460,6 @@ export default function HierarchyPage() {
       }
 
       // Default: jika level tidak dikenali, tampilkan semua yang levelnya lebih tinggi di site yang sama
-      console.log("[v0] Level tidak dikenali:", lvl, "- menampilkan pilihan default")
       return [
         { level: "pjo", requireSameSite: true, requireSameDept: false },
         { level: "deputy pjo", requireSameSite: true, requireSameDept: false },
@@ -483,10 +470,8 @@ export default function HierarchyPage() {
     }
 
     const validManagerRules = getValidManagerLevels(userLevel)
-    console.log("[v0] Valid manager rules:", validManagerRules)
 
     if (validManagerRules.length === 0) {
-      console.log("[v0] No valid managers for this user level")
       return []
     }
 
@@ -512,10 +497,9 @@ export default function HierarchyPage() {
       return false
     })
 
-    console.log("[v0] Available managers count:", availableManagers.length)
     if (availableManagers.length > 0) {
       console.log(
-        "[v0] Sample managers:",
+        "Sample managers:",
         availableManagers.slice(0, 5).map((m) => `${m.name} (${m.level})`),
       )
     }
@@ -898,7 +882,6 @@ export default function HierarchyPage() {
                   value={selectedManagerId || "none"}
                   onValueChange={(value) => {
                     const newValue = value === "none" ? null : value
-                    console.log("[v0] Manager selected:", newValue)
                     setSelectedManagerId(newValue)
                   }}
                 >

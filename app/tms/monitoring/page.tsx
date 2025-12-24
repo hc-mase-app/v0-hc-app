@@ -13,11 +13,13 @@ import {
   Users,
   CheckCircle2,
   XCircle,
+  Trash2,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { useAuth } from "@/lib/auth-context"
 
 interface MonitoringData {
   site: string
@@ -43,6 +45,7 @@ type ViewMode = "site" | "department" | "individual"
 
 export default function TmsMonitoringPage() {
   const router = useRouter()
+  const { user } = useAuth() // Use useAuth to get user role
   const [isLoading, setIsLoading] = useState(true)
 
   // Data
@@ -53,6 +56,11 @@ export default function TmsMonitoringPage() {
   const [selectedLeader, setSelectedLeader] = useState<MonitoringData | null>(null)
   const [subordinates, setSubordinates] = useState<Subordinate[]>([])
   const [loadingSubordinates, setLoadingSubordinates] = useState(false)
+
+  // Delete Confirmation Dialog
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
+  const [subordinateToDelete, setSubordinateToDelete] = useState<Subordinate | null>(null)
+  const [isDeleting, setIsDeleting] = useState(false)
 
   // Filters & Navigation
   const [selectedMonth, setSelectedMonth] = useState<string>("")
@@ -200,6 +208,42 @@ export default function TmsMonitoringPage() {
     const [year, month] = monthStr.split("-")
     const months = ["Jan", "Feb", "Mar", "Apr", "Mei", "Jun", "Jul", "Agu", "Sep", "Okt", "Nov", "Des"]
     return `${months[Number.parseInt(month) - 1]} ${year}`
+  }
+
+  const handleDeleteSubordinate = async () => {
+    if (!subordinateToDelete || !selectedLeader) return
+
+    try {
+      setIsDeleting(true)
+      const response = await fetch("/api/tms/monitoring/subordinates", {
+        method: "DELETE",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          subordinateId: subordinateToDelete.id,
+          leaderId: selectedLeader.leader_id,
+          userRole: user?.role,
+        }),
+      })
+
+      if (response.ok) {
+        // Remove from local state
+        setSubordinates((prev) => prev.filter((sub) => sub.id !== subordinateToDelete.id))
+        // Reload monitoring data to update counts
+        await loadMonitoringData()
+        setShowDeleteConfirm(false)
+        setSubordinateToDelete(null)
+      } else {
+        const data = await response.json()
+        alert(data.error || "Gagal menghapus bawahan")
+      }
+    } catch (error) {
+      console.error("[v0] Delete subordinate error:", error)
+      alert("Terjadi kesalahan saat menghapus bawahan")
+    } finally {
+      setIsDeleting(false)
+    }
   }
 
   if (isLoading) {
@@ -538,11 +582,23 @@ export default function TmsMonitoringPage() {
                           )}
                         </div>
                       </div>
-                      <div>
+                      <div className="flex items-center gap-2">
                         {sub.has_evidence ? (
                           <CheckCircle2 className="w-6 h-6 text-green-500" />
                         ) : (
                           <XCircle className="w-6 h-6 text-red-500" />
+                        )}
+                        {user?.role === "super_admin" && (
+                          <button
+                            onClick={() => {
+                              setSubordinateToDelete(sub)
+                              setShowDeleteConfirm(true)
+                            }}
+                            className="p-2 hover:bg-red-500/10 rounded-lg transition-colors group"
+                            title="Hapus Bawahan"
+                          >
+                            <Trash2 className="w-5 h-5 text-gray-400 group-hover:text-red-500" />
+                          </button>
                         )}
                       </div>
                     </div>
@@ -561,6 +617,57 @@ export default function TmsMonitoringPage() {
               className="bg-[#D4AF37] text-black hover:bg-[#D4AF37]/90"
             >
               Tutup
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Confirmation Dialog */}
+      <Dialog open={showDeleteConfirm} onOpenChange={setShowDeleteConfirm}>
+        <DialogContent className="bg-[#1a1a1a] border-red-500/30 text-white max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-xl font-bold text-red-500 flex items-center gap-2">
+              <Trash2 className="w-6 h-6" />
+              Konfirmasi Hapus Bawahan
+            </DialogTitle>
+            <DialogDescription className="text-gray-400">
+              Apakah Anda yakin ingin menghapus bawahan ini dari hierarki?
+            </DialogDescription>
+          </DialogHeader>
+
+          {subordinateToDelete && (
+            <div className="mt-4 p-4 bg-red-500/10 border border-red-500/30 rounded-lg">
+              <p className="font-semibold text-white">{subordinateToDelete.nama_karyawan}</p>
+              <p className="text-sm text-gray-400">NRP: {subordinateToDelete.nrp}</p>
+              <p className="text-sm text-gray-400">Departemen: {subordinateToDelete.departemen}</p>
+            </div>
+          )}
+
+          <div className="mt-4 p-3 bg-yellow-500/10 border border-yellow-500/30 rounded-lg">
+            <p className="text-xs text-yellow-400">
+              <strong>Perhatian:</strong> Aksi ini akan menghapus hubungan hierarki antara leader dan bawahan. Bawahan
+              akan tetap ada di sistem namun tidak lagi memiliki manager.
+            </p>
+          </div>
+
+          <div className="mt-6 flex gap-3 justify-end">
+            <Button
+              onClick={() => {
+                setShowDeleteConfirm(false)
+                setSubordinateToDelete(null)
+              }}
+              variant="outline"
+              disabled={isDeleting}
+              className="border-gray-600 text-white hover:bg-gray-800"
+            >
+              Batal
+            </Button>
+            <Button
+              onClick={handleDeleteSubordinate}
+              disabled={isDeleting}
+              className="bg-red-500 text-white hover:bg-red-600"
+            >
+              {isDeleting ? "Menghapus..." : "Ya, Hapus"}
             </Button>
           </div>
         </DialogContent>

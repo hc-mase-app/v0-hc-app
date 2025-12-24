@@ -2,7 +2,7 @@
 
 import { neon } from "@neondatabase/serverless"
 import { ensureLeaveRequestsSchema } from "./db-migration"
-import { mapDbRowToLeaveRequest, mapDbRowsToLeaveRequests } from "./db-mapper"
+import { mapDbRowsToLeaveRequests } from "./db-mapper"
 import { validateLeaveRequestCreate, validateBookingCode, sanitizeString } from "./validation"
 
 const sql = neon(process.env.DATABASE_URL || "")
@@ -126,7 +126,6 @@ export async function getPendingRequestsForRole(
             AND (lr.jenis_pengajuan = 'dengan_tiket' OR lr.jenis_pengajuan IS NULL)
             ORDER BY lr.created_at DESC
           `
-          console.log(`[v0] HR Ticketing (ALL SITES) pending requests:`, result.length)
           return mapDbRowsToLeaveRequests(Array.isArray(result) ? result : [])
         } else {
           // Filter by specific site
@@ -142,7 +141,6 @@ export async function getPendingRequestsForRole(
             AND lr.site = ${userSite}
             ORDER BY lr.created_at DESC
           `
-          console.log(`[v0] HR Ticketing (site: ${userSite}) pending requests:`, result.length)
           return mapDbRowsToLeaveRequests(Array.isArray(result) ? result : [])
         }
       }
@@ -199,7 +197,6 @@ export async function getPendingRequestsForRole(
       `
     }
 
-    console.log(`[v0] Workflow query executed for ${role}, rows:`, result.length)
     return mapDbRowsToLeaveRequests(Array.isArray(result) ? result : [])
   } catch (error) {
     console.error(`[v0] Workflow Error fetching requests for ${role}:`, error)
@@ -292,7 +289,6 @@ export async function getAllRequestsForRole(role: UserRole, userSite: string, us
             WHERE (lr.jenis_pengajuan = 'dengan_tiket' OR lr.jenis_pengajuan IS NULL)
             ORDER BY lr.created_at DESC
           `
-          console.log(`[v0] HR Ticketing (ALL SITES) all requests:`, result.length)
         } else {
           result = await sql`
             SELECT 
@@ -305,7 +301,6 @@ export async function getAllRequestsForRole(role: UserRole, userSite: string, us
             AND lr.site = ${userSite}
             ORDER BY lr.created_at DESC
           `
-          console.log(`[v0] HR Ticketing (site: ${userSite}) all requests:`, result.length)
         }
         break
       }
@@ -313,7 +308,6 @@ export async function getAllRequestsForRole(role: UserRole, userSite: string, us
         return []
     }
 
-    console.log(`[v0] Query executed successfully for ${role}, rows:`, result.length)
     return mapDbRowsToLeaveRequests(Array.isArray(result) ? result : [])
   } catch (error) {
     console.error(`[v0] Workflow Error fetching all requests for ${role}:`, error)
@@ -325,17 +319,11 @@ export async function getAllRequestsForRole(role: UserRole, userSite: string, us
 export async function getUserRequests(nik: string): Promise<any[]> {
   try {
     const result = await sql`
-      SELECT 
-        lr.*,
-        u.name, u.jabatan, u.poh, u.status_karyawan,
-        u.no_ktp, u.no_telp, u.email, u.tanggal_lahir, u.jenis_kelamin
-      FROM leave_requests lr
-      LEFT JOIN users u ON lr.nik = u.nik
-      WHERE lr.nik = ${nik}
-      ORDER BY lr.created_at DESC
+      SELECT * FROM leave_requests
+      WHERE nik = ${nik}
+      ORDER BY created_at DESC
     `
-    console.log(`[v0] User requests query executed, rows:`, result.length)
-    return mapDbRowsToLeaveRequests(Array.isArray(result) ? result : [])
+    return result
   } catch (error) {
     console.error("[v0] Workflow Error fetching user requests:", error)
     return []
@@ -353,7 +341,7 @@ export async function getRequestById(requestId: string): Promise<any | null> {
       LEFT JOIN users u ON lr.nik = u.nik
       WHERE lr.id = ${requestId}
     `
-    return Array.isArray(result) && result.length > 0 ? mapDbRowToLeaveRequest(result[0]) : null
+    return Array.isArray(result) && result.length > 0 ? result[0] : null
   } catch (error) {
     console.error("[v0] Workflow Error fetching request by ID:", error)
     return null
@@ -367,7 +355,7 @@ export async function approveRequest(
   approverNik: string,
   approverRole: UserRole,
   notes = "",
-): Promise<{ success: boolean; error?: string }> {
+): Promise<{ success: boolean; message?: string; newStatus?: string; error?: string }> {
   try {
     if (!requestId || requestId.trim() === "") {
       return { success: false, error: "Request ID diperlukan" }
@@ -382,8 +370,6 @@ export async function approveRequest(
     if (!request) {
       return { success: false, error: "Request tidak ditemukan" }
     }
-
-    console.log(`[v0] Approving request ${requestId}, jenisPengajuan:`, request.jenisPengajuan)
 
     const rule = WORKFLOW_RULES[approverRole]
     if (!rule) {
@@ -401,26 +387,24 @@ export async function approveRequest(
     }
     const approver = approverResult[0]
 
-    let newStatus: LeaveStatus = rule.approveTransition
+    let newStatus: LeaveStatus = request.status
+
+    const jenisPengajuan = request.jenisPengajuan || ""
 
     if (approverRole === "pjo_site") {
-      const jenisPengajuan = request.jenisPengajuan || "dengan_tiket" // Default to dengan_tiket for old records
-      console.log(`[v0] PJO Site approval - jenisPengajuan: ${jenisPengajuan}`)
+      const pengajuanLower = jenisPengajuan.toLowerCase()
 
-      if (jenisPengajuan === "lokal") {
-        // Cuti lokal stops at PJO Site
+      if (pengajuanLower === "cuti lokal") {
         newStatus = "approved"
-        console.log(`[v0] Setting status to 'approved' for cuti lokal`)
-      } else {
-        // Dengan tiket continues to HR HO
+      } else if (pengajuanLower === "dengan tiket") {
         newStatus = "pending_hr_ho"
-        console.log(`[v0] Setting status to 'pending_hr_ho' for dengan tiket`)
       }
-    }
-
-    if (approverRole === "manager_ho") {
+    } else if (approverRole === "manager_ho") {
       newStatus = "pending_hr_ho"
-      console.log(`[v0] Manager HO approval - Setting status to 'pending_hr_ho'`)
+    } else if (approverRole === "hr_ho") {
+      newStatus = "pending_dic"
+    } else if (approverRole === "dic") {
+      newStatus = "pending_hr_ticketing"
     }
 
     const updateResult = await sql`
@@ -440,8 +424,11 @@ export async function approveRequest(
       VALUES (${requestId}, ${approverNik}, ${approver.name}, ${approver.role}, 'approved', ${sanitizeString(notes) || null})
     `
 
-    console.log(`[v0] Approval successful - new status: ${newStatus}`)
-    return { success: true }
+    return {
+      success: true,
+      message: `Pengajuan cuti berhasil disetujui${newStatus !== request.status ? ` (Status: ${newStatus})` : ""}`,
+      newStatus,
+    }
   } catch (error) {
     console.error("[Workflow] Error approving request:", error)
     const errorMessage = error instanceof Error ? error.message : String(error)
@@ -542,12 +529,10 @@ export async function createLeaveRequest(data: {
   submittedBy: string
   site: string
   departemen: string
-}): Promise<{ success: boolean; data?: any; error?: string }> {
+}): Promise<{ success: boolean; requestId?: string; message?: string; error?: string }> {
   try {
     console.log("[v0] createLeaveRequest called with data:", JSON.stringify(data, null, 2))
     console.log("[v0] jenisPengajuan received:", data.jenisPengajuan)
-
-    console.log("[v0] Validating leave request data...")
 
     const validation = validateLeaveRequestCreate(data)
     if (!validation.valid) {
@@ -558,35 +543,22 @@ export async function createLeaveRequest(data: {
       }
     }
 
-    console.log("[v0] Validation passed successfully")
-
     await initializeMigration()
 
-    console.log(`[v0] Creating leave request with site: ${data.site}, dept: ${data.departemen}`)
+    let initialStatus: LeaveStatus = "pending_pjo"
 
-    let initialStatus: LeaveStatus = "pending_dic"
-
-    const userResult = await sql`SELECT role FROM users WHERE nik = ${data.nik}`
-    if (userResult && userResult.length > 0) {
-      const userRole = userResult[0].role
-      console.log(`[v0] User role for NIK ${data.nik}: ${userRole}`)
+    if (data.site) {
+      const userRole = await getUserRole(data.nik)
 
       if (userRole === "pjo_site") {
         initialStatus = "pending_manager_ho"
-        console.log(`[v0] PJO user detected - setting initial status to pending_manager_ho`)
       }
     }
 
     const sanitizedData = {
       ...data,
-      jenisPengajuan: data.jenisPengajuan || "dengan_tiket",
-      berangkatDari: sanitizeString(data.berangkatDari),
-      tujuan: sanitizeString(data.tujuan),
-      catatan: sanitizeString(data.catatan),
-      cutiPeriodikBerikutnya: sanitizeString(data.cutiPeriodikBerikutnya),
+      jenisPengajuan: sanitizeString(data.jenisPengajuan),
     }
-
-    console.log("[v0] Sanitized data jenisPengajuan:", sanitizedData.jenisPengajuan)
 
     const result = await sql`
       INSERT INTO leave_requests (
@@ -617,7 +589,11 @@ export async function createLeaveRequest(data: {
     `
 
     console.log(`[v0] Leave request created successfully with ID: ${result[0]?.id}, status: ${initialStatus}`)
-    return { success: true, data: result[0] }
+    return {
+      success: true,
+      requestId: result[0]?.id || "",
+      message: `Pengajuan cuti berhasil dibuat dengan status: ${initialStatus}`,
+    }
   } catch (error) {
     console.error("[v0] Workflow Error creating leave request:", error)
     const errorMessage = error instanceof Error ? error.message : String(error)
@@ -704,10 +680,10 @@ export async function updateBookingCodeSeparate(
   requestId: string,
   ticketData: {
     tiketBerangkat?: boolean
-    tiketBalik?: boolean
     bookingCode?: string
     namaPesawat?: string
     jamKeberangkatan?: string
+    tiketBalik?: boolean
     bookingCodeBalik?: string
     namaPesawatBalik?: string
     jamKeberangkatanBalik?: string
@@ -716,16 +692,8 @@ export async function updateBookingCodeSeparate(
     tujuanBalik?: string
   },
   updatedBy: string,
-): Promise<{ success: boolean; error?: string }> {
+): Promise<{ success: boolean; error?: string; message?: string }> {
   try {
-    console.log("[v0] updateBookingCodeSeparate - requestId:", requestId)
-    console.log("[v0] updateBookingCodeSeparate - ticketData:", JSON.stringify(ticketData, null, 2))
-
-    console.log("[v0] DEBUG - tiketBalik value:", ticketData.tiketBalik)
-    console.log("[v0] DEBUG - tiketBalik type:", typeof ticketData.tiketBalik)
-    console.log("[v0] DEBUG - tiketBalik === true:", ticketData.tiketBalik === true)
-    console.log("[v0] DEBUG - Boolean(tiketBalik):", Boolean(ticketData.tiketBalik))
-
     if (!requestId || requestId.trim() === "") {
       return { success: false, error: "Request ID diperlukan" }
     }
@@ -746,14 +714,11 @@ export async function updateBookingCodeSeparate(
       }
     }
 
-    console.log("[v0] DEBUG - Checking tiketBerangkat:", ticketData.tiketBerangkat)
-
     if (ticketData.tiketBerangkat) {
       const sanitizedBookingCode = sanitizeString(ticketData.bookingCode || "")
       const sanitizedNamaPesawat = sanitizeString(ticketData.namaPesawat)
       const sanitizedJamKeberangkatan = sanitizeString(ticketData.jamKeberangkatan)
 
-      console.log("[v0] Updating tiket berangkat...")
       const updateResult = await sql`
         UPDATE leave_requests 
         SET 
@@ -766,7 +731,6 @@ export async function updateBookingCodeSeparate(
         WHERE id = ${requestId}
         RETURNING id
       `
-      console.log("[v0] Tiket berangkat updated, rows affected:", updateResult.length)
 
       await sql`
         INSERT INTO approval_history (leave_request_id, approver_nik, approver_name, approver_role, action, notes)
@@ -779,29 +743,15 @@ export async function updateBookingCodeSeparate(
           ${`Booking code: ${sanitizedBookingCode}, Airline: ${sanitizedNamaPesawat || "-"}, Departure time: ${sanitizedJamKeberangkatan || "-"}`}
         )
       `
-      console.log("[v0] Tiket berangkat history inserted")
     }
 
-    console.log("[v0] DEBUG - Checking tiketBalik condition...")
-    console.log("[v0] DEBUG - Will enter if block?", !!ticketData.tiketBalik)
-
     if (ticketData.tiketBalik) {
-      console.log("[v0] DEBUG - INSIDE tiketBalik if block!")
-
       const sanitizedBookingCodeBalik = sanitizeString(ticketData.bookingCodeBalik || "")
       const sanitizedNamaPesawatBalik = sanitizeString(ticketData.namaPesawatBalik)
       const sanitizedJamKeberangkatanBalik = sanitizeString(ticketData.jamKeberangkatanBalik)
       const sanitizedTanggalBerangkatBalik = sanitizeString(ticketData.tanggalBerangkatBalik)
       const sanitizedBerangkatDariBalik = sanitizeString(ticketData.berangkatDariBalik)
       const sanitizedTujuanBalik = sanitizeString(ticketData.tujuanBalik)
-
-      console.log("[v0] Updating tiket balik with data:")
-      console.log("[v0] - bookingCodeBalik:", sanitizedBookingCodeBalik)
-      console.log("[v0] - namaPesawatBalik:", sanitizedNamaPesawatBalik)
-      console.log("[v0] - jamKeberangkatanBalik:", sanitizedJamKeberangkatanBalik)
-      console.log("[v0] - tanggalBerangkatBalik:", sanitizedTanggalBerangkatBalik)
-      console.log("[v0] - berangkatDariBalik:", sanitizedBerangkatDariBalik)
-      console.log("[v0] - tujuanBalik:", sanitizedTujuanBalik)
 
       const updateBalikResult = await sql`
         UPDATE leave_requests 
@@ -818,8 +768,6 @@ export async function updateBookingCodeSeparate(
         WHERE id = ${requestId}
         RETURNING id, status_tiket_balik
       `
-      console.log("[v0] Tiket balik updated, rows affected:", updateBalikResult.length)
-      console.log("[v0] Tiket balik status after update:", updateBalikResult[0]?.status_tiket_balik)
 
       await sql`
         INSERT INTO approval_history (leave_request_id, approver_nik, approver_name, approver_role, action, notes)
@@ -832,18 +780,13 @@ export async function updateBookingCodeSeparate(
           ${`Booking code: ${sanitizedBookingCodeBalik}, Airline: ${sanitizedNamaPesawatBalik || "-"}, Departure time: ${sanitizedJamKeberangkatanBalik || "-"}`}
         )
       `
-      console.log("[v0] Tiket balik history inserted")
     } else {
-      console.log("[v0] DEBUG - tiketBalik condition NOT met, skipping tiket balik update")
     }
 
     const updatedRequest = await getRequestById(requestId)
-    console.log("[v0] After update - statusTiketBerangkat:", updatedRequest?.statusTiketBerangkat)
-    console.log("[v0] After update - statusTiketBalik:", updatedRequest?.statusTiketBalik)
 
     const bothIssued =
-      updatedRequest?.statusTiketBerangkat === "issued" && updatedRequest?.statusTiketBalik === "issued"
-    console.log("[v0] Both tickets issued?", bothIssued)
+      updatedRequest?.status_tiket_berangkat === "issued" && updatedRequest?.status_tiket_balik === "issued"
 
     if (bothIssued && request.status !== "tiket_issued") {
       await sql`
@@ -851,7 +794,6 @@ export async function updateBookingCodeSeparate(
         SET status = 'tiket_issued', updated_at = CURRENT_TIMESTAMP 
         WHERE id = ${requestId}
       `
-      console.log("[v0] Overall status updated to tiket_issued")
     }
 
     return { success: true }
@@ -902,5 +844,16 @@ export async function getStatisticsForRole(
   } catch (error) {
     console.error("[Workflow] Error calculating statistics:", error)
     return { total: 0, pending: 0, approved: 0, rejected: 0 }
+  }
+}
+
+// Additional helper function to get user role
+async function getUserRole(nik: string): Promise<string | null> {
+  try {
+    const result = await sql`SELECT role FROM users WHERE nik = ${nik}`
+    return result.length > 0 ? result[0].role : null
+  } catch (error) {
+    console.error("[v0] Error fetching user role:", error)
+    return null
   }
 }
