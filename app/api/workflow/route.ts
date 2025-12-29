@@ -59,20 +59,32 @@ export async function GET(request: NextRequest) {
         const role = searchParams.get("role") as UserRole
         const site = searchParams.get("site")
         const departemen = searchParams.get("departemen")
+        const statusFilter = searchParams.get("status") // Can be single status or comma-separated
 
         if (!role || !site) {
           return errorResponse("Role and site required", 400)
         }
 
-        console.log(`[v0] Fetching all requests for role: ${role}, site: ${site}, dept: ${departemen}`)
+        console.log(
+          `[v0] Fetching all requests for role: ${role}, site: ${site}, dept: ${departemen}, status: ${statusFilter}`,
+        )
         const [result, error] = await withErrorHandling(() =>
           getAllRequestsForRole(role, site, departemen || undefined),
         )
 
         if (error) return errorResponse(error)
 
-        console.log(`[v0] All requests result:`, result?.length || 0, "rows")
-        return successResponse(Array.isArray(result) ? result : [])
+        let filteredResult = Array.isArray(result) ? result : []
+
+        if (statusFilter && statusFilter !== "all") {
+          const statusList = statusFilter.split(",").map((s) => s.trim())
+          filteredResult = filteredResult.filter((req: any) => statusList.includes(req.status))
+          console.log(`[v0] Filtered by status ${statusFilter}: ${filteredResult.length} rows`)
+        } else {
+          console.log(`[v0] All requests result: ${filteredResult.length} rows`)
+        }
+
+        return successResponse(filteredResult)
       }
 
       case "user-requests": {

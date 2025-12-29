@@ -53,16 +53,27 @@ export default function PJOSiteCutiPage() {
     try {
       setLoading(true)
 
-      let response
+      let apiUrl = `/api/workflow?action=all&role=pjo_site&site=${encodeURIComponent(user.site)}`
+
+      // Add status filter to API call
       if (selectedStatus === "pending") {
-        response = await fetch(`/api/leave-requests?action=pending-pjo&userSite=${encodeURIComponent(user.site)}`)
-      } else {
-        response = await fetch(`/api/workflow?action=all&role=pjo_site&site=${encodeURIComponent(user.site)}`)
+        apiUrl += "&status=pending_pjo"
+      } else if (selectedStatus === "approved") {
+        // Include both di_proses and approved statuses for "Disetujui" filter
+        apiUrl += "&status=di_proses,approved"
+      } else if (selectedStatus === "rejected") {
+        apiUrl += "&status=rejected"
+      } else if (selectedStatus === "all") {
+        apiUrl += "&status=all"
       }
 
+      console.log("[v0] Loading data from:", apiUrl)
+      const response = await fetch(apiUrl)
       const result = await response.json()
 
       const data = Array.isArray(result) ? result : result?.success && Array.isArray(result.data) ? result.data : []
+
+      console.log("[v0] Loaded data count:", data.length)
 
       const sorted = data.sort((a: any, b: any) => {
         return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
@@ -84,12 +95,6 @@ export default function PJOSiteCutiPage() {
     }
     loadData()
   }, [user?.role, isAuthenticated, router, loadData])
-
-  useEffect(() => {
-    if (isAuthenticated && user?.role === "pjo_site") {
-      loadData()
-    }
-  }, [selectedStatus, isAuthenticated, user?.role, loadData])
 
   const { yearOptions, filteredRequests } = useMemo(() => {
     const yearCounts: Record<number, number> = {}
@@ -113,23 +118,8 @@ export default function PJOSiteCutiPage() {
       })
     })
 
+    // Apply month/year/search filters
     let filtered = allRequests
-
-    if (selectedStatus !== "pending") {
-      if (selectedStatus === "approved") {
-        filtered = filtered.filter(
-          (r) =>
-            r.status !== "pending_pjo" &&
-            r.status !== "ditolak_dic" &&
-            r.status !== "ditolak_pjo" &&
-            r.status !== "ditolak_hr_ho",
-        )
-      } else if (selectedStatus === "rejected") {
-        filtered = filtered.filter(
-          (r) => r.status === "ditolak_dic" || r.status === "ditolak_pjo" || r.status === "ditolak_hr_ho",
-        )
-      }
-    }
 
     if (selectedMonth !== "all" || selectedYear !== "all") {
       filtered = filtered.filter((r) => {
@@ -159,7 +149,7 @@ export default function PJOSiteCutiPage() {
       yearOptions: yearOpts,
       filteredRequests: filtered,
     }
-  }, [allRequests, selectedStatus, selectedMonth, selectedYear, searchQuery])
+  }, [allRequests, selectedMonth, selectedYear, searchQuery])
 
   useEffect(() => {
     setCurrentPage(1)
@@ -220,6 +210,7 @@ export default function PJOSiteCutiPage() {
             </CardDescription>
 
             <div className="space-y-3 mt-4">
+              {/* Search bar - always visible */}
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
                 <Input

@@ -53,21 +53,27 @@ export default function DICCutiPage() {
     try {
       setLoading(true)
 
-      let response
-      if (selectedStatus === "pending") {
-        response = await fetch(
-          `/api/leave-requests?action=pending-dic&userSite=${encodeURIComponent(user.site)}&userDepartemen=${encodeURIComponent(user.departemen)}`,
-        )
-      } else {
-        // Fetch all data only when needed
-        response = await fetch(
-          `/api/workflow?action=all&role=dic&site=${encodeURIComponent(user.site)}&departemen=${encodeURIComponent(user.departemen)}`,
-        )
-      }
+      let apiUrl = `/api/workflow?action=all&role=dic&site=${encodeURIComponent(user.site)}&departemen=${encodeURIComponent(user.departemen)}`
 
+      if (selectedStatus === "pending") {
+        apiUrl += "&status=pending_dic"
+      } else if (selectedStatus === "approved") {
+        // Include both di_proses and approved statuses for "Disetujui" filter
+        apiUrl += "&status=di_proses,approved"
+      } else if (selectedStatus === "rejected") {
+        apiUrl += "&status=rejected"
+      } else if (selectedStatus === "all") {
+        apiUrl += "&status=all"
+      }
+      // </CHANGE>
+
+      console.log("[v0] Loading data from:", apiUrl)
+      const response = await fetch(apiUrl)
       const result = await response.json()
 
       const data = Array.isArray(result) ? result : result?.success && Array.isArray(result.data) ? result.data : []
+
+      console.log("[v0] Loaded data count:", data.length)
 
       const sorted = data.sort((a: any, b: any) => {
         return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
@@ -89,12 +95,6 @@ export default function DICCutiPage() {
     }
     loadData()
   }, [user?.role, isAuthenticated, router, loadData])
-
-  useEffect(() => {
-    if (isAuthenticated && user?.role === "dic") {
-      loadData()
-    }
-  }, [selectedStatus, isAuthenticated, user?.role, loadData])
 
   const { yearOptions, filteredRequests } = useMemo(() => {
     const yearCounts: Record<number, number> = {}
@@ -118,25 +118,8 @@ export default function DICCutiPage() {
       })
     })
 
-    // Apply additional filters (month, year, search)
+    // Apply month/year/search filters
     let filtered = allRequests
-
-    if (selectedStatus !== "pending") {
-      // Apply status filter only when not using optimized endpoint
-      if (selectedStatus === "approved") {
-        filtered = filtered.filter(
-          (r) =>
-            r.status !== "pending_dic" &&
-            r.status !== "ditolak_dic" &&
-            r.status !== "ditolak_pjo" &&
-            r.status !== "ditolak_hr_ho",
-        )
-      } else if (selectedStatus === "rejected") {
-        filtered = filtered.filter(
-          (r) => r.status === "ditolak_dic" || r.status === "ditolak_pjo" || r.status === "ditolak_hr_ho",
-        )
-      }
-    }
 
     if (selectedMonth !== "all" || selectedYear !== "all") {
       filtered = filtered.filter((r) => {
@@ -165,16 +148,25 @@ export default function DICCutiPage() {
       yearOptions: yearOpts,
       filteredRequests: filtered,
     }
-  }, [allRequests, selectedStatus, selectedMonth, selectedYear, searchQuery])
+  }, [allRequests, selectedMonth, selectedYear, searchQuery])
 
   useEffect(() => {
     setCurrentPage(1)
   }, [selectedStatus, selectedMonth, selectedYear, searchQuery])
 
-  const totalPages = Math.ceil(filteredRequests.length / ITEMS_PER_PAGE)
-  const startIndex = (currentPage - 1) * ITEMS_PER_PAGE
-  const endIndex = startIndex + ITEMS_PER_PAGE
-  const paginatedRequests = filteredRequests.slice(startIndex, endIndex)
+  const { totalPages, paginatedRequests, startIndex, endIndex } = useMemo(() => {
+    const total = Math.ceil(filteredRequests.length / ITEMS_PER_PAGE)
+    const start = (currentPage - 1) * ITEMS_PER_PAGE
+    const end = start + ITEMS_PER_PAGE
+    const paginated = filteredRequests.slice(start, end)
+
+    return {
+      totalPages: total,
+      paginatedRequests: paginated,
+      startIndex: start,
+      endIndex: end,
+    }
+  }, [filteredRequests, currentPage])
 
   if (loading) {
     return (
@@ -316,13 +308,11 @@ export default function DICCutiPage() {
 
                 {totalPages > 1 && (
                   <div className="mt-4 md:mt-6 pt-4 border-t space-y-3 md:space-y-0">
-                    {/* Info text - centered on mobile */}
                     <p className="text-xs md:text-sm text-slate-600 text-center md:text-left">
                       Menampilkan {startIndex + 1}-{Math.min(endIndex, filteredRequests.length)} dari{" "}
                       {filteredRequests.length}
                     </p>
 
-                    {/* Pagination controls - centered */}
                     <div className="flex flex-col md:flex-row items-center justify-center md:justify-between gap-2">
                       <Button
                         variant="outline"
@@ -336,7 +326,6 @@ export default function DICCutiPage() {
 
                       <div className="flex items-center gap-1">
                         {totalPages <= 5 ? (
-                          // Show all pages if 5 or less
                           Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
                             <Button
                               key={page}
@@ -349,7 +338,6 @@ export default function DICCutiPage() {
                             </Button>
                           ))
                         ) : (
-                          // Show current page and neighbors on mobile
                           <>
                             {currentPage > 2 && (
                               <>
