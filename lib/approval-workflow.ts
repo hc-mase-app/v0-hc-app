@@ -81,22 +81,6 @@ const WORKFLOW_RULES: Record<UserRole, WorkflowRule | null> = {
   user: null, // Read-only access
 }
 
-// ============ QUERY BUILDER ============
-
-function buildLeaveRequestQuery(whereClause: string) {
-  // This is now used only for logging - actual queries will use template literals
-  return `
-    SELECT 
-      lr.*,
-      u.name, u.jabatan, u.poh, u.status_karyawan,
-      u.no_ktp, u.no_telp, u.email, u.tanggal_lahir, u.jenis_kelamin
-    FROM leave_requests lr
-    LEFT JOIN users u ON lr.nik = u.nik
-    WHERE ${whereClause}
-    ORDER BY lr.created_at DESC
-  `.trim()
-}
-
 // ============ DATA ACCESS FUNCTIONS ============
 
 export async function getPendingRequestsForRole(

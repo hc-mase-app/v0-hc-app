@@ -65,13 +65,10 @@ export default function DICCutiPage() {
         apiUrl += "&status=all"
       }
 
-      console.log("[v0] Loading data from:", apiUrl)
       const response = await fetch(apiUrl)
       const result = await response.json()
 
       const data = Array.isArray(result) ? result : result?.success && Array.isArray(result.data) ? result.data : []
-
-      console.log("[v0] Loaded data count:", data.length)
 
       const sorted = data.sort((a: any, b: any) => {
         return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
