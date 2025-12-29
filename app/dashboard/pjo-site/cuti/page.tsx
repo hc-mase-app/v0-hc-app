@@ -1,175 +1,190 @@
 "use client"
 
-import { useMemo, useState, useEffect } from "react"
+import { useState, useEffect, useCallback, useMemo } from "react"
 import { useAuth } from "@/lib/auth-context"
 import { useRouter } from "next/navigation"
 import { DashboardLayout } from "@/components/dashboard-layout"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Clock, CheckCircle, XCircle, FileText, ArrowLeft, Search } from "lucide-react"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import Link from "next/link"
+import { Search, ArrowLeft, Calendar, FileText, Filter } from "lucide-react"
 import type { LeaveRequest } from "@/lib/types"
-import { ApprovalCard } from "@/components/approval-card"
 import { LeaveRequestDetailDialog } from "@/components/leave-request-detail-dialog"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import {
-  Select,
-  SelectContent,
-  SelectGroup,
-  SelectItem,
-  SelectLabel,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select"
+import { Input } from "@/components/ui/input"
+import { Button } from "@/components/ui/button"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import Link from "next/link"
+import { ApprovalCard } from "@/components/approval-card"
 import { ApprovalActions } from "@/components/approval-actions-inline"
-import useSWR from "swr"
+
+const ITEMS_PER_PAGE = 5
+const MONTHS = [
+  { value: "all", label: "Semua Bulan" },
+  { value: "01", label: "Januari" },
+  { value: "02", label: "Februari" },
+  { value: "03", label: "Maret" },
+  { value: "04", label: "April" },
+  { value: "05", label: "Mei" },
+  { value: "06", label: "Juni" },
+  { value: "07", label: "Juli" },
+  { value: "08", label: "Agustus" },
+  { value: "09", label: "September" },
+  { value: "10", label: "Oktober" },
+  { value: "11", label: "November" },
+  { value: "12", label: "Desember" },
+]
 
 export default function PJOSiteCutiPage() {
   const { user, isAuthenticated } = useAuth()
   const router = useRouter()
+  const [allRequests, setAllRequests] = useState<LeaveRequest[]>([])
+  const [searchQuery, setSearchQuery] = useState("")
+  const [loading, setLoading] = useState(true)
   const [selectedRequest, setSelectedRequest] = useState<LeaveRequest | null>(null)
-  const [selectedYear, setSelectedYear] = useState<string>("all")
-  const [searchQuery, setSearchQuery] = useState<string>("")
-  const [pendingPage, setPendingPage] = useState(1)
-  const [allPage, setAllPage] = useState(1)
-  const itemsPerPage = 10
 
-  const {
-    data: allRequests = [],
-    isLoading,
-    mutate,
-  } = useSWR(
-    user?.site && isAuthenticated && user?.role === "pjo_site"
-      ? `/api/workflow?action=all&role=pjo_site&site=${encodeURIComponent(user.site)}`
-      : null,
-    (url: string) =>
-      fetch(url)
-        .then((res) => res.json())
-        .then((data) => (data?.success ? data.data : data)),
-    {
-      revalidateOnFocus: false,
-      revalidateOnReconnect: false,
-      dedupingInterval: 30000,
-    },
-  )
+  const [selectedStatus, setSelectedStatus] = useState<string>("pending")
+  const [selectedMonth, setSelectedMonth] = useState<string>("all")
+  const [selectedYear, setSelectedYear] = useState<string>("all")
+  const [currentPage, setCurrentPage] = useState(1)
+
+  const [showFilters, setShowFilters] = useState(false)
+
+  const loadData = useCallback(async () => {
+    if (!user?.site) return
+
+    try {
+      setLoading(true)
+
+      let response
+      if (selectedStatus === "pending") {
+        response = await fetch(`/api/leave-requests?action=pending-pjo&userSite=${encodeURIComponent(user.site)}`)
+      } else {
+        response = await fetch(`/api/workflow?action=all&role=pjo_site&site=${encodeURIComponent(user.site)}`)
+      }
+
+      const result = await response.json()
+
+      const data = Array.isArray(result) ? result : result?.success && Array.isArray(result.data) ? result.data : []
+
+      const sorted = data.sort((a: any, b: any) => {
+        return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+      })
+
+      setAllRequests(sorted)
+    } catch (error) {
+      console.error("Error loading data:", error)
+      setAllRequests([])
+    } finally {
+      setLoading(false)
+    }
+  }, [user?.site, selectedStatus])
 
   useEffect(() => {
     if (!isAuthenticated || !user?.role || user.role !== "pjo_site") {
       router.push("/login")
+      return
     }
-  }, [isAuthenticated, user?.role, router])
+    loadData()
+  }, [user?.role, isAuthenticated, router, loadData])
 
-  const pendingRequests = useMemo(() => {
-    return allRequests.filter((req: LeaveRequest) => req.status === "pending_pjo")
-  }, [allRequests])
-
-  const stats = useMemo(() => {
-    const pending = allRequests.filter((req: LeaveRequest) => req.status === "pending_pjo").length
-    const approved = allRequests.filter(
-      (req: LeaveRequest) => req.status === "approved" || req.status?.includes("approved"),
-    ).length
-    const rejected = allRequests.filter((req: LeaveRequest) => req.status?.includes("ditolak")).length
-
-    return {
-      total: allRequests.length,
-      pending,
-      approved,
-      rejected,
+  useEffect(() => {
+    if (isAuthenticated && user?.role === "pjo_site") {
+      loadData()
     }
-  }, [allRequests])
+  }, [selectedStatus, isAuthenticated, user?.role, loadData])
 
-  const yearOptions = useMemo(() => {
-    const yearMap = new Map<number, number>()
+  const { yearOptions, filteredRequests } = useMemo(() => {
+    const yearCounts: Record<number, number> = {}
 
-    allRequests.forEach((request: LeaveRequest) => {
-      if (request.tanggalMulai) {
-        const year = new Date(request.tanggalMulai).getFullYear()
-        yearMap.set(year, (yearMap.get(year) || 0) + 1)
+    allRequests.forEach((r) => {
+      if (r.tanggalMulai) {
+        const year = new Date(r.tanggalMulai).getFullYear()
+        yearCounts[year] = (yearCounts[year] || 0) + 1
       }
     })
 
-    const years = Array.from(yearMap.entries())
-      .map(([year, count]) => ({ year, count }))
-      .sort((a, b) => b.year - a.year)
+    const yearsInData = Object.keys(yearCounts)
+      .map(Number)
+      .sort((a, b) => b - a)
 
-    return years
-  }, [allRequests])
+    const yearOpts = [{ value: "all", label: "Semua Tahun" }]
+    yearsInData.forEach((year) => {
+      yearOpts.push({
+        value: String(year),
+        label: `${year} (${yearCounts[year]} pengajuan)`,
+      })
+    })
 
-  const filterRequests = useMemo(() => {
-    return (requests: LeaveRequest[]) => {
-      let filtered = requests
+    let filtered = allRequests
 
-      if (selectedYear !== "all") {
-        filtered = filtered.filter((request) => {
-          if (!request.tanggalMulai) return false
-          const requestYear = new Date(request.tanggalMulai).getFullYear()
-          return requestYear === Number.parseInt(selectedYear)
-        })
+    if (selectedStatus !== "pending") {
+      if (selectedStatus === "approved") {
+        filtered = filtered.filter(
+          (r) =>
+            r.status !== "pending_pjo" &&
+            r.status !== "ditolak_dic" &&
+            r.status !== "ditolak_pjo" &&
+            r.status !== "ditolak_hr_ho",
+        )
+      } else if (selectedStatus === "rejected") {
+        filtered = filtered.filter(
+          (r) => r.status === "ditolak_dic" || r.status === "ditolak_pjo" || r.status === "ditolak_hr_ho",
+        )
       }
-
-      if (searchQuery.trim()) {
-        const query = searchQuery.toLowerCase()
-        filtered = filtered.filter((request) => {
-          return (
-            request.userNik?.toLowerCase().includes(query) ||
-            request.userName?.toLowerCase().includes(query) ||
-            request.bookingCode?.toLowerCase().includes(query) ||
-            request.jenisPengajuanCuti?.toLowerCase().includes(query)
-          )
-        })
-      }
-
-      return filtered
     }
-  }, [selectedYear, searchQuery])
 
-  const filteredPendingRequests = useMemo(() => {
-    return filterRequests(pendingRequests)
-  }, [pendingRequests, filterRequests])
+    if (selectedMonth !== "all" || selectedYear !== "all") {
+      filtered = filtered.filter((r) => {
+        if (!r.tanggalMulai) return false
+        const date = new Date(r.tanggalMulai)
+        const matchMonth = selectedMonth === "all" || String(date.getMonth() + 1).padStart(2, "0") === selectedMonth
+        const matchYear = selectedYear === "all" || String(date.getFullYear()) === selectedYear
+        return matchMonth && matchYear
+      })
+    }
 
-  const filteredAllRequests = useMemo(() => {
-    return filterRequests(allRequests)
-  }, [allRequests, filterRequests])
+    if (searchQuery.trim()) {
+      const query = searchQuery.toLowerCase()
+      filtered = filtered.filter((request) => {
+        return (
+          (request.userName?.toLowerCase() || "").includes(query) ||
+          (request.userNik?.toLowerCase() || "").includes(query) ||
+          (request.jenisPengajuanCuti?.toLowerCase() || "").includes(query) ||
+          (request.bookingCode?.toLowerCase() || "").includes(query) ||
+          (request.jabatan?.toLowerCase() || "").includes(query) ||
+          (request.departemen?.toLowerCase() || "").includes(query)
+        )
+      })
+    }
 
-  const paginatedPendingRequests = useMemo(() => {
-    const startIndex = (pendingPage - 1) * itemsPerPage
-    const endIndex = startIndex + itemsPerPage
-    return filteredPendingRequests.slice(startIndex, endIndex)
-  }, [filteredPendingRequests, pendingPage, itemsPerPage])
-
-  const pendingTotalPages = Math.ceil(filteredPendingRequests.length / itemsPerPage)
-
-  const paginatedAllRequests = useMemo(() => {
-    const startIndex = (allPage - 1) * itemsPerPage
-    const endIndex = startIndex + itemsPerPage
-    return filteredAllRequests.slice(startIndex, endIndex)
-  }, [filteredAllRequests, allPage, itemsPerPage])
-
-  const allTotalPages = Math.ceil(filteredAllRequests.length / itemsPerPage)
+    return {
+      yearOptions: yearOpts,
+      filteredRequests: filtered,
+    }
+  }, [allRequests, selectedStatus, selectedMonth, selectedYear, searchQuery])
 
   useEffect(() => {
-    setPendingPage(1)
-    setAllPage(1)
-  }, [selectedYear, searchQuery])
+    setCurrentPage(1)
+  }, [selectedStatus, selectedMonth, selectedYear, searchQuery])
 
-  if (!isAuthenticated || !user?.role || user.role !== "pjo_site" || isLoading) {
+  const { totalPages, paginatedRequests, startIndex, endIndex } = useMemo(() => {
+    const total = Math.ceil(filteredRequests.length / ITEMS_PER_PAGE)
+    const start = (currentPage - 1) * ITEMS_PER_PAGE
+    const end = start + ITEMS_PER_PAGE
+    const paginated = filteredRequests.slice(start, end)
+
+    return {
+      totalPages: total,
+      paginatedRequests: paginated,
+      startIndex: start,
+      endIndex: end,
+    }
+  }, [filteredRequests, currentPage])
+
+  if (loading) {
     return (
       <DashboardLayout title="Pengajuan Cuti">
-        <div className="space-y-6">
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-            {[1, 2, 3, 4].map((i) => (
-              <Card key={i} className="animate-pulse">
-                <CardHeader className="space-y-0 pb-2">
-                  <div className="h-4 bg-muted rounded w-24" />
-                </CardHeader>
-                <CardContent>
-                  <div className="h-8 bg-muted rounded w-16" />
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-          <div className="text-center py-12 text-muted-foreground">Memuat data...</div>
+        <div className="text-center py-12">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <p className="text-slate-600">Memuat data...</p>
         </div>
       </DashboardLayout>
     )
@@ -177,238 +192,220 @@ export default function PJOSiteCutiPage() {
 
   return (
     <DashboardLayout title="Pengajuan Cuti">
-      <div className="space-y-6">
+      <div className="space-y-4 md:space-y-6">
         <div>
           <Link href="/">
-            <Button variant="outline" size="sm">
-              <ArrowLeft className="h-4 w-4 mr-2" />
-              Kembali ke Menu Utama
+            <Button variant="outline" size="sm" className="text-xs md:text-sm bg-transparent">
+              <ArrowLeft className="h-3 w-3 md:h-4 md:w-4 mr-1 md:mr-2" />
+              <span className="hidden sm:inline">Kembali ke Menu Utama</span>
+              <span className="sm:hidden">Kembali</span>
             </Button>
           </Link>
         </div>
 
-        {/* Statistics Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Total Pengajuan</CardTitle>
-              <FileText className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{stats.total}</div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Menunggu Persetujuan</CardTitle>
-              <Clock className="h-4 w-4 text-yellow-600" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{stats.pending}</div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Disetujui</CardTitle>
-              <CheckCircle className="h-4 w-4 text-green-600" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{stats.approved}</div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Ditolak</CardTitle>
-              <XCircle className="h-4 w-4 text-red-600" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{stats.rejected}</div>
-            </CardContent>
-          </Card>
+        <div>
+          <h1 className="text-xl md:text-3xl font-bold tracking-tight">Approval Pengajuan Cuti</h1>
+          <p className="text-xs md:text-sm text-muted-foreground mt-1 md:mt-2">Site {user?.site} - Semua Departemen</p>
         </div>
 
-        <div className="flex flex-col md:flex-row items-start md:items-center gap-4">
-          <div className="flex-1 w-full md:w-auto">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder="Cari NIK, nama, booking code..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-10"
-              />
+        <Card>
+          <CardHeader className="p-4 md:p-6">
+            <CardTitle className="flex items-center gap-2 text-base md:text-lg">
+              <FileText className="h-4 w-4 md:h-5 md:w-5" />
+              Daftar Pengajuan Cuti
+            </CardTitle>
+            <CardDescription className="text-xs md:text-sm">
+              <span className="hidden md:inline">Klik pengajuan untuk melihat detail dan melakukan approval</span>
+              <span className="md:hidden">Tap untuk detail</span>
+            </CardDescription>
+
+            <div className="space-y-3 mt-4">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+                <Input
+                  placeholder="Cari nama, NIK, departemen..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="pl-10 text-sm"
+                />
+              </div>
+
+              <div className="md:hidden">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setShowFilters(!showFilters)}
+                  className="w-full justify-center text-sm"
+                >
+                  <Filter className="h-4 w-4 mr-2" />
+                  {showFilters ? "Sembunyikan Filter" : "Tampilkan Filter"}
+                </Button>
+              </div>
+
+              <div className={`${showFilters ? "grid" : "hidden"} md:grid grid-cols-1 md:grid-cols-3 gap-2 md:gap-3`}>
+                <Select value={selectedStatus} onValueChange={setSelectedStatus}>
+                  <SelectTrigger className="text-sm">
+                    <Filter className="h-3.5 w-3.5 md:h-4 md:w-4 mr-1.5 md:mr-2" />
+                    <SelectValue placeholder="Status" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Semua Status</SelectItem>
+                    <SelectItem value="pending">Menunggu Approval</SelectItem>
+                    <SelectItem value="approved">Disetujui</SelectItem>
+                    <SelectItem value="rejected">Ditolak</SelectItem>
+                  </SelectContent>
+                </Select>
+
+                <Select value={selectedMonth} onValueChange={setSelectedMonth}>
+                  <SelectTrigger className="text-sm">
+                    <Calendar className="h-3.5 w-3.5 md:h-4 md:w-4 mr-1.5 md:mr-2" />
+                    <SelectValue placeholder="Bulan" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {MONTHS.map((month) => (
+                      <SelectItem key={month.value} value={month.value}>
+                        {month.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+
+                <Select value={selectedYear} onValueChange={setSelectedYear}>
+                  <SelectTrigger className="text-sm">
+                    <SelectValue placeholder="Tahun" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {yearOptions.map((year) => (
+                      <SelectItem key={year.value} value={year.value}>
+                        {year.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
-          </div>
-          <div className="flex items-center gap-2 w-full md:w-auto">
-            <label className="text-sm font-medium whitespace-nowrap">Filter Tahun:</label>
-            <Select value={selectedYear} onValueChange={setSelectedYear}>
-              <SelectTrigger className="w-[200px]">
-                <SelectValue placeholder="Pilih tahun" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectGroup>
-                  <SelectLabel>Periode</SelectLabel>
-                  <SelectItem value="all">Semua Tahun</SelectItem>
-                  {yearOptions.map(({ year, count }) => (
-                    <SelectItem key={year} value={year.toString()}>
-                      {year} ({count} pengajuan)
-                    </SelectItem>
-                  ))}
-                </SelectGroup>
-              </SelectContent>
-            </Select>
-          </div>
-        </div>
+          </CardHeader>
 
-        {/* Tabs */}
-        <Tabs defaultValue="pending" className="space-y-4">
-          <TabsList className="grid w-full grid-cols-1 md:grid-cols-2 gap-2 h-auto bg-muted p-1">
-            <TabsTrigger value="pending" className="text-sm md:text-base h-auto py-2 whitespace-normal">
-              Menunggu Persetujuan ({filteredPendingRequests.length})
-            </TabsTrigger>
-            <TabsTrigger value="all" className="text-sm md:text-base h-auto py-2 whitespace-normal">
-              Semua Pengajuan ({filteredAllRequests.length})
-            </TabsTrigger>
-          </TabsList>
-
-          <TabsContent value="pending">
-            <Card>
-              <CardHeader>
-                <CardTitle>Pengajuan Menunggu Persetujuan PJO</CardTitle>
-                <CardDescription>
-                  Pengajuan dari site {user?.site} (semua departemen) yang telah disetujui DIC
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                {filteredPendingRequests.length === 0 ? (
-                  <div className="text-center py-12">
-                    <CheckCircle className="h-12 w-12 text-green-300 mx-auto mb-4" />
-                    <p className="text-slate-600">
-                      {searchQuery || selectedYear !== "all"
-                        ? "Tidak ada pengajuan yang sesuai dengan filter"
-                        : "Tidak ada pengajuan yang menunggu persetujuan"}
-                    </p>
-                  </div>
-                ) : (
-                  <>
-                    <div className="space-y-4">
-                      {paginatedPendingRequests.map((request) => (
-                        <div key={request.id} className="border rounded-lg p-4 space-y-3">
-                          <ApprovalCard request={request} onViewDetail={() => setSelectedRequest(request)} readOnly />
-                          {request.status === "pending_pjo" && (
-                            <ApprovalActions
-                              request={request}
-                              role="pjo"
-                              approverNik={user?.nik}
-                              onSuccess={() => mutate()}
-                            />
-                          )}
-                        </div>
-                      ))}
-                    </div>
-                    {pendingTotalPages > 1 && (
-                      <div className="flex items-center justify-between mt-6">
-                        <p className="text-sm text-muted-foreground">
-                          Menampilkan {(pendingPage - 1) * itemsPerPage + 1} -{" "}
-                          {Math.min(pendingPage * itemsPerPage, filteredPendingRequests.length)} dari{" "}
-                          {filteredPendingRequests.length} pengajuan
-                        </p>
-                        <div className="flex items-center gap-2">
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => setPendingPage((p) => Math.max(1, p - 1))}
-                            disabled={pendingPage === 1}
-                          >
-                            Sebelumnya
-                          </Button>
-                          <span className="text-sm">
-                            Halaman {pendingPage} dari {pendingTotalPages}
-                          </span>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => setPendingPage((p) => Math.min(pendingTotalPages, p + 1))}
-                            disabled={pendingPage === pendingTotalPages}
-                          >
-                            Selanjutnya
-                          </Button>
-                        </div>
-                      </div>
-                    )}
-                  </>
-                )}
-              </CardContent>
-            </Card>
-          </TabsContent>
-
-          <TabsContent value="all">
-            <Card>
-              <CardHeader>
-                <CardTitle>Semua Pengajuan dari Site {user?.site}</CardTitle>
-                <CardDescription>Histori semua pengajuan dari site Anda (semua departemen)</CardDescription>
-              </CardHeader>
-              <CardContent>
-                {filteredAllRequests.length === 0 ? (
-                  <div className="text-center py-12">
-                    <FileText className="h-12 w-12 text-slate-300 mx-auto mb-4" />
-                    <p className="text-slate-600">
-                      {searchQuery || selectedYear !== "all"
-                        ? "Tidak ada pengajuan yang sesuai dengan filter"
-                        : "Tidak ada pengajuan"}
-                    </p>
-                  </div>
-                ) : (
-                  <>
-                    <div className="space-y-4">
-                      {paginatedAllRequests.map((request) => (
-                        <ApprovalCard
-                          key={request.id}
+          <CardContent className="p-4 md:p-6">
+            {filteredRequests.length === 0 ? (
+              <div className="text-center py-8 md:py-12">
+                <FileText className="h-10 w-10 md:h-12 md:w-12 text-slate-300 mx-auto mb-3 md:mb-4" />
+                <p className="text-sm md:text-base text-slate-600">
+                  {searchQuery || selectedStatus !== "all" || selectedMonth !== "all" || selectedYear !== "all"
+                    ? "Tidak ada pengajuan yang sesuai"
+                    : "Tidak ada pengajuan cuti"}
+                </p>
+              </div>
+            ) : (
+              <>
+                <div className="space-y-2 md:space-y-3">
+                  {paginatedRequests.map((request) => (
+                    <div key={request.id} className="border rounded-lg p-4 space-y-3">
+                      <ApprovalCard request={request} onViewDetail={() => setSelectedRequest(request)} readOnly />
+                      {request.status === "pending_pjo" && (
+                        <ApprovalActions
                           request={request}
-                          onViewDetail={() => setSelectedRequest(request)}
-                          readOnly
+                          role="pjo_site"
+                          approverNik={user?.nik}
+                          onSuccess={loadData}
                         />
-                      ))}
+                      )}
                     </div>
-                    {allTotalPages > 1 && (
-                      <div className="flex items-center justify-between mt-6">
-                        <p className="text-sm text-muted-foreground">
-                          Menampilkan {(allPage - 1) * itemsPerPage + 1} -{" "}
-                          {Math.min(allPage * itemsPerPage, filteredAllRequests.length)} dari{" "}
-                          {filteredAllRequests.length} pengajuan
-                        </p>
-                        <div className="flex items-center gap-2">
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => setAllPage((p) => Math.max(1, p - 1))}
-                            disabled={allPage === 1}
-                          >
-                            Sebelumnya
-                          </Button>
-                          <span className="text-sm">
-                            Halaman {allPage} dari {allTotalPages}
-                          </span>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => setAllPage((p) => Math.min(allTotalPages, p + 1))}
-                            disabled={allPage === allTotalPages}
-                          >
-                            Selanjutnya
-                          </Button>
-                        </div>
+                  ))}
+                </div>
+
+                {totalPages > 1 && (
+                  <div className="mt-4 md:mt-6 pt-4 border-t space-y-3 md:space-y-0">
+                    <p className="text-xs md:text-sm text-slate-600 text-center md:text-left">
+                      Menampilkan {startIndex + 1}-{Math.min(endIndex, filteredRequests.length)} dari{" "}
+                      {filteredRequests.length}
+                    </p>
+
+                    <div className="flex flex-col md:flex-row items-center justify-center md:justify-between gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                        disabled={currentPage === 1}
+                        className="w-full md:w-auto text-xs md:text-sm"
+                      >
+                        Sebelumnya
+                      </Button>
+
+                      <div className="flex items-center gap-1">
+                        {totalPages <= 5 ? (
+                          Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
+                            <Button
+                              key={page}
+                              variant={currentPage === page ? "default" : "outline"}
+                              size="sm"
+                              onClick={() => setCurrentPage(page)}
+                              className="w-8 h-8 md:w-9 md:h-9 p-0 text-xs md:text-sm"
+                            >
+                              {page}
+                            </Button>
+                          ))
+                        ) : (
+                          <>
+                            {currentPage > 2 && (
+                              <>
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => setCurrentPage(1)}
+                                  className="w-8 h-8 md:w-9 md:h-9 p-0 text-xs md:text-sm"
+                                >
+                                  1
+                                </Button>
+                                {currentPage > 3 && <span className="text-slate-400">...</span>}
+                              </>
+                            )}
+                            {[currentPage - 1, currentPage, currentPage + 1]
+                              .filter((p) => p >= 1 && p <= totalPages)
+                              .map((page) => (
+                                <Button
+                                  key={page}
+                                  variant={currentPage === page ? "default" : "outline"}
+                                  size="sm"
+                                  onClick={() => setCurrentPage(page)}
+                                  className="w-8 h-8 md:w-9 md:h-9 p-0 text-xs md:text-sm"
+                                >
+                                  {page}
+                                </Button>
+                              ))}
+                            {currentPage < totalPages - 1 && (
+                              <>
+                                {currentPage < totalPages - 2 && <span className="text-slate-400">...</span>}
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => setCurrentPage(totalPages)}
+                                  className="w-8 h-8 md:w-9 md:h-9 p-0 text-xs md:text-sm"
+                                >
+                                  {totalPages}
+                                </Button>
+                              </>
+                            )}
+                          </>
+                        )}
                       </div>
-                    )}
-                  </>
+
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                        disabled={currentPage === totalPages}
+                        className="w-full md:w-auto text-xs md:text-sm"
+                      >
+                        Selanjutnya
+                      </Button>
+                    </div>
+                  </div>
                 )}
-              </CardContent>
-            </Card>
-          </TabsContent>
-        </Tabs>
+              </>
+            )}
+          </CardContent>
+        </Card>
       </div>
 
       {selectedRequest && (
@@ -416,7 +413,7 @@ export default function PJOSiteCutiPage() {
           request={selectedRequest}
           open={!!selectedRequest}
           onOpenChange={(open) => !open && setSelectedRequest(null)}
-          onUpdate={() => mutate()}
+          onUpdate={loadData}
         />
       )}
     </DashboardLayout>

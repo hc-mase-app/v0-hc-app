@@ -11,7 +11,7 @@ import { useToast } from "@/hooks/use-toast"
 
 interface ApprovalActionsProps {
   request: LeaveRequest
-  role: "dic" | "pjo" | "manager_ho" | "hr_ho"
+  role: "dic" | "pjo" | "pjo_site" | "manager_ho" | "hr_ho"
   onSuccess: () => void
   approverNik?: string
 }
@@ -43,6 +43,7 @@ export function ApprovalActions({ request, role, onSuccess, approverNik }: Appro
     }
 
     setIsApproving(true)
+    console.log("[v0] Starting approval process", { requestId: request.id, role, approverNik })
 
     try {
       const response = await fetch("/api/workflow", {
@@ -58,12 +59,15 @@ export function ApprovalActions({ request, role, onSuccess, approverNik }: Appro
       })
 
       const data = await response.json()
+      console.log("[v0] Approval response", data)
 
       if (data.success) {
         toast({
           title: "Berhasil",
           description: "Pengajuan cuti berhasil disetujui",
         })
+        setShowApproveInput(false)
+        setApproveNotes("")
         onSuccess()
       } else {
         toast({
@@ -73,6 +77,7 @@ export function ApprovalActions({ request, role, onSuccess, approverNik }: Appro
         })
       }
     } catch (error) {
+      console.error("[v0] Approval error", error)
       toast({
         title: "Error",
         description: "Gagal menghubungi server",
@@ -110,6 +115,7 @@ export function ApprovalActions({ request, role, onSuccess, approverNik }: Appro
     }
 
     setIsRejecting(true)
+    console.log("[v0] Starting rejection process", { requestId: request.id, role, approverNik })
 
     try {
       const response = await fetch("/api/workflow", {
@@ -125,12 +131,15 @@ export function ApprovalActions({ request, role, onSuccess, approverNik }: Appro
       })
 
       const data = await response.json()
+      console.log("[v0] Rejection response", data)
 
       if (data.success) {
         toast({
           title: "Berhasil",
           description: "Pengajuan cuti berhasil ditolak",
         })
+        setShowRejectInput(false)
+        setRejectNotes("")
         onSuccess()
       } else {
         toast({
@@ -140,6 +149,7 @@ export function ApprovalActions({ request, role, onSuccess, approverNik }: Appro
         })
       }
     } catch (error) {
+      console.error("[v0] Rejection error", error)
       toast({
         title: "Error",
         description: "Gagal menghubungi server",

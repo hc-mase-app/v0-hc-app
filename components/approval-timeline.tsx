@@ -2,7 +2,7 @@
 
 import type { ApprovalHistory } from "@/lib/types"
 import { formatDate, getStatusColor, getDetailedTicketStatus } from "@/lib/utils"
-import { CheckCircle, XCircle, Clock } from 'lucide-react'
+import { CheckCircle, XCircle, Clock } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 
 interface ApprovalTimelineProps {
@@ -12,29 +12,24 @@ interface ApprovalTimelineProps {
   statusTiketBalik?: string
 }
 
-export function ApprovalTimeline({ history, currentStatus, statusTiketBerangkat, statusTiketBalik }: ApprovalTimelineProps) {
-  console.log("[v0] ApprovalTimeline - Raw history:", history)
-  console.log("[v0] ApprovalTimeline - statusTiketBerangkat:", statusTiketBerangkat)
-  console.log("[v0] ApprovalTimeline - statusTiketBalik:", statusTiketBalik)
-  
+export function ApprovalTimeline({
+  history,
+  currentStatus,
+  statusTiketBerangkat,
+  statusTiketBalik,
+}: ApprovalTimelineProps) {
   const sortedHistory = [...history].sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime())
 
   const filteredHistory = sortedHistory.filter((entry, index, arr) => {
     // Selalu tampilkan non-ticket actions
-    if (entry.action !== 'tiket_berangkat_issued' && entry.action !== 'tiket_balik_issued') {
+    if (entry.action !== "tiket_berangkat_issued" && entry.action !== "tiket_balik_issued") {
       return true
     }
-    
-    // Untuk ticket actions, ambil entry terakhir untuk SETIAP tipe
-    const lastIndexOfSameAction = arr.map(e => e.action).lastIndexOf(entry.action)
-    const shouldShow = index === lastIndexOfSameAction
-    
-    console.log(`[v0] Filter check - action: ${entry.action}, index: ${index}, lastIndex: ${lastIndexOfSameAction}, show: ${shouldShow}`)
-    
-    return shouldShow
-  })
 
-  console.log("[v0] ApprovalTimeline - Filtered history:", filteredHistory)
+    // Untuk ticket actions, ambil entry terakhir untuk SETIAP tipe
+    const lastIndexOfSameAction = arr.map((e) => e.action).lastIndexOf(entry.action)
+    return index === lastIndexOfSameAction
+  })
 
   const getActionIcon = (action: string) => {
     if (action === "approved") return <CheckCircle className="h-5 w-5 text-green-600" />
@@ -94,12 +89,12 @@ export function ApprovalTimeline({ history, currentStatus, statusTiketBerangkat,
                   </Badge>
                   <Badge
                     className={`text-xs ${
-                      entry.action === "approved" || 
-                      entry.action === "tiket_berangkat_issued" || 
-                      entry.action === "tiket_balik_issued" || 
+                      entry.action === "approved" ||
+                      entry.action === "tiket_berangkat_issued" ||
+                      entry.action === "tiket_balik_issued" ||
                       entry.action === "tiket_issued" ||
                       entry.action === "tiket_partial_issued"
-                        ? "bg-green-100 text-green-800 hover:bg-green-100" 
+                        ? "bg-green-100 text-green-800 hover:bg-green-100"
                         : entry.action === "rejected"
                           ? "bg-red-100 text-red-800 hover:bg-red-100"
                           : "bg-amber-100 text-amber-800 hover:bg-amber-100"
@@ -120,9 +115,7 @@ export function ApprovalTimeline({ history, currentStatus, statusTiketBerangkat,
       <div className="mt-6 p-3 bg-blue-50 border border-blue-200 rounded-lg">
         <p className="text-sm text-slate-600">
           <span className="font-medium">Status Saat Ini:</span>{" "}
-          <Badge className={getStatusColor(currentStatus)}>
-            {getCurrentStatusLabel()}
-          </Badge>
+          <Badge className={getStatusColor(currentStatus)}>{getCurrentStatusLabel()}</Badge>
         </p>
       </div>
     </div>

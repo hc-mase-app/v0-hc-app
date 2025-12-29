@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useCallback } from "react"
+import { useState, useEffect, useCallback, useMemo } from "react"
 import { useAuth } from "@/lib/auth-context"
 import { useRouter } from "next/navigation"
 import { DashboardLayout } from "@/components/dashboard-layout"
@@ -36,12 +36,11 @@ export default function DICCutiPage() {
   const { user, isAuthenticated } = useAuth()
   const router = useRouter()
   const [allRequests, setAllRequests] = useState<LeaveRequest[]>([])
-  const [filteredRequests, setFilteredRequests] = useState<LeaveRequest[]>([])
   const [searchQuery, setSearchQuery] = useState("")
   const [loading, setLoading] = useState(true)
   const [selectedRequest, setSelectedRequest] = useState<LeaveRequest | null>(null)
 
-  const [selectedStatus, setSelectedStatus] = useState<string>("all")
+  const [selectedStatus, setSelectedStatus] = useState<string>("pending")
   const [selectedMonth, setSelectedMonth] = useState<string>("all")
   const [selectedYear, setSelectedYear] = useState<string>("all")
   const [currentPage, setCurrentPage] = useState(1)
@@ -54,9 +53,18 @@ export default function DICCutiPage() {
     try {
       setLoading(true)
 
-      const response = await fetch(
-        `/api/workflow?action=all&role=dic&site=${encodeURIComponent(user.site)}&departemen=${encodeURIComponent(user.departemen)}`,
-      )
+      let response
+      if (selectedStatus === "pending") {
+        response = await fetch(
+          `/api/leave-requests?action=pending-dic&userSite=${encodeURIComponent(user.site)}&userDepartemen=${encodeURIComponent(user.departemen)}`,
+        )
+      } else {
+        // Fetch all data only when needed
+        response = await fetch(
+          `/api/workflow?action=all&role=dic&site=${encodeURIComponent(user.site)}&departemen=${encodeURIComponent(user.departemen)}`,
+        )
+      }
+
       const result = await response.json()
 
       const data = Array.isArray(result) ? result : result?.success && Array.isArray(result.data) ? result.data : []
@@ -66,15 +74,13 @@ export default function DICCutiPage() {
       })
 
       setAllRequests(sorted)
-      setFilteredRequests(sorted)
     } catch (error) {
       console.error("Error loading data:", error)
       setAllRequests([])
-      setFilteredRequests([])
     } finally {
       setLoading(false)
     }
-  }, [user?.site, user?.departemen])
+  }, [user?.site, user?.departemen, selectedStatus])
 
   useEffect(() => {
     if (!isAuthenticated || !user?.role || user.role !== "dic") {
@@ -85,12 +91,39 @@ export default function DICCutiPage() {
   }, [user?.role, isAuthenticated, router, loadData])
 
   useEffect(() => {
-    let filtered = [...allRequests]
+    if (isAuthenticated && user?.role === "dic") {
+      loadData()
+    }
+  }, [selectedStatus, isAuthenticated, user?.role, loadData])
 
-    if (selectedStatus !== "all") {
-      if (selectedStatus === "pending") {
-        filtered = filtered.filter((r) => r.status === "pending_dic")
-      } else if (selectedStatus === "approved") {
+  const { yearOptions, filteredRequests } = useMemo(() => {
+    const yearCounts: Record<number, number> = {}
+
+    allRequests.forEach((r) => {
+      if (r.tanggalMulai) {
+        const year = new Date(r.tanggalMulai).getFullYear()
+        yearCounts[year] = (yearCounts[year] || 0) + 1
+      }
+    })
+
+    const yearsInData = Object.keys(yearCounts)
+      .map(Number)
+      .sort((a, b) => b - a)
+
+    const yearOpts = [{ value: "all", label: "Semua Tahun" }]
+    yearsInData.forEach((year) => {
+      yearOpts.push({
+        value: String(year),
+        label: `${year} (${yearCounts[year]} pengajuan)`,
+      })
+    })
+
+    // Apply additional filters (month, year, search)
+    let filtered = allRequests
+
+    if (selectedStatus !== "pending") {
+      // Apply status filter only when not using optimized endpoint
+      if (selectedStatus === "approved") {
         filtered = filtered.filter(
           (r) =>
             r.status !== "pending_dic" &&
@@ -128,63 +161,15 @@ export default function DICCutiPage() {
       })
     }
 
-    setFilteredRequests(filtered)
+    return {
+      yearOptions: yearOpts,
+      filteredRequests: filtered,
+    }
+  }, [allRequests, selectedStatus, selectedMonth, selectedYear, searchQuery])
+
+  useEffect(() => {
     setCurrentPage(1)
-  }, [searchQuery, allRequests, selectedStatus, selectedMonth, selectedYear])
-
-  const stats = {
-    total: allRequests.length,
-    pending: allRequests.filter((r) => r.status === "pending_dic").length,
-    approved: allRequests.filter(
-      (r) =>
-        r.status !== "pending_dic" &&
-        r.status !== "ditolak_dic" &&
-        r.status !== "ditolak_pjo" &&
-        r.status !== "ditolak_hr_ho",
-    ).length,
-    rejected: allRequests.filter(
-      (r) => r.status === "ditolak_dic" || r.status === "ditolak_pjo" || r.status === "ditolak_hr_ho",
-    ).length,
-  }
-
-  const yearOptions = (() => {
-    console.log("[v0] Calculating year options from data")
-    console.time("[v0] Extract years")
-
-    // Extract unique years from data
-    const yearsInData = [
-      ...new Set(allRequests.filter((r) => r.tanggalMulai).map((r) => new Date(r.tanggalMulai).getFullYear())),
-    ].sort((a, b) => b - a) // Sort descending (newest first)
-
-    console.timeEnd("[v0] Extract years")
-    console.log("[v0] Years found:", yearsInData)
-
-    // Count requests per year
-    console.time("[v0] Count per year")
-    const yearCounts: Record<number, number> = {}
-    allRequests.forEach((r) => {
-      if (r.tanggalMulai) {
-        const year = new Date(r.tanggalMulai).getFullYear()
-        yearCounts[year] = (yearCounts[year] || 0) + 1
-      }
-    })
-    console.timeEnd("[v0] Count per year")
-    console.log("[v0] Year counts:", yearCounts)
-
-    // Build options with "Semua Tahun" first
-    const options = [{ value: "all", label: "Semua Tahun" }]
-
-    // Add years with count
-    yearsInData.forEach((year) => {
-      const count = yearCounts[year] || 0
-      options.push({
-        value: String(year),
-        label: `${year} (${count} pengajuan)`,
-      })
-    })
-
-    return options
-  })()
+  }, [selectedStatus, selectedMonth, selectedYear, searchQuery])
 
   const totalPages = Math.ceil(filteredRequests.length / ITEMS_PER_PAGE)
   const startIndex = (currentPage - 1) * ITEMS_PER_PAGE
@@ -220,22 +205,6 @@ export default function DICCutiPage() {
           <p className="text-xs md:text-sm text-muted-foreground mt-1 md:mt-2">
             Departemen {user?.departemen} - Site {user?.site}
           </p>
-        </div>
-
-        <div className="flex flex-wrap gap-2 md:gap-3">
-          <div className="flex items-center gap-1.5 md:gap-2 bg-slate-100 px-3 md:px-4 py-1.5 md:py-2 rounded-lg">
-            <FileText className="h-3 w-3 md:h-4 md:w-4 text-slate-600" />
-            <span className="text-xs md:text-sm font-medium">Total: {stats.total}</span>
-          </div>
-          <div className="flex items-center gap-1.5 md:gap-2 bg-yellow-50 px-3 md:px-4 py-1.5 md:py-2 rounded-lg">
-            <span className="text-xs md:text-sm font-medium text-yellow-800">Menunggu: {stats.pending}</span>
-          </div>
-          <div className="flex items-center gap-1.5 md:gap-2 bg-green-50 px-3 md:px-4 py-1.5 md:py-2 rounded-lg">
-            <span className="text-xs md:text-sm font-medium text-green-800">Disetujui: {stats.approved}</span>
-          </div>
-          <div className="flex items-center gap-1.5 md:gap-2 bg-red-50 px-3 md:px-4 py-1.5 md:py-2 rounded-lg">
-            <span className="text-xs md:text-sm font-medium text-red-800">Ditolak: {stats.rejected}</span>
-          </div>
         </div>
 
         <Card>

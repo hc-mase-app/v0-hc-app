@@ -371,6 +371,13 @@ export async function approveRequest(
       return { success: false, error: "Request tidak ditemukan" }
     }
 
+    console.log("[v0] Approving request:", {
+      requestId,
+      currentStatus: request.status,
+      approverRole,
+      jenisPengajuan: request.jenisPengajuan,
+    })
+
     const rule = WORKFLOW_RULES[approverRole]
     if (!rule) {
       return { success: false, error: "Role ini tidak memiliki hak untuk approve" }
@@ -390,22 +397,37 @@ export async function approveRequest(
     let newStatus: LeaveStatus = request.status
 
     const jenisPengajuan = request.jenisPengajuan || ""
+    const pengajuanLower = jenisPengajuan.toLowerCase().trim()
 
     if (approverRole === "pjo_site") {
-      const pengajuanLower = jenisPengajuan.toLowerCase()
+      // Check if it's cuti lokal (various possible formats)
+      const isCutiLokal =
+        pengajuanLower === "lokal" ||
+        pengajuanLower === "cuti lokal" ||
+        pengajuanLower === "cuti_lokal" ||
+        pengajuanLower.includes("tanpa tiket")
 
-      if (pengajuanLower === "cuti lokal") {
+      if (isCutiLokal) {
+        // Cuti lokal tanpa tiket: dic → pjo_site → APPROVED (done)
         newStatus = "approved"
-      } else if (pengajuanLower === "dengan tiket") {
+        console.log("[v0] Cuti lokal detected - setting status to approved")
+      } else {
+        // Dengan tiket: dic → pjo_site → hr_ho → hr_ticketing
         newStatus = "pending_hr_ho"
+        console.log("[v0] Dengan tiket detected - setting status to pending_hr_ho")
       }
     } else if (approverRole === "manager_ho") {
+      // Manager HO should not be in the new workflow, but keep for backward compatibility
       newStatus = "pending_hr_ho"
     } else if (approverRole === "hr_ho") {
-      newStatus = "pending_dic"
+      // HR HO approves, goes to hr_ticketing for processing
+      newStatus = "di_proses"
     } else if (approverRole === "dic") {
-      newStatus = "pending_hr_ticketing"
+      // DIC approves, goes to PJO Site
+      newStatus = "pending_pjo"
     }
+
+    console.log("[v0] Status transition:", { from: request.status, to: newStatus })
 
     const updateResult = await sql`
       UPDATE leave_requests 
@@ -423,6 +445,8 @@ export async function approveRequest(
       INSERT INTO approval_history (leave_request_id, approver_nik, approver_name, approver_role, action, notes)
       VALUES (${requestId}, ${approverNik}, ${approver.name}, ${approver.role}, 'approved', ${sanitizeString(notes) || null})
     `
+
+    console.log("[v0] Approval completed successfully, new status:", newStatus)
 
     return {
       success: true,

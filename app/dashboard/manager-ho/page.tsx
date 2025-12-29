@@ -15,7 +15,6 @@ import { SITES } from "@/lib/mock-data"
 export default function ManagerHODashboard() {
   const { user, isAuthenticated } = useAuth()
   const router = useRouter()
-  const [pendingRequests, setPendingRequests] = useState<LeaveRequest[]>([])
   const [allRequests, setAllRequests] = useState<LeaveRequest[]>([])
   const [loading, setLoading] = useState(true)
   const [selectedSite, setSelectedSite] = useState("all")
@@ -25,18 +24,11 @@ export default function ManagerHODashboard() {
     try {
       setLoading(true)
 
-      const [pendingRes, allRes] = await Promise.all([
-        fetch(`/api/workflow?action=pending&role=manager_ho&site=all`),
-        fetch(`/api/workflow?action=all&role=manager_ho&site=all`),
-      ])
+      const response = await fetch(`/api/workflow?action=all&role=manager_ho&site=all`)
+      const result = await response.json()
 
-      const [pending, all] = await Promise.all([pendingRes.json(), allRes.json()])
-
-      const pendingData = Array.isArray(pending) ? pending : pending?.data || []
-      const allData = Array.isArray(all) ? all : all?.data || []
-
-      setPendingRequests(pendingData)
-      setAllRequests(allData)
+      const data = Array.isArray(result) ? result : result?.data || []
+      setAllRequests(data)
     } catch (error) {
       console.error("[Manager HO] Error loading data:", error)
     } finally {
@@ -51,6 +43,8 @@ export default function ManagerHODashboard() {
     }
     loadData()
   }, [user?.role, isAuthenticated, router, loadData])
+
+  const pendingRequests = allRequests.filter((r) => r.status === "pending_manager")
 
   const stats = {
     total: allRequests.length,
