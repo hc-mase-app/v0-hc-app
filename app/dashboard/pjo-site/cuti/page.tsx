@@ -203,11 +203,11 @@ export default function PJOSiteCutiPage() {
         </div>
 
         {selectedStatus === "pending" && pendingCount > 0 && (
-          <div className="relative overflow-hidden rounded-xl border border-amber-200 bg-gradient-to-br from-amber-50 to-orange-50 p-4 shadow-sm">
+          <div className="relative overflow-hidden rounded-xl border border-amber-200 bg-gradient-to-br from-amber-50 to-orange-50 p-3 md:p-4 shadow-sm">
             <div className="absolute -right-8 -top-8 h-32 w-32 rounded-full bg-amber-200/30 blur-2xl"></div>
-            <div className="relative flex items-center gap-3">
-              <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-amber-500 to-orange-500 shadow-lg shadow-amber-500/30">
-                <svg className="h-7 w-7 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <div className="relative flex items-center gap-2 md:gap-3">
+              <div className="flex h-12 w-12 md:h-14 md:w-14 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-amber-500 to-orange-500 shadow-lg shadow-amber-500/30">
+                <svg className="h-6 w-6 md:h-7 md:w-7 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path
                     strokeLinecap="round"
                     strokeLinejoin="round"
@@ -216,8 +216,8 @@ export default function PJOSiteCutiPage() {
                   />
                 </svg>
               </div>
-              <div className="flex-1">
-                <h3 className="text-base md:text-lg font-semibold text-slate-900">
+              <div className="flex-1 min-w-0">
+                <h3 className="text-sm md:text-base lg:text-lg font-semibold text-slate-900 truncate">
                   {pendingCount} Pengajuan Butuh Approval
                 </h3>
               </div>
@@ -345,7 +345,7 @@ export default function PJOSiteCutiPage() {
                         size="sm"
                         onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
                         disabled={currentPage === 1}
-                        className="w-full md:w-auto text-xs md:text-sm"
+                        className="w-full md:w-auto text-xs md:text-sm h-11 md:h-9"
                       >
                         Sebelumnya
                       </Button>
@@ -358,7 +358,7 @@ export default function PJOSiteCutiPage() {
                               variant={currentPage === page ? "default" : "outline"}
                               size="sm"
                               onClick={() => setCurrentPage(page)}
-                              className="w-8 h-8 md:w-9 md:h-9 p-0 text-xs md:text-sm"
+                              className="w-11 h-11 md:w-9 md:h-9 p-0 text-xs md:text-sm"
                             >
                               {page}
                             </Button>
@@ -371,7 +371,7 @@ export default function PJOSiteCutiPage() {
                                   variant="outline"
                                   size="sm"
                                   onClick={() => setCurrentPage(1)}
-                                  className="w-8 h-8 md:w-9 md:h-9 p-0 text-xs md:text-sm"
+                                  className="w-11 h-11 md:w-9 md:h-9 p-0 text-xs md:text-sm"
                                 >
                                   1
                                 </Button>
@@ -386,7 +386,7 @@ export default function PJOSiteCutiPage() {
                                   variant={currentPage === page ? "default" : "outline"}
                                   size="sm"
                                   onClick={() => setCurrentPage(page)}
-                                  className="w-8 h-8 md:w-9 md:h-9 p-0 text-xs md:text-sm"
+                                  className="w-11 h-11 md:w-9 md:h-9 p-0 text-xs md:text-sm"
                                 >
                                   {page}
                                 </Button>
@@ -398,7 +398,7 @@ export default function PJOSiteCutiPage() {
                                   variant="outline"
                                   size="sm"
                                   onClick={() => setCurrentPage(totalPages)}
-                                  className="w-8 h-8 md:w-9 md:h-9 p-0 text-xs md:text-sm"
+                                  className="w-11 h-11 md:w-9 md:h-9 p-0 text-xs md:text-sm"
                                 >
                                   {totalPages}
                                 </Button>
@@ -413,7 +413,7 @@ export default function PJOSiteCutiPage() {
                         size="sm"
                         onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
                         disabled={currentPage === totalPages}
-                        className="w-full md:w-auto text-xs md:text-sm"
+                        className="w-full md:w-auto text-xs md:text-sm h-11 md:h-9"
                       >
                         Selanjutnya
                       </Button>
