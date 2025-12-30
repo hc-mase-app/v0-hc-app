@@ -14,6 +14,7 @@ export async function GET(request: NextRequest) {
     const effectiveMonth = `${month}-01`
 
     console.log("[v0] Monitoring query:", { month, effectiveMonth, view, site, department })
+    console.log("[v0] Query parameters - site:", site, "department:", department)
 
     let details: any[] = []
 
@@ -67,7 +68,7 @@ export async function GET(request: NextRequest) {
             m.site,
             UPPER(
               CASE 
-                WHEN m.level IN ('PJO', 'Deputy PJO') THEN 'Operasional'
+                WHEN m.level IN ('PJO', 'Deputy PJO') THEN 'OPERASIONAL'
                 ELSE m.departemen
               END
             ) as department,
@@ -84,7 +85,7 @@ export async function GET(request: NextRequest) {
           GROUP BY m.site, 
             UPPER(
               CASE 
-                WHEN m.level IN ('PJO', 'Deputy PJO') THEN 'Operasional'
+                WHEN m.level IN ('PJO', 'Deputy PJO') THEN 'OPERASIONAL'
                 ELSE m.departemen
               END
             ), 
@@ -95,7 +96,7 @@ export async function GET(request: NextRequest) {
             k.site,
             UPPER(
               CASE 
-                WHEN k.level IN ('PJO', 'Deputy PJO') THEN 'Operasional'
+                WHEN k.level IN ('PJO', 'Deputy PJO') THEN 'OPERASIONAL'
                 ELSE k.departemen
               END
             ) as department,
@@ -109,7 +110,7 @@ export async function GET(request: NextRequest) {
           GROUP BY k.site, 
             UPPER(
               CASE 
-                WHEN k.level IN ('PJO', 'Deputy PJO') THEN 'Operasional'
+                WHEN k.level IN ('PJO', 'Deputy PJO') THEN 'OPERASIONAL'
                 ELSE k.departemen
               END
             ), 
@@ -131,6 +132,11 @@ export async function GET(request: NextRequest) {
         GROUP BY ht.site, ht.department
         ORDER BY ht.department
       `
+
+      console.log("[v0] Department view raw data count:", details.length)
+      if (details.length > 0) {
+        console.log("[v0] Sample department data:", details[0])
+      }
     } else if (view === "individual") {
       details = await sql`
         WITH hierarchy_targets AS (
@@ -138,12 +144,13 @@ export async function GET(request: NextRequest) {
             m.site,
             UPPER(
               CASE 
-                WHEN m.level IN ('PJO', 'Deputy PJO') THEN 'Operasional'
+                WHEN m.level IN ('PJO', 'Deputy PJO') THEN 'OPERASIONAL'
                 ELSE m.departemen
               END
             ) as department,
             m.id as leader_id,
             m.nama_karyawan as leader_name,
+            m.level as leader_level,
             COUNT(*) as target
           FROM karyawan k
           JOIN karyawan m ON k.manager_id = m.id
@@ -151,7 +158,7 @@ export async function GET(request: NextRequest) {
           AND UPPER(m.site) = UPPER(${site})
           AND UPPER(
             CASE 
-              WHEN m.level IN ('PJO', 'Deputy PJO') THEN 'Operasional'
+              WHEN m.level IN ('PJO', 'Deputy PJO') THEN 'OPERASIONAL'
               ELSE m.departemen
             END
           ) = UPPER(${department})
@@ -162,14 +169,21 @@ export async function GET(request: NextRequest) {
           GROUP BY m.site, 
             UPPER(
               CASE 
-                WHEN m.level IN ('PJO', 'Deputy PJO') THEN 'Operasional'
+                WHEN m.level IN ('PJO', 'Deputy PJO') THEN 'OPERASIONAL'
                 ELSE m.departemen
               END
             ),
-            m.id, m.nama_karyawan
+            m.id, m.nama_karyawan, m.level
         ),
         evidence_realization AS (
           SELECT 
+            k.site,
+            UPPER(
+              CASE 
+                WHEN k.level IN ('PJO', 'Deputy PJO') THEN 'OPERASIONAL'
+                ELSE k.departemen
+              END
+            ) as department,
             e.leader_id,
             COUNT(DISTINCT e.subordinate_id) as realized_subordinates
           FROM tms_leadership_evidence e
@@ -179,17 +193,25 @@ export async function GET(request: NextRequest) {
           AND UPPER(k.site) = UPPER(${site})
           AND UPPER(
             CASE 
-              WHEN k.level IN ('PJO', 'Deputy PJO') THEN 'Operasional'
+              WHEN k.level IN ('PJO', 'Deputy PJO') THEN 'OPERASIONAL'
               ELSE k.departemen
             END
           ) = UPPER(${department})
-          GROUP BY e.leader_id
+          GROUP BY k.site,
+            UPPER(
+              CASE 
+                WHEN k.level IN ('PJO', 'Deputy PJO') THEN 'OPERASIONAL'
+                ELSE k.departemen
+              END
+            ),
+            e.leader_id
         )
         SELECT 
           ht.site,
           ht.department,
           ht.leader_id,
           ht.leader_name,
+          ht.leader_level,
           ht.target::integer as target,
           COALESCE(er.realized_subordinates, 0)::integer as realization,
           CASE 
@@ -197,13 +219,46 @@ export async function GET(request: NextRequest) {
             ELSE 0
           END::numeric as percentage
         FROM hierarchy_targets ht
-        LEFT JOIN evidence_realization er ON ht.leader_id = er.leader_id
+        LEFT JOIN evidence_realization er 
+          ON ht.site = er.site 
+          AND ht.department = er.department 
+          AND ht.leader_id = er.leader_id
         ORDER BY ht.leader_name
       `
+
+      console.log("[v0] Individual view - site param:", site, "department param:", department)
+      console.log("[v0] Individual view raw data count:", details.length)
+      if (details.length > 0) {
+        console.log("[v0] Sample individual data:", JSON.stringify(details[0], null, 2))
+        console.log(
+          "[v0] All leaders found:",
+          details.map((d) => ({ name: d.leader_name, level: d.leader_level, target: d.target })),
+        )
+      } else {
+        console.log("[v0] WARNING: No individual data found!")
+
+        // Debug query to check raw hierarchy
+        const debugHierarchy = await sql`
+          SELECT 
+            m.site,
+            m.departemen,
+            m.nama_karyawan,
+            m.level,
+            COUNT(*) as subordinate_count
+          FROM karyawan k
+          JOIN karyawan m ON k.manager_id = m.id
+          WHERE UPPER(m.site) = UPPER(${site})
+          GROUP BY m.site, m.departemen, m.nama_karyawan, m.level
+          ORDER BY m.departemen, m.nama_karyawan
+        `
+        console.log("[v0] Debug - All managers in site:", JSON.stringify(debugHierarchy, null, 2))
+      }
     }
 
     console.log("[v0] Query result count:", details.length)
-    console.log("[v0] Sample data:", details[0])
+    if (details.length > 0) {
+      console.log("[v0] First row sample:", details[0])
+    }
 
     // Calculate summary
     const summary = {

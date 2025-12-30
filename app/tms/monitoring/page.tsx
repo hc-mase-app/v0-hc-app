@@ -5,8 +5,6 @@ import { useRouter } from "next/navigation"
 import {
   ChevronLeft,
   BarChart3,
-  Target,
-  TrendingUp,
   ChevronRight,
   Calendar,
   Home,
@@ -98,10 +96,10 @@ export default function TmsMonitoringPage() {
 
       let url = `/api/tms/monitoring?month=${selectedMonth}&view=${viewMode}`
       if (viewMode === "department" && selectedSite) {
-        url += `&site=${selectedSite}`
+        url += `&site=${encodeURIComponent(selectedSite)}`
       }
       if (viewMode === "individual" && selectedSite && selectedDepartment) {
-        url += `&site=${selectedSite}&department=${selectedDepartment}`
+        url += `&site=${encodeURIComponent(selectedSite)}&department=${encodeURIComponent(selectedDepartment)}`
       }
 
       const response = await fetch(url)
@@ -151,21 +149,30 @@ export default function TmsMonitoringPage() {
   }
 
   const getStatusColor = (percentage: number) => {
-    if (percentage >= 100) return "text-green-500"
-    if (percentage >= 70) return "text-yellow-500"
-    return "text-red-500"
+    if (percentage >= 84) return "text-green-500" // Sangat Baik
+    if (percentage >= 67) return "text-lime-500" // Baik
+    if (percentage >= 50) return "text-yellow-500" // Cukup
+    if (percentage >= 34) return "text-orange-500" // Perlu Tindakan
+    if (percentage >= 17) return "text-red-500" // Kritis
+    return "text-red-700" // Sangat Kritis
   }
 
   const getStatusBg = (percentage: number) => {
-    if (percentage >= 100) return "bg-green-500/10 border-green-500/30"
-    if (percentage >= 70) return "bg-yellow-500/10 border-yellow-500/30"
-    return "bg-red-500/10 border-red-500/30"
+    if (percentage >= 84) return "bg-green-500/10 border-green-500/30"
+    if (percentage >= 67) return "bg-lime-500/10 border-lime-500/30"
+    if (percentage >= 50) return "bg-yellow-500/10 border-yellow-500/30"
+    if (percentage >= 34) return "bg-orange-500/10 border-orange-500/30"
+    if (percentage >= 17) return "bg-red-500/10 border-red-500/30"
+    return "bg-red-700/10 border-red-700/30"
   }
 
   const getStatusLabel = (percentage: number) => {
-    if (percentage >= 100) return "Tercapai"
-    if (percentage >= 70) return "Perlu Perhatian"
-    return "Kritis"
+    if (percentage >= 84) return "Sangat Baik"
+    if (percentage >= 67) return "Baik"
+    if (percentage >= 50) return "Cukup"
+    if (percentage >= 34) return "Perlu Tindakan"
+    if (percentage >= 17) return "Kritis"
+    return "Sangat Kritis"
   }
 
   const handleDrillDown = (item: MonitoringData) => {
@@ -332,50 +339,30 @@ export default function TmsMonitoringPage() {
           </div>
         </div>
 
-        {/* Summary Cards */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6 mb-6 sm:mb-8">
-          <Card className="bg-[#1a1a1a] border-[#D4AF37]/30">
-            <CardHeader className="pb-2 sm:pb-3">
-              <CardTitle className="text-xs sm:text-sm font-medium text-gray-400 flex items-center gap-2">
-                <Target className="w-3 h-3 sm:w-4 sm:h-4" />
-                Total Target
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl sm:text-3xl font-bold text-white">{summary.target}</div>
-              <p className="text-[10px] sm:text-xs text-gray-500 mt-1">Bawahan langsung</p>
-            </CardContent>
-          </Card>
-
-          <Card className="bg-[#1a1a1a] border-[#D4AF37]/30">
-            <CardHeader className="pb-2 sm:pb-3">
-              <CardTitle className="text-xs sm:text-sm font-medium text-gray-400 flex items-center gap-2">
-                <TrendingUp className="w-3 h-3 sm:w-4 sm:h-4" />
-                Total Realisasi
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl sm:text-3xl font-bold text-white">{summary.realization}</div>
-              <p className="text-[10px] sm:text-xs text-gray-500 mt-1">Dengan minimal 1 evidence</p>
-            </CardContent>
-          </Card>
-
-          <Card className={`border-2 ${getStatusBg(summary.percentage)} sm:col-span-2 lg:col-span-1`}>
-            <CardHeader className="pb-2 sm:pb-3">
-              <CardTitle className="text-xs sm:text-sm font-medium text-gray-400 flex items-center gap-2">
-                <BarChart3 className="w-3 h-3 sm:w-4 sm:h-4" />
-                Persentase
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className={`text-2xl sm:text-3xl font-bold ${getStatusColor(summary.percentage)}`}>
-                {summary.percentage.toFixed(1)}%
+        {/* Compact Summary Badge */}
+        <div className={`mb-6 sm:mb-8 p-3 sm:p-4 rounded-lg border-2 ${getStatusBg(summary.percentage)}`}>
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+            <div className="flex items-start sm:items-center gap-2 sm:gap-3">
+              <BarChart3 className={`w-5 h-5 sm:w-6 sm:h-6 flex-shrink-0 ${getStatusColor(summary.percentage)}`} />
+              <div className="flex-1">
+                <p className="text-white text-sm sm:text-base">
+                  <span className="font-bold">{summary.realization}</span> dari{" "}
+                  <span className="font-bold">{summary.target}</span> target tercapai
+                  <span className={`font-bold ml-1 ${getStatusColor(summary.percentage)}`}>
+                    ({summary.percentage.toFixed(1)}%)
+                  </span>
+                </p>
+                <p className="text-xs sm:text-sm text-gray-400 mt-0.5">Bawahan langsung dengan minimal 1 evidence</p>
               </div>
-              <p className={`text-[10px] sm:text-xs mt-1 font-semibold ${getStatusColor(summary.percentage)}`}>
-                {getStatusLabel(summary.percentage)}
-              </p>
-            </CardContent>
-          </Card>
+            </div>
+            <div className="flex items-center gap-2 self-start sm:self-center">
+              <span
+                className={`inline-flex items-center px-3 py-1 rounded-full text-xs sm:text-sm font-semibold ${getStatusBg(summary.percentage)} ${getStatusColor(summary.percentage)}`}
+              >
+                Status: {getStatusLabel(summary.percentage)}
+              </span>
+            </div>
+          </div>
         </div>
 
         {/* Monitoring Table */}
@@ -383,7 +370,7 @@ export default function TmsMonitoringPage() {
           <CardHeader>
             <CardTitle className="text-white text-base sm:text-lg">
               {viewMode === "site" && "Monitoring Per Site"}
-              {viewMode === "department" && `Monitoring Departemen - ${selectedSite}`}
+              {viewMode === "department" && `Monitoring Site - ${selectedSite}`}
               {viewMode === "individual" && `Monitoring Individual - ${selectedDepartment}`}
             </CardTitle>
             <CardDescription className="text-gray-400 text-xs sm:text-sm">
@@ -473,21 +460,21 @@ export default function TmsMonitoringPage() {
               </table>
             </div>
 
-            <div className="md:hidden space-y-3">
+            <div className="md:hidden space-y-2.5">
               {monitoringData.length === 0 ? (
                 <div className="py-8 text-center text-gray-500">Tidak ada data untuk periode ini</div>
               ) : (
                 monitoringData.map((item, index) => (
-                  <div key={index} className="p-4 bg-[#0a0a0a] border border-[#D4AF37]/20 rounded-lg space-y-3">
-                    <div className="flex items-start justify-between">
-                      <div>
-                        <h3 className="font-semibold text-white text-sm">
+                  <div key={index} className="p-3 bg-[#0a0a0a] border border-[#D4AF37]/20 rounded-lg space-y-2.5">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="flex-1 min-w-0">
+                        <h3 className="font-semibold text-white text-sm truncate">
                           {viewMode === "site" && item.site}
                           {viewMode === "department" && item.department}
                           {viewMode === "individual" && item.leader_name}
                         </h3>
                         <span
-                          className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-semibold mt-1 ${getStatusBg(item.percentage)} ${getStatusColor(item.percentage)}`}
+                          className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold mt-1 ${getStatusBg(item.percentage)} ${getStatusColor(item.percentage)}`}
                         >
                           {getStatusLabel(item.percentage)}
                         </span>
@@ -496,7 +483,7 @@ export default function TmsMonitoringPage() {
                         <Button
                           size="sm"
                           onClick={() => loadSubordinatesDetail(item)}
-                          className="bg-[#D4AF37] text-black hover:bg-[#D4AF37]/90 h-8 px-3"
+                          className="bg-[#D4AF37] text-black hover:bg-[#D4AF37]/90 h-7 px-2.5 flex-shrink-0"
                         >
                           <Users className="w-3 h-3" />
                         </Button>
@@ -504,24 +491,24 @@ export default function TmsMonitoringPage() {
                         <Button
                           size="sm"
                           onClick={() => handleDrillDown(item)}
-                          className="bg-[#D4AF37] text-black hover:bg-[#D4AF37]/90 h-8 px-3"
+                          className="bg-[#D4AF37] text-black hover:bg-[#D4AF37]/90 h-7 px-2.5 text-xs flex-shrink-0"
                         >
                           Detail
                         </Button>
                       )}
                     </div>
-                    <div className="grid grid-cols-3 gap-2 text-xs">
+                    <div className="grid grid-cols-3 gap-3 text-xs">
                       <div>
-                        <span className="text-gray-400">Target</span>
-                        <p className="text-white font-semibold text-base">{item.target}</p>
+                        <span className="text-gray-400 text-[10px]">Target</span>
+                        <p className="text-white font-semibold text-sm mt-0.5">{item.target}</p>
                       </div>
                       <div>
-                        <span className="text-gray-400">Realisasi</span>
-                        <p className="text-white font-semibold text-base">{item.realization}</p>
+                        <span className="text-gray-400 text-[10px]">Realisasi</span>
+                        <p className="text-white font-semibold text-sm mt-0.5">{item.realization}</p>
                       </div>
                       <div>
-                        <span className="text-gray-400">Persentase</span>
-                        <p className={`font-bold text-base ${getStatusColor(item.percentage)}`}>
+                        <span className="text-gray-400 text-[10px]">Persentase</span>
+                        <p className={`font-bold text-sm mt-0.5 ${getStatusColor(item.percentage)}`}>
                           {item.percentage.toFixed(1)}%
                         </p>
                       </div>
