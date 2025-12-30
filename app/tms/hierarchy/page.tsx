@@ -440,8 +440,11 @@ export default function HierarchyPage() {
 
       if (lvl === "admin" || lvl === "operator" || lvl === "driver" || lvl === "mekanik") {
         return [
-          { level: "pjo", requireSameSite: true, requireSameDept: false },
-          { level: "deputy pjo", requireSameSite: true, requireSameDept: false },
+          { level: "general manager", requireSameSite: true, requireSameDept: true },
+          { level: "manager", requireSameSite: true, requireSameDept: true },
+          { level: "pjo", requireSameSite: true, requireSameDept: true },
+          { level: "deputy pjo", requireSameSite: true, requireSameDept: true },
+          { level: "head", requireSameSite: true, requireSameDept: true },
           { level: "supervisor", requireSameSite: true, requireSameDept: true },
           { level: "group leader", requireSameSite: true, requireSameDept: true },
           { level: "admin", requireSameSite: true, requireSameDept: true },
