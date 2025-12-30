@@ -385,130 +385,19 @@ export default function HierarchyPage() {
   const getAvailableManagers = (editingUser: HierarchyUser | null): HierarchyUser[] => {
     if (!editingUser) return []
 
-    const userLevel = normalizeLevel(editingUser.level)
     const userSite = (editingUser.site || "").trim().toLowerCase()
-    const userDept = (editingUser.departemen || "").trim().toLowerCase()
-
-    const getValidManagerLevels = (userLvl: string) => {
-      const lvl = userLvl.toLowerCase()
-
-      // Rule: General Manager tidak punya atasan
-      if (lvl.includes("general manager") || lvl === "gm") {
-        return []
-      }
-
-      // Rule 3: Manager -> atasan adalah General Manager
-      if (lvl === "manager") {
-        return [{ level: "general manager", requireSameSite: false, requireSameDept: false }]
-      }
-
-      // Rule 2: PJO -> atasan adalah Manager
-      if (lvl === "pjo") {
-        return [{ level: "manager", requireSameSite: false, requireSameDept: false }]
-      }
-
-      // Rule 7: Deputy PJO -> atasan adalah PJO di site sama
-      if (lvl.includes("deputy") && lvl.includes("pjo")) {
-        return [{ level: "pjo", requireSameSite: true, requireSameDept: false }]
-      }
-
-      // Rule 7: Head -> atasan adalah PJO atau Deputy PJO di site sama
-      if (lvl === "head") {
-        return [
-          { level: "pjo", requireSameSite: true, requireSameDept: false },
-          { level: "deputy pjo", requireSameSite: true, requireSameDept: false },
-        ]
-      }
-
-      if (lvl === "supervisor") {
-        return [
-          { level: "pjo", requireSameSite: true, requireSameDept: false },
-          { level: "deputy pjo", requireSameSite: true, requireSameDept: false },
-          { level: "head", requireSameSite: true, requireSameDept: true },
-        ]
-      }
-
-      if ((lvl.includes("group") && lvl.includes("leader")) || lvl === "gl") {
-        return [
-          { level: "pjo", requireSameSite: true, requireSameDept: false },
-          { level: "deputy pjo", requireSameSite: true, requireSameDept: false },
-          { level: "head", requireSameSite: true, requireSameDept: true },
-          { level: "supervisor", requireSameSite: true, requireSameDept: true },
-          { level: "group leader", requireSameSite: true, requireSameDept: true },
-        ]
-      }
-
-      if (lvl === "admin" || lvl === "operator" || lvl === "driver" || lvl === "mekanik") {
-        return [
-          { level: "general manager", requireSameSite: true, requireSameDept: true },
-          { level: "manager", requireSameSite: true, requireSameDept: true },
-          { level: "pjo", requireSameSite: true, requireSameDept: true },
-          { level: "deputy pjo", requireSameSite: true, requireSameDept: true },
-          { level: "head", requireSameSite: true, requireSameDept: true },
-          { level: "supervisor", requireSameSite: true, requireSameDept: true },
-          { level: "group leader", requireSameSite: true, requireSameDept: true },
-          { level: "admin", requireSameSite: true, requireSameDept: true },
-        ]
-      }
-
-      // Rule 6 + 4 + 5 + 1: Helper -> Admin, Group Leader, Supervisor di site+dept sama, PJO/Deputy PJO di site sama
-      if (lvl === "helper") {
-        return [
-          { level: "pjo", requireSameSite: true, requireSameDept: false },
-          { level: "deputy pjo", requireSameSite: true, requireSameDept: false },
-          { level: "supervisor", requireSameSite: true, requireSameDept: true },
-          { level: "group leader", requireSameSite: true, requireSameDept: true },
-          { level: "admin", requireSameSite: true, requireSameDept: true },
-        ]
-      }
-
-      // Default: jika level tidak dikenali, tampilkan semua yang levelnya lebih tinggi di site yang sama
-      return [
-        { level: "pjo", requireSameSite: true, requireSameDept: false },
-        { level: "deputy pjo", requireSameSite: true, requireSameDept: false },
-        { level: "head", requireSameSite: true, requireSameDept: true },
-        { level: "supervisor", requireSameSite: true, requireSameDept: true },
-        { level: "group leader", requireSameSite: true, requireSameDept: true },
-      ]
-    }
-
-    const validManagerRules = getValidManagerLevels(userLevel)
-
-    if (validManagerRules.length === 0) {
-      return []
-    }
 
     const availableManagers = hierarchyData.filter((manager) => {
       // Don't allow selecting self
       if (manager.id === editingUser.id) return false
 
-      const managerLevel = normalizeLevel(manager.level)
+      // Only require same site for practical mentoring purposes
       const managerSite = (manager.site || "").trim().toLowerCase()
-      const managerDept = (manager.departemen || "").trim().toLowerCase()
-
-      // Check against each rule
-      for (const rule of validManagerRules) {
-        const levelMatch = levelMatches(manager.level || "", rule.level)
-        const siteMatch = !rule.requireSameSite || managerSite === userSite
-        const deptMatch = !rule.requireSameDept || managerDept === userDept
-
-        if (levelMatch && siteMatch && deptMatch) {
-          return true
-        }
-      }
-
-      return false
+      return managerSite === userSite
     })
 
-    if (availableManagers.length > 0) {
-      console.log(
-        "Sample managers:",
-        availableManagers.slice(0, 5).map((m) => `${m.name} (${m.level})`),
-      )
-    }
-
+    // Sort by level hierarchy first (for better UX), then by name
     return availableManagers.sort((a, b) => {
-      // Sort by level hierarchy, then by name
       const aIndex = LEVEL_HIERARCHY.findIndex((l) => levelMatches(a.level || "", l))
       const bIndex = LEVEL_HIERARCHY.findIndex((l) => levelMatches(b.level || "", l))
       if (aIndex !== bIndex) return aIndex - bIndex
