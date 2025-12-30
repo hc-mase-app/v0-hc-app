@@ -158,7 +158,7 @@ const parseXLSX = async (file: File): Promise<ParsedUser[]> => {
         const data = new Uint8Array(e.target?.result as ArrayBuffer)
         const workbook = XLSX.read(data, { type: "array" })
         const firstSheet = workbook.Sheets[workbook.SheetNames[0]]
-        const rows = XLSX.utils.sheet_to_json(firstSheet, { header: 1 }) as string[][]
+        const rows = XLSX.utils.sheet_to_json(firstSheet, { header: 1, defval: "" }) as string[][]
 
         if (rows.length < 2) {
           reject(new Error("File harus memiliki header dan minimal 1 baris data"))
@@ -168,35 +168,48 @@ const parseXLSX = async (file: File): Promise<ParsedUser[]> => {
         const headers = rows[0].map((h) => String(h).toLowerCase().trim())
         const parsedUsers: ParsedUser[] = []
 
+        console.log("[v0] Excel headers detected:", headers)
+
         for (let i = 1; i < rows.length; i++) {
           const row = rows[i]
           if (row.every((cell) => !cell || String(cell).trim() === "")) continue
 
+          const rowData = row.map((cell) => String(cell || "").trim())
+
           const user: ParsedUser = {
-            nik: getDefaultValue(row[headers.indexOf("nik")], "nik"),
-            nama: getDefaultValue(row[headers.indexOf("nama")], "nama"),
-            emailPrefix: getDefaultValue(row[headers.indexOf("email_prefix")], "emailPrefix"),
-            password: getDefaultValue(row[headers.indexOf("password")], "password"),
-            role: getDefaultValue(row[headers.indexOf("role")], "role") as UserRole,
-            site: getDefaultValue(row[headers.indexOf("site")], "site"),
-            jabatan: getDefaultValue(row[headers.indexOf("jabatan")], "jabatan"),
-            departemen: getDefaultValue(row[headers.indexOf("departemen")], "departemen"),
-            poh: getDefaultValue(row[headers.indexOf("poh")], "poh"),
-            statusKaryawan: getDefaultValue(row[headers.indexOf("status_karyawan")], "statusKaryawan") as
+            nik: getDefaultValue(rowData[headers.indexOf("nik")], "nik"),
+            nama: getDefaultValue(rowData[headers.indexOf("nama")], "nama"),
+            emailPrefix: getDefaultValue(rowData[headers.indexOf("email_prefix")], "emailPrefix"),
+            password: getDefaultValue(rowData[headers.indexOf("password")], "password"),
+            role: getDefaultValue(rowData[headers.indexOf("role")], "role") as UserRole,
+            site: getDefaultValue(rowData[headers.indexOf("site")], "site"),
+            jabatan: getDefaultValue(rowData[headers.indexOf("jabatan")], "jabatan"),
+            departemen: getDefaultValue(rowData[headers.indexOf("departemen")], "departemen"),
+            poh: getDefaultValue(rowData[headers.indexOf("poh")], "poh"),
+            statusKaryawan: getDefaultValue(rowData[headers.indexOf("status_karyawan")], "statusKaryawan") as
               | "Kontrak"
               | "Tetap",
-            noKtp: getDefaultValue(row[headers.indexOf("no_ktp")], "noKtp"),
-            noTelp: getDefaultValue(row[headers.indexOf("no_telp")], "noTelp"),
-            tanggalLahir: parseDate(getDefaultValue(row[headers.indexOf("tanggal_lahir")], "tanggalLahir")),
-            tanggalMasuk: parseDate(getDefaultValue(row[headers.indexOf("tanggal_masuk")], "tanggalMasuk")),
-            jenisKelamin: getDefaultValue(row[headers.indexOf("jenis_kelamin")], "jenisKelamin"),
+            noKtp: getDefaultValue(rowData[headers.indexOf("no_ktp")], "noKtp"),
+            noTelp: getDefaultValue(rowData[headers.indexOf("no_telp")], "noTelp"),
+            tanggalLahir: parseDate(getDefaultValue(rowData[headers.indexOf("tanggal_lahir")], "tanggalLahir")),
+            tanggalMasuk: parseDate(getDefaultValue(rowData[headers.indexOf("tanggal_masuk")], "tanggalMasuk")),
+            jenisKelamin: getDefaultValue(rowData[headers.indexOf("jenis_kelamin")], "jenisKelamin"),
           }
+
+          console.log(`[v0] Row ${i} parsed:`, {
+            nik: user.nik,
+            nama: user.nama,
+            noKtp: user.noKtp,
+            noTelp: user.noTelp,
+            tanggalLahir: user.tanggalLahir,
+          })
 
           parsedUsers.push(user)
         }
 
         resolve(parsedUsers)
       } catch (error) {
+        console.error("[v0] Error parsing XLSX:", error)
         reject(error)
       }
     }
@@ -333,7 +346,7 @@ export function CSVImportDialog({ open, onOpenChange, onSuccess }: CSVImportDial
       try {
         const user = preview[i]
 
-        const newUser = {
+        const createUserData = {
           nik: user.nik,
           name: user.nama,
           email: user.emailPrefix === "-" ? `${user.nik}@3s-gsm.com` : `${user.emailPrefix}@3s-gsm.com`,
@@ -343,20 +356,22 @@ export function CSVImportDialog({ open, onOpenChange, onSuccess }: CSVImportDial
           jabatan: user.jabatan,
           departemen: user.departemen,
           poh: user.poh,
-          status_karyawan: user.statusKaryawan,
-          no_ktp: user.noKtp,
-          no_telp: user.noTelp,
-          tanggal_lahir: user.tanggalLahir,
-          tanggal_masuk: user.tanggalMasuk,
-          jenis_kelamin: user.jenisKelamin,
+          statusKaryawan: user.statusKaryawan,
+          noKtp: user.noKtp,
+          noTelp: user.noTelp,
+          tanggalLahir: user.tanggalLahir,
+          tanggalMasuk: user.tanggalMasuk,
+          jenisKelamin: user.jenisKelamin,
         }
+
+        console.log("[v0] Creating user with data:", createUserData)
 
         const response = await fetch("/api/users", {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
           },
-          body: JSON.stringify(newUser),
+          body: JSON.stringify(createUserData),
         })
 
         if (!response.ok) {

@@ -14,7 +14,20 @@ import { AlertTriangle, CheckCircle2 } from "lucide-react"
 import type { UserRole } from "@/lib/types"
 
 const DEPARTMENTS = ["Operation", "Produksi", "Plant", "SCM", "HCGA", "HSE", "Finance", "Accounting", "BOD"]
-const JABATAN = ["Admin Site", "GL", "SPV", "Head", "Deputy", "PJO", "Manager", "GM", "Direksi", "Operator", "Mekanik"]
+const JABATAN = [
+  "Admin Site",
+  "GL",
+  "SPV",
+  "Head",
+  "Deputy",
+  "PJO",
+  "Manager",
+  "GM",
+  "Direksi",
+  "Operator",
+  "Mekanik",
+  "Driver",
+]
 
 interface AddUserDialogProps {
   open: boolean
