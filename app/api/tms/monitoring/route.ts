@@ -29,7 +29,7 @@ export async function GET(request: NextRequest) {
           WHERE k.manager_id IS NOT NULL
           AND (
             m.level != 'Manager' 
-            OR (m.level = 'Manager' AND m.site IN ('Head Office', 'BSF'))
+            OR (m.level = 'Manager' AND UPPER(m.site) IN ('HEAD OFFICE', 'BSF'))
           )
           GROUP BY m.site, m.id
         ),
@@ -76,10 +76,10 @@ export async function GET(request: NextRequest) {
           FROM karyawan k
           JOIN karyawan m ON k.manager_id = m.id
           WHERE k.manager_id IS NOT NULL
-          AND m.site = ${site}
+          AND UPPER(m.site) = UPPER(${site})
           AND (
             m.level != 'Manager' 
-            OR (m.level = 'Manager' AND m.site IN ('Head Office', 'BSF'))
+            OR (m.level = 'Manager' AND UPPER(m.site) IN ('HEAD OFFICE', 'BSF'))
           )
           GROUP BY m.site, 
             UPPER(
@@ -105,7 +105,7 @@ export async function GET(request: NextRequest) {
           JOIN karyawan k ON e.leader_id = k.id
           WHERE e.activity_month = ${effectiveMonth}
           AND e.status = 'ACTIVE'
-          AND k.site = ${site}
+          AND UPPER(k.site) = UPPER(${site})
           GROUP BY k.site, 
             UPPER(
               CASE 
@@ -148,7 +148,7 @@ export async function GET(request: NextRequest) {
           FROM karyawan k
           JOIN karyawan m ON k.manager_id = m.id
           WHERE k.manager_id IS NOT NULL
-          AND m.site = ${site}
+          AND UPPER(m.site) = UPPER(${site})
           AND UPPER(
             CASE 
               WHEN m.level IN ('PJO', 'Deputy PJO') THEN 'Operasional'
@@ -157,7 +157,7 @@ export async function GET(request: NextRequest) {
           ) = UPPER(${department})
           AND (
             m.level != 'Manager' 
-            OR (m.level = 'Manager' AND m.site IN ('Head Office', 'BSF'))
+            OR (m.level = 'Manager' AND UPPER(m.site) IN ('HEAD OFFICE', 'BSF'))
           )
           GROUP BY m.site, 
             UPPER(
@@ -176,7 +176,7 @@ export async function GET(request: NextRequest) {
           JOIN karyawan k ON e.leader_id = k.id
           WHERE e.activity_month = ${effectiveMonth}
           AND e.status = 'ACTIVE'
-          AND k.site = ${site}
+          AND UPPER(k.site) = UPPER(${site})
           AND UPPER(
             CASE 
               WHEN k.level IN ('PJO', 'Deputy PJO') THEN 'Operasional'
