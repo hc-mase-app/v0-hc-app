@@ -70,6 +70,7 @@ export const SITE_OPTIONS = [
   "TCM",
   "TCMM",
   "WBN",
+  "TMU",
 ] as const
 
 export const LEVEL_OPTIONS = [
@@ -77,12 +78,13 @@ export const LEVEL_OPTIONS = [
   "Manager",
   "PJO",
   "Deputy PJO",
-  "Head",
+  "Superintendent",
   "Supervisor",
   "Group Leader",
   "Admin",
   "Operator",
-  "Driver",
+  "Driver DT",
+  "Driver Support",
   "Mekanik",
   "Helper",
 ] as const
