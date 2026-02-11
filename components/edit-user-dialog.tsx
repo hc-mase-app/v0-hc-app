@@ -13,21 +13,21 @@ import { Alert, AlertDescription } from "@/components/ui/alert"
 import { AlertTriangle, CheckCircle2 } from "lucide-react"
 import type { User, UserRole } from "@/lib/types"
 
-const DEPARTMENTS = ["OPERATOION", "PRODUKSI", "PLANT", "SCM", "HCGA", "HSE", "FINANCE", "ACCOUNTING & TAX" ]
+const DEPARTMENTS = ["Operation", "Produksi", "Plant", "SCM", "HCGA", "HSE", "Finance", "Accounting" ]
 const JABATAN = [
   "GM",
   "Manager",
   "PJO",
-  "Deputy PJO",
-  "Superintendent",
-  "Supervisor",
-  "Group Leader",
-  "Admin",
-  "Operator",
-  "Mekanik",
-  "Driver DT",
-  "Driver Support",
-  "Helper",
+  "Deputy",
+  "SUPTEND",
+  "SPV",
+  "GL",
+  "ADMIN SITE",
+  "OPERATOR",
+  "MEKANIK",
+  "DRIVER DT",
+  "DRIVER SUPPORT",
+  "HELPER",
 ]
 
 interface EditUserDialogProps {
