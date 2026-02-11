@@ -18,7 +18,7 @@ const JABATAN = [
   "Admin Site",
   "GL",
   "SPV",
-  "Head",
+  "Suptend",
   "Deputy",
   "PJO",
   "Manager",
@@ -26,7 +26,8 @@ const JABATAN = [
   "Direksi",
   "Operator",
   "Mekanik",
-  "Driver",
+  "Driver DT",
+  "Driver Support",
 ]
 
 interface EditUserDialogProps {
